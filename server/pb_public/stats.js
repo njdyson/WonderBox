@@ -94,7 +94,7 @@ function statCard(c, days) {
   }
   if (c.games.length) {
     parts.push(el("div", { className: "stat-h", textContent: "GAMES" }), ...c.games.map((g) => el("div", { className: "stat-row" },
-      el("div", { className: "t", textContent: gameName(g.game) }),
+      el("div", { className: "t", textContent: g.title || gameName(g.game) }),
       el("div", { className: "n", textContent: `${g.correct}/${g.answers} right` + (g.rounds ? ` · best ${g.bestScore}` : "") }))));
   }
   // Anything else that was logged, so new kinds of activity show up before they get their own section.

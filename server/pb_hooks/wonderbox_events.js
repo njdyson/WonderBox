@@ -159,6 +159,18 @@ function stats(userId, days, tzOffset) {
   const blank = () => ({ watchSeconds: 0, plays: 0, answers: 0, correct: 0, byType: {}, daily: {}, videos: {}, channels: {}, games: {} })
   for (const id of order) summary[id] = blank()
 
+  // A game's totals; a parent's own quiz (subject quiz/<id>) also carries its name, from the event.
+  const game = (s, subject, r) => {
+    const g = bump(s.games, subject, () => ({ game: subject, answers: 0, correct: 0, rounds: 0, bestScore: 0 }))
+    if (subject.startsWith("quiz/") && !g.title) {
+      try {
+        const title = (JSON.parse(r.getString("data") || "{}") || {}).title
+        if (title) g.title = String(title)
+      } catch (_) {}
+    }
+    return g
+  }
+
   const records = $app.findRecordsByFilter("events", "user = {:u} && at >= {:f}", "at", 50000, 0, { u: userId, f: dbDate(from) })
   let total = 0
   for (let i = 0; i < records.length; i++) {
@@ -190,12 +202,12 @@ function stats(userId, days, tzOffset) {
         if (data.finished) v.finished++
       }
     } else if (type === "quiz.answer") {
-      const g = bump(s.games, subject, () => ({ game: subject, answers: 0, correct: 0, rounds: 0, bestScore: 0 }))
+      const g = game(s, subject, r)
       const right = value > 0 ? 1 : 0
       s.answers++; day.answers++; g.answers++
       s.correct += right; day.correct += right; g.correct += right
     } else if (type === "quiz.finish") {
-      const g = bump(s.games, subject, () => ({ game: subject, answers: 0, correct: 0, rounds: 0, bestScore: 0 }))
+      const g = game(s, subject, r)
       g.rounds++
       g.bestScore = Math.max(g.bestScore, value)
     }

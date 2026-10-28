@@ -187,6 +187,9 @@
 
     <h2 id="gamesHeading">GAMES</h2>
     <div class="card stack" id="games"></div>
+
+    <h2>QUIZZES</h2>
+    <div class="card stack" id="quizzes"></div>
   </section>
 
   <section class="tab" id="photosTab" data-tab="photos" hidden>
@@ -240,11 +243,7 @@ const AVATARS = ["🦊", "🐢", "🦁", "🐼", "🐸", "🦄", "🐙", "🐝",
 const COLORS = ["#FFD23F", "#FF6B9A", "#3EC1D3", "#7BD389", "#FF9F43", "#A78BFA",
   "#FF5A5F", "#4D96FF", "#2EC4B6", "#F78FD0", "#B5E48C", "#8E7DFF"];
 let token = localStorage.getItem(TOKEN) || "";
-let library = { children: [], videos: [], channels: [] };
-// The TV app's game levels (app/.../games/Questions.kt).
-const MATHS_LEVELS = ["Counting to 5", "Adding to 5", "Adding to 10", "Adding and taking away to 10", "Adding and taking away to 20", "2, 5 and 10 times tables"];
-const SPELLING_LEVELS = ["First letter (c_t)", "Middle letter (c_t)", "Missing letter, longer words", "Which is spelt right?", "Spell the whole word"];
-const ROUND_SIZES = [3, 5, 10, 15, 20];
+let library = { children: [], quizzes: [], videos: [], channels: [] };
 let selected = localStorage.getItem("wonderbox_child") || "";
 let checked = null; // the video or channel being added: {url, info, children, tier, section}
 let busy = false;
@@ -393,7 +392,7 @@ async function load() {
 }
 
 function setLibrary(data) {
-  library = { children: data.children || [], videos: data.videos || [], channels: data.channels || [] };
+  library = { children: data.children || [], quizzes: data.quizzes || [], videos: data.videos || [], channels: data.channels || [] };
   if (!child(selected)) selected = library.children[0] ? library.children[0].id : "";
   render();
 }
@@ -596,7 +595,8 @@ function render() {
       el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(ch, c, "channels") })),
   )));
 
-  renderGames(c);
+  // The games and quizzes are in quizzes.js.
+  if (typeof renderGames === "function") { renderGames(c); renderQuizzes(); }
   $("gamesEmpty").hidden = !!c;
   renderFamily();
   renderAdding();
@@ -654,27 +654,6 @@ function badges(item, extra) {
     ...(item.tier === "treat" ? [el("span", { className: "badge treat", textContent: "⭐ Treat" })] : []),
     ...(item.section === "music" ? [el("span", { className: "badge music", textContent: "🎵 Music" })] : []),
     ...(extra ? [el("span", { className: "badge", textContent: extra })] : []));
-}
-
-/** A child's game levels, saved as soon as they're changed. */
-function renderGames(c) {
-  $("gamesHeading").hidden = $("games").hidden = !c;
-  if (!c) return;
-  $("gamesHeading").textContent = `${c.name.toUpperCase()}'S GAMES`;
-  const g = c.games || { maths: 1, spelling: 1, roundSize: 10 };
-  const save = (change) => edit("/api/wonder/children/games", { id: c.id, ...g, ...change }).then((d) => d && toast("Saved"));
-  const select = (options, value, onChange) => {
-    const s = el("select", { onchange: () => onChange(Number(s.value)) }, ...options.map(([v, label]) => el("option", { value: v, textContent: label, selected: v === value })));
-    return s;
-  };
-  const hasTreats = library.videos.concat(library.channels).some((i) => i.tier === "treat" && i.children.includes(c.id));
-  $("games").replaceChildren(
-    el("label", { className: "field" }, "🔢 Maths", select(MATHS_LEVELS.map((n, i) => [i + 1, `${i + 1}. ${n}`]), g.maths, (v) => save({ maths: v }))),
-    el("label", { className: "field" }, "🔤 Spelling", select(SPELLING_LEVELS.map((n, i) => [i + 1, `${i + 1}. ${n}`]), g.spelling, (v) => save({ spelling: v }))),
-    el("label", { className: "field" }, "Right answers to win a treat", select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize, (v) => save({ roundSize: v }))),
-    el("div", { className: "muted", textContent: hasTreats
-      ? TIER_HELP
-      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }));
 }
 
 async function removeItem(item, c, kind) {
@@ -1004,5 +983,6 @@ async function loadTvs() {
 })();
 </script>
 <script src="/stats.js"></script>
+<script src="/quizzes.js"></script>
 </body>
 </html>
