@@ -120,7 +120,15 @@ function games(child) {
     mathsSetup: quiz.mathsSetup(stored.maths, maths),
     spellingSetup: quiz.spellingSetup(stored.spelling, spelling),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
+    sounds: soundsMode(child.getString("sounds")),
   }
+}
+
+// The games' sound effects on the TV (app/.../ui/Sounds.kt).
+const SOUNDS = ["off", "calm", "silly"]
+
+function soundsMode(value) {
+  return SOUNDS.includes(value) ? value : "silly"
 }
 
 function jigsawSize(stored) {
@@ -129,8 +137,8 @@ function jigsawSize(stored) {
 }
 
 /**
- * {id, maths, spelling, roundSize, mathsSetup, spellingSetup, jigsaw}: how hard a child's
- * games are (jigsaw 0 is off).
+ * {id, maths, spelling, roundSize, mathsSetup, spellingSetup, jigsaw, sounds}: how hard a
+ * child's games are (jigsaw 0 is off), and their sound effects.
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -167,6 +175,7 @@ function saveGames(userId, body) {
     if (jigsaw === 0) child.set("jigsaw_size", 1)
     else if (Number.isFinite(jigsaw)) child.set("jigsaw_size", Math.min(JIGSAW_MAX, Math.max(JIGSAW_MIN, jigsaw)))
   }
+  if (SOUNDS.includes(body.sounds)) child.set("sounds", body.sounds)
   $app.save(child)
 }
 

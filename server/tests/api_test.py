@@ -180,6 +180,13 @@ try:
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "jigsaw": 2}, token)
     assert lib["children"][0]["games"]["jigsaw"] == 2
 
+    # Game sounds: silly until set; anything but off, calm or silly is ignored.
+    assert lib["children"][0]["games"]["sounds"] == "silly"
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "sounds": "calm"}, token)
+    assert lib["children"][0]["games"]["sounds"] == "calm"
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "sounds": "loud"}, token)
+    assert lib["children"][0]["games"]["sounds"] == "calm"
+
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)
     info = call("POST", "/api/wonder/videos/check", {"url": ZOO}, token)

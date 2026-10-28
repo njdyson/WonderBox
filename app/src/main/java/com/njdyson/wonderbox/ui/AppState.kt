@@ -57,6 +57,9 @@ class AppState(context: Context) {
         return true
     }
 
+    /** The games' sound effects. */
+    val sounds = Sounds(context.applicationContext)
+
     private var tts: TextToSpeech? = null
     private var ttsReady = false
 
@@ -141,5 +144,6 @@ class AppState(context: Context) {
     fun close() {
         tts?.shutdown()
         tts = null
+        sounds.close()
     }
 }

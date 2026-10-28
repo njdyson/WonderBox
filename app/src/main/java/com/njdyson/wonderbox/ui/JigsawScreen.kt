@@ -232,7 +232,7 @@ private fun Puzzle(
     fun finish() {
         done = true
         held = null
-        Chimes.play(Chimes.Sound.Done)
+        app.sounds.play(Sounds.Effect.Finish, child)
         EventLog.log("jigsaw.finish", child.id, subject = photo.id, value = jigsaw.size.toDouble()) {
             put("size", side)
             put("moves", jigsaw.moves)
@@ -252,16 +252,16 @@ private fun Puzzle(
         if (done) return
         val carrying = held
         when {
-            carrying == null && jigsaw.isRight(cursor) -> Chimes.play(Chimes.Sound.Bump)
+            carrying == null && jigsaw.isRight(cursor) -> app.sounds.chime(Chimes.Sound.Bump, child)
             carrying == null -> {
                 held = cursor
-                Chimes.play(Chimes.Sound.Pick)
+                app.sounds.chime(Chimes.Sound.Pick, child)
             }
             carrying == cursor -> {
                 held = null
-                Chimes.play(Chimes.Sound.Drop)
+                app.sounds.chime(Chimes.Sound.Drop, child)
             }
-            jigsaw.isRight(cursor) -> Chimes.play(Chimes.Sound.Bump)
+            jigsaw.isRight(cursor) -> app.sounds.chime(Chimes.Sound.Bump, child)
             else -> {
                 val right = jigsaw.swap(carrying, cursor)
                 held = null
@@ -271,10 +271,10 @@ private fun Puzzle(
                     finish()
                 } else if (right > 0) {
                     clicked.value = listOf(carrying, cursor).filter(jigsaw::isRight)
-                    Chimes.play(Chimes.Sound.Right)
+                    app.sounds.play(Sounds.Effect.Piece, child)
                     app.say(listOf("Yes!", "Click!", "Well done!", "That's it!", "Brilliant!").random())
                 } else {
-                    Chimes.play(Chimes.Sound.Drop)
+                    app.sounds.chime(Chimes.Sound.Drop, child)
                 }
                 if (right > 0) scope.launch {
                     glow.snapTo(1f)
@@ -287,7 +287,7 @@ private fun Puzzle(
     // Back with a piece in hand just puts it down.
     BackHandler(enabled = held != null) {
         held = null
-        Chimes.play(Chimes.Sound.Drop)
+        app.sounds.chime(Chimes.Sound.Drop, child)
     }
 
     Column(Modifier.fillMaxSize().padding(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
