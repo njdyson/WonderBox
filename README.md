@@ -38,7 +38,9 @@ Family photos from the phone show on the TV as a slideshow.
   which is spelt right, spell the word, and picking or spelling a word that's only said
   aloud), numbers up to 5 to 100, which times
   tables, how many answers to pick from, and their own spelling words (school spellings,
-  names) with pictures. A "Hear it again" button repeats the question. Maths or spelling
+  names) with pictures, or UK phonics Phase 2 words (from the school's sound button sheets),
+  shown with sound buttons: a dot under each letter sound and a line under "ck", "ff", "ll"
+  and "ss". A "Hear it again" button repeats the question. Maths or spelling
   can be turned off for a child.
 - **Clock:** a clock face with both hands; pick the time, said the British way ("quarter
   past 3", "20 to 5"). Five levels, from o'clock to any minute, or a mix of o'clock, half

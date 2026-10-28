@@ -197,8 +197,9 @@ try:
     # New kinds of maths and spelling question are kept.
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {"types": ["add3", "bonds", "double", "half", "more"], "max": 20}}, token)
     assert lib["children"][0]["games"]["mathsSetup"]["types"] == ["add3", "bonds", "double", "half", "more"]
-    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spellingSetup": {"types": ["hearbuild", "hear"], "lists": ["short"]}}, token)
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spellingSetup": {"types": ["hearbuild", "hear"], "lists": ["phase2", "short"]}}, token)
     assert lib["children"][0]["games"]["spellingSetup"]["types"] == ["hear", "hearbuild"]
+    assert lib["children"][0]["games"]["spellingSetup"]["lists"] == ["short", "phase2"]
 
     # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "quizzes", "hangman"]
@@ -215,6 +216,20 @@ try:
     assert lib["children"][0]["games"]["sounds"] == "calm"
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "sounds": "loud"}, token)
     assert lib["children"][0]["games"]["sounds"] == "calm"
+
+    # Hangman and memory pairs: on with defaults until set; odd values snap to the nearest
+    # allowed, and saving one leaves the other (and the maths setup) as it was.
+    g = lib["children"][0]["games"]
+    assert g["hangman"] == {"on": True, "lists": ["short"], "letters": 8, "balloons": 6, "words": 3, "say": True}, g["hangman"]
+    assert g["memory"] == {"on": True, "pairs": 4, "pictures": "clipart"}, g["memory"]
+    maths_before = g["mathsSetup"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "hangman": {"on": True, "lists": ["long", "nope"], "letters": 30, "balloons": 5, "words": 99, "say": False}}, token)
+    g = lib["children"][0]["games"]
+    assert g["hangman"] == {"on": True, "lists": ["long"], "letters": 26, "balloons": 4, "words": 10, "say": False}, g["hangman"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "memory": {"on": False, "pairs": 7, "pictures": "photos"}}, token)
+    g = lib["children"][0]["games"]
+    assert g["memory"] == {"on": False, "pairs": 6, "pictures": "photos"}, g["memory"]
+    assert g["hangman"]["lists"] == ["long"] and g["mathsSetup"] == maths_before
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)

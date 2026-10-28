@@ -19,7 +19,7 @@ const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
 // ones that do until the parent changes it: the learning ones, not the jigsaw or memory pairs.
 const TREAT_GAMES = ["maths", "spelling", "clock", "quizzes", "hangman", "memory", "jigsaw"]
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman"]
-const WORD_LISTS = ["short", "long", "mine"]
+const WORD_LISTS = ["short", "long", "phase2", "mine"]
 const MATHS_MAX = [5, 10, 20, 50, 100]
 
 // The TV's levels (app/.../games/Questions.kt and the phone app keep the same list).

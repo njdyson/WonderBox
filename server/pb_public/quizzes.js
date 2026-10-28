@@ -53,6 +53,10 @@ document.head.append(el("style", { textContent: `
 const ROUND_SIZES = [3, 5, 10, 15, 20, 25, 30];
 // Photo jigsaws on the TV: pieces along each side (app/.../games/Jigsaw.kt). 0 is off.
 const JIGSAW_SIZES = [2, 3, 4, 5];
+// Hangman and memory pairs (app/.../games/Hangman.kt and Memory.kt; the server keeps the same lists).
+const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true };
+const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
+const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
 
 // The TV's levels: the same setups as pb_hooks/quizzes_lib.js and app/.../games/Setup.kt.
 const MATHS_LEVELS = [
@@ -221,7 +225,7 @@ function renderGames(c) {
         el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
         chips(SPELLING_TYPES, spelling.types, (types) => types.length && saveSpelling({ types })),
         el("div", { className: "sub-h", textContent: "Which words" }),
-        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
+        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["phase2", "Phonics Phase 2 (sock, bucket)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
           spelling.lists, (lists) => lists.length && saveSpelling({ lists })),
         ...(spelling.types.some((t) => t !== "build") ? [
           el("div", { className: "sub-h", textContent: "Answers to pick from" }),
@@ -278,6 +282,50 @@ function renderGames(c) {
       el("div", { className: "muted", textContent: `${jigsaw * jigsaw} pieces. ${c.name} picks a photo, then swaps pieces with the arrows and OK. Shows once you've added photos.` }));
   }
 
+  // Hangman, with balloons instead of a gallows
+  const hangman = { ...HANGMAN_DEFAULT, ...(g.hangman || {}) };
+  const saveHangman = (change) => save({ hangman: { ...hangman, ...change } });
+  const myWordCount = (spelling.myWords || []).length;
+  const hangmanPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🎈 Hangman" }),
+      toggle(hangman.on, (on) => saveHangman({ on }), "Show Hangman on the TV")));
+  if (hangman.on) {
+    hangmanPart.append(
+      el("div", { className: "row" }, el("span", { className: "grow", textContent: "Say the word and show its picture" }),
+        toggle(hangman.say, (say) => saveHangman({ say }))),
+      el("div", { className: "muted", textContent: hangman.say
+        ? `${c.name} hears the word and finds its letters: spelling from the sound.`
+        : `${c.name} guesses the word from its letters. Harder!` }),
+      el("div", { className: "sub-h", textContent: "Which words" }),
+      chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ...(myWordCount ? [["mine", `My words (${myWordCount})`]] : [])],
+        hangman.lists, (lists) => lists.length && saveHangman({ lists })),
+      el("div", { className: "sub-h", textContent: "Letters to pick from" }),
+      seg([[8, "8"], [12, "12"], [26, "All 26"]], hangman.letters, (letters) => saveHangman({ letters })),
+      el("div", { className: "sub-h", textContent: "Balloons (wrong letters allowed)" }),
+      seg([4, 6, 8].map((n) => [n, String(n)]), hangman.balloons, (balloons) => saveHangman({ balloons })),
+      el("div", { className: "sub-h", textContent: "Words to find in a game" }),
+      seg([1, 2, 3, 5].map((n) => [n, String(n)]), hangman.words, (words) => saveHangman({ words })),
+      el("div", { className: "muted", textContent: myWordCount ? "My words are the spelling words above." : "Add your own words under Spelling to use them here too." }));
+  }
+
+  // Memory pairs
+  const memory = { ...MEMORY_DEFAULT, ...(g.memory || {}) };
+  const saveMemory = (change) => save({ memory: { ...memory, ...change } });
+  const memoryPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🃏 Memory pairs" }),
+      toggle(memory.on, (on) => saveMemory({ on }), "Show Pairs on the TV")));
+  if (memory.on) {
+    memoryPart.append(
+      el("div", { className: "sub-h", textContent: "Pairs to find" }),
+      seg(Object.keys(MEMORY_GRIDS).map((n) => [Number(n), n]), memory.pairs, (pairs) => saveMemory({ pairs })),
+      el("div", { className: "muted", textContent: `${memory.pairs * 2} cards, ${MEMORY_GRIDS[memory.pairs] || ""}.` }),
+      el("div", { className: "sub-h", textContent: "Pictures" }),
+      seg([["clipart", "Animals"], ["photos", "Photos"], ["both", "Both"]], memory.pictures, (pictures) => saveMemory({ pictures })),
+      el("div", { className: "muted", textContent: memory.pictures === "clipart"
+        ? "Cards with cartoon animals."
+        : `Cards with ${c.name}'s photos from the Photos tab; animals fill in if there aren't enough.` }));
+  }
+
   // Sound effects (app/.../ui/Sounds.kt)
   const sounds = g.sounds || "silly";
   const soundsPart = el("div", { className: "game" },
@@ -302,7 +350,9 @@ function renderGames(c) {
     mathsPart,
     spellingPart,
     clockPart,
+    hangmanPart,
     jigsawPart,
+    memoryPart,
     soundsPart,
     treatsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
