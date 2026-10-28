@@ -44,6 +44,14 @@ routerAdd("POST", "/api/wonder/quizzes/move", (e) => {
   return e.json(200, lib.library(user.id))
 })
 
+// ?q=: Pixabay photos for a quiz picture, {results: [{id, preview, image, tags}]}.
+routerAdd("GET", "/api/wonder/quiz-images/photos", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const quiz = require(`${__hooks}/quizzes_lib.js`)
+  lib.requireUser(e)
+  return e.json(200, { results: quiz.pixabay(e.request.url.query().get("q")) })
+})
+
 // Multipart: "image" (already shrunk by the phone), "source" (optional, e.g. "fluent:Dog").
 // Returns {id, path}. The same source is stored once and reused: sending just "source" asks
 // whether it's already here (an empty id if not), so the phone needn't download it again.

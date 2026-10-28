@@ -311,9 +311,39 @@ function cleanupImages(userId) {
   }
 }
 
+// Photo search for quiz pictures (Pixabay). Results are kept for 12 hours, as Pixabay asks
+// for caching; its full-size links last 24 hours.
+const PIXABAY_CACHE_MS = 12 * 60 * 60 * 1000
+
+/**
+ * Pixabay photos and illustrations for [text], safe search on, as [{id, preview, image, tags}].
+ * Needs PIXABAY_API_KEY (see deploy/install.sh). The phone shows the previews, then fetches the
+ * chosen image itself and uploads it as a quiz image ("pixabay:<id>").
+ */
+function pixabay(text) {
+  const q = String(text || "").trim().slice(0, 100)
+  if (!q) throw new BadRequestError("Type something to search for.")
+  const key = $os.getenv("PIXABAY_API_KEY")
+  if (!key) throw new ApiError(503, "Photo search needs a Pixabay key on the server.")
+  const cacheKey = `wonderbox_pixabay:${q.toLowerCase()}`
+  const cached = $app.store().get(cacheKey)
+  if (cached && Date.now() - cached.at < PIXABAY_CACHE_MS) return cached.results
+  const res = $http.send({
+    url: `https://pixabay.com/api/?key=${encodeURIComponent(key)}&q=${encodeURIComponent(q)}&safesearch=true&lang=en&per_page=60&order=popular`,
+    timeout: 15,
+  })
+  if (res.statusCode === 429) throw new ApiError(503, "Too many photo searches just now. Try again in a minute.")
+  if (res.statusCode !== 200 || !res.json) throw new ApiError(502, "Couldn't reach Pixabay to search. Try again in a minute.")
+  const results = (res.json.hits || [])
+    .filter((h) => h.id && h.previewURL && h.webformatURL)
+    .map((h) => ({ id: h.id, preview: h.previewURL, image: h.webformatURL, tags: String(h.tags || "") }))
+  $app.store().set(cacheKey, { at: Date.now(), results })
+  return results
+}
+
 module.exports = {
   jsonField, mathsSetup, spellingSetup, mathsPreset, spellingPreset, mathsLevelOf, spellingLevelOf,
   clockSetup, clockPreset, clockLevelOf, treatGames, TREAT_GAMES, CLOCK_PRESETS, MATHS_PRESETS, SPELLING_PRESETS,
   flagSetup, flagPreset, flagLevelOf, FLAG_PRESETS,
-  quizRecords, quizList, cleanQuiz, cleanupImages, IMAGE_PATH,
+  quizRecords, quizList, cleanQuiz, cleanupImages, IMAGE_PATH, pixabay,
 }
