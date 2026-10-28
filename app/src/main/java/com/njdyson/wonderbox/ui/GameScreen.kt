@@ -113,6 +113,8 @@ fun GameScreen(
                     }
                     Text(entry.title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
                     Box(Modifier.weight(1f))
+                    // Nothing can speak on this TV: say so, rather than leave a silent game.
+                    if (app.voice.silent) Text("🔇 No voice on this TV: see Grown-ups", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp)
                     // Up from the answers: the question again, for spelling a word from its sound.
                     if (question.spoken.isNotBlank()) BigButton("🔊 Hear it again", Modifier) { app.say(question.spoken) }
                     Progress(right, goal)

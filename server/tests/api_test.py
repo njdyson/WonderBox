@@ -11,6 +11,7 @@ import base64
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 
@@ -111,7 +112,9 @@ try:
     # No public sign-up, and the API needs a sign-in.
     call("POST", "/api/collections/users/records", {"email": "x@example.com", "password": password, "passwordConfirm": password}, expect=403)
     call("GET", "/api/wonder/library", expect=401)
-    assert call("GET", "/api/wonder/library", token=token) == {"children": [], "quizzes": [], "videos": [], "channels": []}
+    empty = call("GET", "/api/wonder/library", token=token)
+    assert {k: v for k, v in empty.items() if k != "voice"} == {"children": [], "quizzes": [], "videos": [], "channels": []}, empty
+    assert isinstance(empty["voice"], bool)
 
     # Children
     lib = call("POST", "/api/wonder/children/save", {"name": "Sam", "avatar": "🦊", "color": "#FF6B9A"}, token)
@@ -241,6 +244,21 @@ try:
     g = lib["children"][0]["games"]
     assert g["memory"] == {"on": False, "pairs": 6, "pictures": "photos"}, g["memory"]
     assert g["hangman"]["lists"] == ["long"] and g["mathsSetup"] == maths_before
+
+    # The server's voice (Piper): a WAV for a linked TV or the parent, 404 when there's none.
+    lib = call("GET", "/api/wonder/library", None, token)
+    speech = "/api/wonder/speech?text=" + urllib.parse.quote('What time is it? "$(touch /tmp/x)"; `id`')
+    req = urllib.request.Request(BASE + speech, headers={"Authorization": token})
+    if lib.get("voice"):
+        with urllib.request.urlopen(req) as res:
+            assert res.headers["Content-Type"] == "audio/wav" and res.read(4) == b"RIFF"
+    else:
+        try:
+            urllib.request.urlopen(req)
+            raise AssertionError("speech without a voice should be 404")
+        except urllib.error.HTTPError as err:
+            assert err.code == 404, err.code
+    call("GET", "/api/wonder/speech?text=hello", None, "", expect=401)
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)

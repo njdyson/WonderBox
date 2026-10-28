@@ -73,6 +73,18 @@ photos) to the parent and their TVs. The phone app uploads pictures to
 512 pixels; clipart is copied from Fluent Emoji (jsDelivr) once, by its `source`. Pictures no
 quiz or spelling word uses are deleted a day later.
 
+## The voice
+
+The TV reads questions aloud. Some Fire TV sticks have no text-to-speech that apps can use,
+so the server has a voice of its own: [Piper](https://github.com/rhasspy/piper) with a
+British English voice (Jenny), which `deploy/install.sh` downloads (about 90 MB) and checks.
+`GET /api/wonder/speech?text=…` (a linked TV or the parent) returns the text read aloud as a
+WAV file, made once and kept in `<data>/speech`. The library says `voice: true` when the
+server has one; the TV then uses it, and falls back to its own text-to-speech if a clip
+fails. Without Piper (`VOICE=0`, or a server it can't run on) the TVs use their own voices.
+The TV's Grown-ups screen shows which voice it's using, with a "Test the voice" button.
+Piper is found through `PIPER_BIN` and `PIPER_VOICE`, set in the systemd service.
+
 ## Setting it up on the Plesk server
 
 Same as BlockbusterTV, with its own subdomain, folder, port (8096) and service (`wonderbox`).
