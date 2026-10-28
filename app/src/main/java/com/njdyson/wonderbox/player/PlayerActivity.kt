@@ -30,6 +30,10 @@ import kotlinx.serialization.json.put
  * seconds, Back closes. Nothing ever leads out to YouTube: when paused or finished, a cover
  * hides YouTube's suggestions, and a video that won't play gets a friendly screen, not the
  * YouTube app.
+ *
+ * MENU on the remote shows how the video is playing (size, codec, dropped frames, buffer,
+ * stalls), to tell a slow network (stalls) from a stick that can't keep up (dropped frames).
+ * The same numbers go into the video.watch event.
  */
 class PlayerActivity : Activity(), PlayerWebView.Listener {
 
@@ -40,6 +44,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private lateinit var coverIcon: TextView
     private lateinit var coverTitle: TextView
     private lateinit var coverHint: TextView
+    private lateinit var statsText: TextView
 
     // -1 until the player loads; then YouTube's player states (1 playing, 2 paused, 3 buffering, 0 ended).
     private var state = -1
@@ -56,6 +61,9 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private var playingSince = 0L
     private var lastStateAt = 0L
     private var finishedVideo = false
+    // Times it stopped to buffer after it had started playing, not counting just after a skip.
+    private var stalls = 0
+    private var skippedAt = 0L
 
     private val hideHint = Runnable { if (state == 1) hintBar.visibility = View.GONE }
 
@@ -69,6 +77,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         childId = intent.getStringExtra(EXTRA_CHILD_ID)
         val dp = resources.displayMetrics.density
+        // Nothing to draw behind the video: the WebView is opaque black. Saves the stick a full-screen layer every frame.
+        window.setBackgroundDrawable(null)
 
         val webView = PlayerWebView.take(this, videoId, this)
         // A preloaded player is paused (and muted) at the start: play it. A new one plays once it loads.
@@ -117,11 +127,23 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
             visibility = View.GONE
         }
 
+        statsText = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            typeface = Typeface.MONOSPACE
+            setBackgroundColor(Color.argb(180, 0, 0, 0))
+            setPadding((16 * dp).toInt(), (12 * dp).toInt(), (16 * dp).toInt(), (12 * dp).toInt())
+            visibility = View.GONE
+        }
+
         setContentView(FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
             addView(webView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
             addView(hintBar, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.BOTTOM))
             addView(cover, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            addView(statsText, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.TOP or Gravity.START).apply {
+                leftMargin = (24 * dp).toInt()
+                topMargin = (24 * dp).toInt()
+            })
         })
         showHint()
         main.postDelayed(giveUp, 20_000)
@@ -129,6 +151,13 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_BACK) return super.dispatchKeyEvent(event)
+        if (event.keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                statsText.visibility = if (statsText.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                showStats()
+            }
+            return true
+        }
         if (event.action == KeyEvent.ACTION_DOWN) {
             if (done) {
                 if (event.keyCode in OK_KEYS) finish()
@@ -139,8 +168,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
                     js("if (player.getPlayerState() == 1) player.pauseVideo(); else player.playVideo();")
                 KeyEvent.KEYCODE_MEDIA_PLAY -> js("player.playVideo();")
                 KeyEvent.KEYCODE_MEDIA_PAUSE -> js("player.pauseVideo();")
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> js("player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);")
-                KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> js("player.seekTo(player.getCurrentTime() + 10, true);")
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> skip("player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);")
+                KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> skip("player.seekTo(player.getCurrentTime() + 10, true);")
                 else -> return super.dispatchKeyEvent(event)
             }
             showHint()
@@ -163,11 +192,17 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     private fun js(code: String) = PlayerWebView.js(code)
 
+    private fun skip(code: String) {
+        skippedAt = System.currentTimeMillis()
+        js(code)
+    }
+
     /** Counts playing time between state changes, and logs the first play. */
     private fun trackPlaying(newState: Int) {
         val now = System.currentTimeMillis()
         if (playingSince > 0) playedMs += now - playingSince
         playingSince = if (newState == 1) now else 0L
+        if (newState == 3 && started && now - skippedAt > 3_000) stalls++
         if (newState == 1 && !started) {
             started = true
             EventLog.log("video.play", childId, videoId) {
@@ -191,6 +226,31 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
             put("position", if (duration > 0) minOf(position, duration) else position)
             put("duration", duration)
             put("finished", finishedVideo)
+            put("stalls", stalls)
+            PlayerWebView.stats?.let { stats ->
+                put("frames", stats.frames)
+                put("dropped", stats.dropped)
+                put("quality", "${stats.width}x${stats.height}")
+                put("codec", stats.codec)
+            }
+        }
+    }
+
+    private fun showStats() {
+        if (statsText.visibility != View.VISIBLE) return
+        val stats = PlayerWebView.stats
+        statsText.text = buildString {
+            if (stats == null) {
+                appendLine("No numbers yet")
+            } else {
+                appendLine("${stats.width}x${stats.height}  ${stats.codec.ifEmpty { "codec ?" }}")
+                val percent = if (stats.frames > 0) stats.dropped * 100.0 / stats.frames else 0.0
+                appendLine("Dropped ${stats.dropped} of ${stats.frames} frames (${"%.1f".format(percent)}%)")
+                appendLine("Buffered ${"%.0f".format(stats.ahead)}s ahead")
+            }
+            appendLine("Stalls $stalls")
+            appendLine("H.264, no suggestions: ${if (PlayerWebView.playerTweaks) "yes" else "no (old WebView)"}")
+            append("WebView ${PlayerWebView.webViewVersion(this@PlayerActivity)}")
         }
     }
 
@@ -244,6 +304,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     }
 
     override fun onError(code: Int) = cantPlay()
+
+    override fun onStats(stats: PlayerWebView.Stats) = showStats()
 
     companion object {
         private const val EXTRA_VIDEO_ID = "videoId"
