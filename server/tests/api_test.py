@@ -40,6 +40,30 @@ def call(method, path, body=None, token=None, device_key=None, expect=200):
         raise AssertionError(f"{method} {path} returned no JSON (are the hooks loaded?): {text[:120]}")
 
 
+def upload(path, fields, file_field, filename, content, token=None, expect=200):
+    """A multipart POST, as the phone app sends a picture."""
+    boundary = uuid.uuid4().hex
+    parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{file_field}"; filename="{filename}"\r\n'
+                 f"Content-Type: image/png\r\n\r\n".encode() + content + b"\r\n")
+    data = b"".join(parts) + f"--{boundary}--\r\n".encode()
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}", **({"Authorization": token} if token else {})}
+    req = urllib.request.Request(BASE + path, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            status, text = res.status, res.read().decode()
+    except urllib.error.HTTPError as e:
+        status, text = e.code, e.read().decode()
+    assert status == expect, f"POST {path}: expected {expect}, got {status}: {text[:300]}"
+    return json.loads(text)
+
+
+# A 1x1 transparent PNG.
+TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c6360000002000005000165ea4e400000000049454e44ae426082"
+)
+
 admin = call("POST", "/api/collections/_superusers/auth-with-password", {"identity": ADMIN, "password": ADMIN_PASSWORD})["token"]
 email, password = f"test-{uuid.uuid4().hex[:8]}@example.com", "test-password-123"
 user = call("POST", "/api/collections/users/records", {"email": email, "password": password, "passwordConfirm": password}, admin)
@@ -63,6 +87,19 @@ try:
     assert [c["name"] for c in lib["children"]] == ["Jo", "Sam"]
     lib = call("POST", "/api/wonder/children/save", {"id": jo, "name": "Joanna", "avatar": "🐢"}, token)
     assert lib["children"][0]["name"] == "Joanna"
+
+    # A child's picture: uploaded, kept when their details change, then removed.
+    lib = upload("/api/wonder/children/picture", {"id": jo}, "picture", "jo.png", TINY_PNG, token)
+    picture = lib["children"][0]["picture"]
+    assert picture.startswith(f"/api/files/children/{jo}/"), picture
+    with urllib.request.urlopen(BASE + picture, timeout=30) as res:
+        assert res.read() == TINY_PNG
+    lib = call("POST", "/api/wonder/children/save", {"id": jo, "name": "Joanna", "avatar": "🐢"}, token)
+    assert lib["children"][0]["picture"] == picture
+    call("POST", "/api/wonder/children/picture", {"id": jo}, token, expect=400)
+    upload("/api/wonder/children/picture", {"id": jo}, "picture", "jo.png", TINY_PNG, expect=401)
+    lib = call("POST", "/api/wonder/children/picture", {"id": jo, "remove": True}, token)
+    assert lib["children"][0]["picture"] == ""
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)

@@ -1,7 +1,11 @@
 package com.njdyson.wonderbox.ui
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +37,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +55,8 @@ import com.njdyson.wonderbox.player.PlayerWebView
 import kotlinx.coroutines.delay
 
 /**
- * One child's videos: a grid of big thumbnails, three across, so about six fit on screen.
+ * One child's videos, on a screen of their own colour: a grid of big thumbnails, three across,
+ * so about six fit on screen. The focused one tilts and grows like a sticker being picked up.
  * The focused one's title is read aloud, and after a moment its player starts loading in
  * the background so it starts quickly when chosen.
  */
@@ -59,45 +65,50 @@ fun VideosScreen(app: AppState, child: Child, onPlay: (Video) -> Unit) {
     val context = LocalContext.current
     val videos = app.library.videosFor(child.id)
     val color = parseColor(child.color)
+    val ink = color.onColor()
     var focusedIndex by rememberSaveable(child.id) { mutableStateOf(0) }
     val grid = rememberLazyGridState()
     val first = remember { FocusRequester() }
 
-    Column(Modifier.fillMaxSize().background(Night)) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 28.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(Modifier.size(52.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
-                Text(child.avatar.ifBlank { child.name.take(1).uppercase() }, fontSize = 28.sp, color = Deep, fontWeight = FontWeight.Black)
-            }
-            Text("${child.name}'s videos", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
-            Box(Modifier.weight(1f))
-            Logo()
-        }
-
-        if (videos.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No videos yet. Ask a grown-up to add some!", color = Color.White.copy(alpha = 0.8f), fontSize = 24.sp)
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                state = grid,
-                // Room around each card for it to grow when focused without touching its neighbours.
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 20.dp, bottom = 40.dp),
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp),
-                modifier = Modifier.fillMaxSize(),
+    PlayBackground(color) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                itemsIndexed(videos, key = { _, v -> v.id }) { i, video ->
-                    VideoCard(
-                        video,
-                        onClick = { onPlay(video) },
-                        onFocus = { focusedIndex = i },
-                        modifier = if (i == focusedIndex.coerceAtMost(videos.lastIndex)) Modifier.focusRequester(first) else Modifier,
-                    )
+                Box(Modifier.size(64.dp).background(color, CircleShape).border(4.dp, Color.White, CircleShape)) {
+                    ChildFace(child, app.serverUrl, textSize = 32.sp, shape = CircleShape)
+                }
+                Text("${child.name}'s videos", color = ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.weight(1f))
+                Logo(boxColor = if (ink == Ink) Ink else Color.White)
+            }
+
+            if (videos.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No videos yet. Ask a grown-up to add some!", color = ink, fontSize = 26.sp)
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    state = grid,
+                    // Room around each card for it to grow when focused without touching its neighbours.
+                    contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 20.dp, bottom = 40.dp),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                    verticalArrangement = Arrangement.spacedBy(28.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    itemsIndexed(videos, key = { _, v -> v.id }) { i, video ->
+                        VideoCard(
+                            video,
+                            ink = ink,
+                            tilt = if (i % 2 == 0) -2f else 2f,
+                            onClick = { onPlay(video) },
+                            onFocus = { focusedIndex = i },
+                            modifier = if (i == focusedIndex.coerceAtMost(videos.lastIndex)) Modifier.focusRequester(first) else Modifier,
+                        )
+                    }
                 }
             }
         }
@@ -127,20 +138,27 @@ fun VideosScreen(app: AppState, child: Child, onPlay: (Video) -> Unit) {
 }
 
 @Composable
-private fun VideoCard(video: Video, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+private fun VideoCard(video: Video, ink: Color, tilt: Float, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val rotation by animateFloatAsState(
+        if (focused) tilt else 0f,
+        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "tilt",
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.graphicsLayer { rotationZ = rotation }) {
         Surface(
             onClick = onClick,
             modifier = modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged {
                 if (it.isFocused) onFocus()
                 focused = it.isFocused
             },
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Deep, focusedContainerColor = Deep),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Ink, focusedContainerColor = Ink),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+            // A white edge like a sticker: thin normally, thick when chosen.
             border = ClickableSurfaceDefaults.border(
-                focusedBorder = Border(BorderStroke(6.dp, Sunshine), shape = RoundedCornerShape(18.dp)),
+                border = Border(BorderStroke(3.dp, Color.White.copy(alpha = 0.7f)), shape = RoundedCornerShape(22.dp)),
+                focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = RoundedCornerShape(22.dp)),
             ),
         ) {
             // hqdefault is 4:3 with black bars; cropping to 16:9 removes them.
@@ -154,12 +172,13 @@ private fun VideoCard(video: Video, onClick: () -> Unit, onFocus: () -> Unit, mo
         // Fixed height, so rows line up whatever the title length.
         Text(
             video.title,
-            color = if (focused) Sunshine else Color.White.copy(alpha = 0.85f),
-            fontSize = 16.sp,
-            fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
+            color = if (focused) ink else ink.copy(alpha = 0.8f),
+            fontSize = 17.sp,
+            lineHeight = 21.sp,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.height(44.dp).padding(horizontal = 4.dp),
+            modifier = Modifier.height(46.dp).padding(horizontal = 4.dp),
         )
     }
 }

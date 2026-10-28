@@ -14,8 +14,11 @@ YouTube can be reached. Photos and simple learning games come later.
 
 - **Link:** on first start the TV shows a code and a QR code. The parent scans it, signs in
   to the phone app and approves it. Check for update is on this screen too.
-- **Who's watching?** one big face per child. The focused name is read aloud.
-- **Videos:** that child's videos as big thumbnails, three across. OK plays.
+- **Who's watching?** one big, bobbing face per child: their own picture (uploaded in the
+  phone app) or an animal. The screen turns the focused child's colour and their name is
+  read aloud.
+- **Videos:** that child's videos as big thumbnails, three across, on a screen of their own
+  colour so they can tell it's theirs. OK plays.
 - **Player:** full screen. OK pauses, left and right skip 10 seconds, Back closes. Paused
   and finished videos are covered, so YouTube's suggestions never show. A video that won't
   play gets a friendly screen; it never opens the YouTube app.
@@ -40,3 +43,17 @@ Needs JDK 17 and the Android SDK (`platforms;android-35`, `build-tools;35.0.0`):
 ```
 `WONDERBOX_SERVER_URL=http://…` builds an app that talks to a test server instead of
 https://wonder.psybob.uk.
+
+The unit tests include `ScreenshotsTest`, which renders the main TV screens to
+`app/build/screenshots/` (Robolectric and Roborazzi, no emulator needed). The Build APK
+workflow uploads them as the `tv-screenshots` artifact, so every pull request comes with
+pictures of the TV.
+
+## Artwork and fonts
+
+- Avatar animals: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (3D style) by
+  Microsoft, MIT licence. Copies in `app/src/main/assets/avatars/` and
+  `server/pb_public/avatars/`, named by code point.
+- Font: [Fredoka](https://fonts.google.com/specimen/Fredoka), SIL Open Font Licence, in
+  `app/src/main/res/font/` (medium and bold cut from the variable font).
+- Licence texts ship in the APK under `assets/licences/`.
