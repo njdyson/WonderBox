@@ -170,7 +170,7 @@ class ScreenshotsTest {
         shoot("pick-treat-summer")
     }
 
-    // The Treats section: two saved, and one still to pick.
+    // The Treats section: just the two saved, though one more is won and not picked yet.
     @Test fun treats() {
         val app = app()
         saveTwo(app)

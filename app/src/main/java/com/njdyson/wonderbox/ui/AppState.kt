@@ -64,14 +64,9 @@ class AppState(context: Context) {
         return savedTreats[childId].orEmpty().mapIndexedNotNull { i, id -> all[id]?.copy(id = "saved/$i/$id") }
     }
 
-    /** The Treats section's rows: their saved treats, then all the treats while they've one to pick. */
-    fun treatsSectionFor(childId: String): List<Shelf> = buildList {
-        val mine = savedTreatsFor(childId)
-        if (mine.isNotEmpty()) add(Shelf("saved", "My treats", true, mine))
-        if (treatsFor(childId) > 0) {
-            addAll(library.treatShelvesFor(childId).map { it.copy(title = if (it.key == "treats") "Pick one to save" else "Pick one to save: ${it.title}") })
-        }
-    }
+    /** The Treats section's row: only the treats they've won and picked, never the rest. */
+    fun treatsSectionFor(childId: String): List<Shelf> =
+        savedTreatsFor(childId).let { mine -> if (mine.isEmpty()) emptyList() else listOf(Shelf("saved", "My treats", true, mine)) }
 
     /** Uses up one of the child's treats to save [video] in their Treats section; false if they have none. */
     fun saveTreat(childId: String, video: Video): Boolean {

@@ -158,9 +158,11 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 HomeScreen(app, child, onOpen = {
                                     EventLog.log("category.open", child.id, subject = it.name.lowercase())
+                                // A won treat not picked yet: pick it first, then land in the Treats section with it.
+                                if (it == Category.Treats && app.treatsFor(child.id) > 0) open(Screen.Treats(child.id))
                                     open(
                                         when (it) {
-                                            Category.Treats -> Screen.Treats(child.id)
+                                            Category.Treats -> if (app.treatsFor(child.id) > 0) Screen.PickTreat(child.id) else Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
                                             Category.Videos, Category.Music -> Screen.Videos(child.id, it)
                                             Category.Photos -> Screen.PhotoGrid(child.id)
@@ -205,25 +207,17 @@ class MainActivity : ComponentActivity() {
                             if (child == null || catalogue.isEmpty()) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val toPick = app.treatsFor(child.id)
-                                val mine = app.savedTreatsFor(child.id)
-                                val shelves = app.treatsSectionFor(child.id)
+                                // Only the treats they've won and picked; watching one uses it up.
                                 VideosScreen(
                                     app,
                                     child,
                                     Category.Treats.title,
-                                    shelves,
+                                    app.treatsSectionFor(child.id),
                                     stars = true,
                                     empty = "Win a quiz to save up a treat!",
-                                    greeting = if (toPick > 0) "You've a treat to pick!" else null,
                                     onPlay = { video ->
-                                        if (mine.any { it.id == video.id }) {
-                                            // Watching a saved treat uses it up.
-                                            app.useSavedTreat(child.id, video)
-                                            play(video, child.id)
-                                        } else {
-                                            saveTreat(child.id, video)
-                                        }
+                                        app.useSavedTreat(child.id, video)
+                                        play(video, child.id)
                                     },
                                 )
                             }

@@ -50,12 +50,15 @@ class TreatsTest {
         assertEquals(listOf("Gruffalo", "Bluey"), AppState(context).savedTreatsFor("c1").map { it.title })
     }
 
-    @Test fun theTreatsSectionOnlyOffersPicksWhileThereIsOneToPick() {
+    @Test fun theTreatsSectionOnlyShowsPickedTreats() {
         val app = app()
         assertTrue(app.treatsSectionFor("c1").isEmpty())
+        // Won but not picked yet: still nothing there.
         app.earnTreat("c1")
-        assertEquals(listOf("Pick one to save"), app.treatsSectionFor("c1").map { it.title })
+        assertTrue(app.treatsSectionFor("c1").isEmpty())
         app.saveTreat("c1", treats[1])
-        assertEquals(listOf("My treats"), app.treatsSectionFor("c1").map { it.title })
+        assertEquals(listOf(listOf("Gruffalo")), app.treatsSectionFor("c1").map { s -> s.videos.map { it.title } })
+        app.useSavedTreat("c1", app.savedTreatsFor("c1")[0])
+        assertTrue(app.treatsSectionFor("c1").isEmpty())
     }
 }
