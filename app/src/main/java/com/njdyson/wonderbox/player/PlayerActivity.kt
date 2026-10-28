@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -98,6 +99,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
                 textSize = 24f
                 typeface = Typeface.DEFAULT_BOLD
                 maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
             })
             addView(hint)
         }

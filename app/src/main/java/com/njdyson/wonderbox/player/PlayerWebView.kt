@@ -195,15 +195,18 @@ object PlayerWebView {
      * Runs at the start of YouTube's own player frame (our page can't reach into it). It says
      * VP9, AV1 and VP8 video can't be played, so YouTube sends H.264, and every two seconds
      * reports the video's size, codec, dropped frames and buffer to [Events.onStats]. It also
-     * hides the suggested videos YouTube puts over the picture: the "end screen" tiles in a
-     * video's last seconds, cards, and the end-of-video wall.
+     * hides everything YouTube puts over the picture, suggested videos included.
      */
     private val FRAME_SCRIPT = """
 (function () {
   var blocked = /av01|vp0?9|vp8/i;
   var hide = document.createElement('style');
-  hide.textContent = '.ytp-ce-element, .ytp-cards-teaser, .ytp-cards-button, .ytp-endscreen-content, .ytp-videowall-still,' +
-    ' .ytp-pause-overlay, .ytp-suggestion-set, .ytp-show-cards-title, .ytp-watermark, .iv-branding { display: none !important; }';
+  // Everything YouTube draws over the picture (title, logo, "More videos", pause icon,
+  // subtitles, suggestions, its own error screen) except the video itself and ads, whose
+  // skip button must stay. The app shows its own title, hints and screens.
+  hide.textContent = '.html5-video-player > :not(.html5-video-container):not(.video-ads):not(.ytp-ad-module),' +
+    ' .ytp-ce-element, .ytp-cards-teaser, .ytp-endscreen-content, .ytp-pause-overlay, .ytp-watermark, .iv-branding' +
+    ' { display: none !important; }';
   // There may be no document to add it to yet, this early.
   if (document.documentElement) document.documentElement.appendChild(hide);
   else document.addEventListener('DOMContentLoaded', function () { document.head.appendChild(hide); });
