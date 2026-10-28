@@ -83,10 +83,10 @@ if ! "$BIN_DIR/pocketbase" --version 2>/dev/null | grep -q "$PB_VERSION"; then
   rm -rf "$tmp"
 fi
 
-# The server's voice: Piper and one British English voice (Jenny), read by speech.pb.js.
+# The server's voice: Piper and one British English voice (Cori, southern English), read by speech.pb.js.
 PIPER_VERSION="2023.11.14-2"
-VOICE_NAME="en_GB-jenny_dioco-medium"
-VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/jenny_dioco/medium/$VOICE_NAME.onnx"
+VOICE_NAME="en_GB-cori-medium"
+VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/cori/medium/$VOICE_NAME.onnx"
 PIPER_ENV=""
 if [ "${VOICE:-1}" != 0 ]; then
   case "$(uname -m)" in
