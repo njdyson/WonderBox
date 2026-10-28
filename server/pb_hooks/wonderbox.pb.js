@@ -91,7 +91,7 @@ routerAdd("POST", "/api/wonder/videos/move", (e) => {
 
 // --- Channels ----------------------------------------------------------------
 
-// {url, children: [ids], tier, section}: adds a whole channel at the top; its latest videos come with it.
+// {url, children: [ids], tier, section}: adds a whole channel or a playlist at the top; its videos come with it.
 routerAdd("POST", "/api/wonder/channels/add", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const user = lib.requireUser(e)

@@ -23,6 +23,9 @@ POP = "https://www.youtube.com/watch?v=ekr2nIex040&list=RDekr2nIex040&start_radi
 # A children's channel, by handle and by ID.
 NUMBERBLOCKS = "https://www.youtube.com/@Numberblocks"
 NUMBERBLOCKS_ID = "UCPlwvN0w4qFSP1FllALB92w"
+# One of Numberblocks' playlists.
+PLAYLIST_ID = "PL9swKX1PviEo067zjLuxOE0uAnlZ7uws5"
+PLAYLIST = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
 
 
 def call(method, path, body=None, token=None, device_key=None, expect=200):
@@ -136,6 +139,20 @@ try:
     lib = call("POST", "/api/wonder/channels/update", {"id": channel, "tier": "free", "section": "music", "children": [jo]}, token)
     ch = lib["channels"][0]
     assert ch["tier"] == "free" and ch["section"] == "music" and ch["children"] == [jo], ch
+
+    # Playlists work like channels. A video link from a playlist is just the video; a mix can't be added.
+    info = call("POST", "/api/wonder/videos/check", {"url": PLAYLIST}, token)
+    assert info["kind"] == "playlist" and info["channelId"] == PLAYLIST_ID and info["title"] and info["videos"], info
+    assert call("POST", "/api/wonder/videos/check", {"url": f"{ZOO}&list={PLAYLIST_ID}"}, token)["kind"] == "video"
+    call("POST", "/api/wonder/videos/check", {"url": "https://www.youtube.com/playlist?list=RDekr2nIex040"}, token, expect=400)
+    lib = call("POST", "/api/wonder/channels/add", {"url": PLAYLIST, "children": [sam], "tier": "treat"}, token)
+    playlist = lib["saved"]
+    pl = next(c for c in lib["channels"] if c["id"] == playlist)
+    assert pl["kind"] == "playlist" and pl["tier"] == "treat" and pl["videos"], pl
+    assert next(c for c in lib["channels"] if c["id"] == channel)["kind"] == "channel"
+    lib = call("POST", "/api/wonder/channels/refresh", {"id": playlist}, token)
+    lib = call("POST", "/api/wonder/channels/remove", {"id": playlist}, token)
+    assert [c["id"] for c in lib["channels"]] == [channel]
 
     # Removing a child removes videos and channels that were only theirs.
     lib = call("POST", "/api/wonder/children/remove", {"id": jo}, token)
