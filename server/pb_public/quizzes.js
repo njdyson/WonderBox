@@ -221,7 +221,7 @@ function renderGames(c) {
         el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
         chips(SPELLING_TYPES, spelling.types, (types) => types.length && saveSpelling({ types })),
         el("div", { className: "sub-h", textContent: "Which words" }),
-        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
+        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["phase2", "Phonics Phase 2 (sock, bucket)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
           spelling.lists, (lists) => lists.length && saveSpelling({ lists })),
         ...(spelling.types.some((t) => t !== "build") ? [
           el("div", { className: "sub-h", textContent: "Answers to pick from" }),

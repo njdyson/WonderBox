@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -216,7 +218,11 @@ private fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: 
         } else if (q.picture.isNotEmpty()) {
             Text(q.picture, fontSize = if (q.picture.length > 8) 54.sp else 84.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 820.dp))
         }
-        if (shown.isNotEmpty()) {
+        // A phonics word, with its sound buttons: shown once it's right when the question hides it.
+        val phonics = if (shown.isEmpty() && correct) q.topic else shown
+        if (q.sounds.isNotEmpty() && q.sounds.joinToString("") == q.topic && phonics.length == q.topic.length) {
+            SoundButtons(phonics, q.sounds, if (correct) Leaf else Color.White, Modifier.graphicsLayer { translationX = shake.value })
+        } else if (shown.isNotEmpty()) {
             Text(
                 spaced(shown),
                 color = if (correct) Leaf else Color.White,
@@ -318,6 +324,29 @@ fun ClockFace(hour: Int, minute: Int, size: Dp) {
             hand((hour % 12 + minute / 60.0) * 30, r * 0.48f, r * 0.09f, Ink)
             hand(minute * 6.0, r * 0.76f, r * 0.05f, Reef)
             drawCircle(Ink, r * 0.07f)
+        }
+    }
+}
+
+/**
+ * [text] (a word, perhaps with gaps) split into its [sounds], with a dot under each single
+ * letter and a line under two letters making one sound, like the school's sound buttons.
+ */
+@Composable
+fun SoundButtons(text: String, sounds: List<String>, color: Color, modifier: Modifier = Modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = modifier) {
+        var at = 0
+        for (sound in sounds) {
+            val part = text.substring(at, at + sound.length)
+            at += sound.length
+            Column(Modifier.width(IntrinsicSize.Max), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(part, color = color, fontSize = 68.sp, fontWeight = FontWeight.Black, letterSpacing = if ('_' in part) 6.sp else 0.sp)
+                if (sound.length == 1) {
+                    Box(Modifier.padding(top = 10.dp).size(16.dp).background(Tangerine, CircleShape))
+                } else {
+                    Box(Modifier.padding(top = 14.dp).fillMaxWidth().height(7.dp).background(Tangerine, RoundedCornerShape(4.dp)))
+                }
+            }
         }
     }
 }

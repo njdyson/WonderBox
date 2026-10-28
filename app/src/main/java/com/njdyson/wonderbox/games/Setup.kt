@@ -53,7 +53,7 @@ data class SpellingSetup(
      * the word), and "hear" and "hearbuild": pick or spell a word that's only said, not shown.
      */
     val types: List<String> = listOf("first"),
-    /** Which words: "short" (3 letters), "long" (4 and 5), "mine" ([myWords]). */
+    /** Which words: "short" (3 letters), "long" (4 and 5), "phase2" (phonics, with sound buttons), "mine" ([myWords]). */
     val lists: List<String> = listOf("short"),
     val choices: Int = 3,
     val myWords: List<MyWord> = emptyList(),
