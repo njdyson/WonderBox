@@ -34,6 +34,14 @@ the latest 50 and leaves out any that won't play on the TV. Without it, YouTube'
 has the latest 15 (fewer once Shorts are taken out), unchecked; videos seen before are kept,
 so the list grows to 50 over time.
 
+## Searching YouTube
+
+Typing words instead of a link searches YouTube (videos, channels or playlists) from the
+phone app, with SafeSearch on strict; a result is checked and added like a pasted link.
+Search needs the API key. Each search uses 100 of the key's 10,000 free daily units (about
+100 searches a day, fewer with channel refreshes), so the server keeps each search's results
+for an hour.
+
 ## Setting it up on the Plesk server
 
 Same as BlockbusterTV, with its own subdomain, folder, port (8096) and service (`wonderbox`).

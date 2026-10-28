@@ -140,6 +140,10 @@ try:
     ch = lib["channels"][0]
     assert ch["tier"] == "free" and ch["section"] == "music" and ch["children"] == [jo], ch
 
+    # Searching needs words, and the API key (which a test server usually doesn't have).
+    call("GET", "/api/wonder/search?q=", token=token, expect=400)
+    call("GET", "/api/wonder/search?q=peppa", expect=401)
+
     # Playlists work like channels. A video link from a playlist is just the video; a mix can't be added.
     info = call("POST", "/api/wonder/videos/check", {"url": PLAYLIST}, token)
     assert info["kind"] == "playlist" and info["channelId"] == PLAYLIST_ID and info["title"] and info["videos"], info

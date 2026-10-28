@@ -134,8 +134,8 @@
 
   <h2>ADD A VIDEO, SONG, CHANNEL OR PLAYLIST</h2>
   <form class="row" id="addForm">
-    <input type="url" id="link" class="grow" placeholder="Paste a YouTube video, channel or playlist link" autocomplete="off" inputmode="url" enterkeyhint="go">
-    <button id="checkBtn">Check</button>
+    <input type="text" id="link" class="grow" placeholder="Search YouTube, or paste a link" autocomplete="off" autocapitalize="off" enterkeyhint="search">
+    <button id="checkBtn">Search</button>
   </form>
   <div id="adding"></div>
 
@@ -291,11 +291,60 @@ function setLibrary(data) {
 
 $("addForm").onsubmit = (e) => { e.preventDefault(); check(); };
 // Pasting a link checks it straight away.
-$("link").addEventListener("paste", () => setTimeout(check, 0));
+$("link").addEventListener("paste", () => setTimeout(() => isLink($("link").value) && check(), 0));
+$("link").addEventListener("input", () => { $("checkBtn").textContent = isLink($("link").value) ? "Check" : "Search"; });
+
+/** A link (or a bare video, channel or playlist ID) rather than words to search for. */
+function isLink(text) {
+  const s = text.trim();
+  return /^(https?:\/\/|www\.|m\.|youtube\.com|youtu\.be|music\.youtube)/i.test(s) || /^(@[\w.-]+|UC[\w-]{22}|PL[\w-]{16,}|[\w-]{11})$/.test(s) && !/^[a-z]+$/i.test(s);
+}
+
+// --- Searching YouTube ------------------------------------------------------
+
+let searching = null; // {q, type, results} while showing search results
+const SEARCH_TYPES = [["video", "📺 Videos"], ["channel", "Channels"], ["playlist", "Playlists"]];
+
+async function runSearch(q, type) {
+  searching = { q, type, results: null };
+  renderSearch();
+  try {
+    const data = await api(`/api/wonder/search?type=${type}&q=${encodeURIComponent(q)}`);
+    if (searching && searching.q === q && searching.type === type) searching.results = data.results;
+  } catch (e) {
+    if (e instanceof AuthError) return signedOut();
+    if (searching) searching.error = e.message;
+  }
+  renderSearch();
+}
+
+function renderSearch() {
+  if (!searching) return;
+  const { q, type, results, error } = searching;
+  $("adding").replaceChildren(el("div", { className: "card stack" },
+    seg(SEARCH_TYPES, type, (t) => runSearch(q, t)),
+    error ? el("div", { className: "error", style: "margin-top:0", textContent: error })
+      : !results ? el("div", { className: "muted", textContent: `Searching for "${q}"…` })
+      : !results.length ? el("div", { className: "muted", textContent: "Nothing found. Try other words." })
+      : el("div", {}, ...results.map((r) => el("div", { className: "video", style: "cursor:pointer", onclick: () => {
+          searching = null;
+          $("link").value = r.url;
+          $("checkBtn").textContent = "Check";
+          check();
+        } },
+          el("img", { src: r.thumbnail, alt: "", loading: "lazy", className: r.kind === "channel" ? "round" : "" }),
+          el("div", { className: "grow" },
+            el("div", { className: "t", textContent: r.title }),
+            el("div", { className: "muted", textContent: r.kind === "channel" ? "Channel" : r.channel }))))),
+    el("div", { className: "muted", textContent: "SafeSearch is on. Tap one to check it and choose who it's for." }),
+    el("button", { className: "ghost", textContent: "Close", onclick: () => { searching = null; $("link").value = ""; $("checkBtn").textContent = "Search"; $("adding").replaceChildren(); } })));
+}
 
 async function check() {
   const url = $("link").value.trim();
   if (!url) return;
+  if (!isLink(url)) return runSearch(url, searching ? searching.type : "video");
+  searching = null;
   $("checkBtn").disabled = true;
   $("adding").replaceChildren(el("div", { className: "muted", style: "margin-top:10px", textContent: "Checking it will play on the TV…" }));
   try {
@@ -338,7 +387,7 @@ const SECTION_OPTIONS = [["videos", "📺 Videos"], ["music", "🎵 Music"]];
 const TIER_HELP = "Treats are locked on the TV until a game is finished; each game won unlocks one treat.";
 
 function renderAdding() {
-  if (!checked) return $("adding").replaceChildren();
+  if (!checked) return searching ? renderSearch() : $("adding").replaceChildren();
   const { info } = checked;
   const isChannel = isSource(info.kind);
   const already = !!existingFor(info);
@@ -415,7 +464,7 @@ function render() {
       el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(v, "videos") }),
       el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(v, c, "videos") })),
   )) : [el("div", { className: "empty", textContent: c
-    ? `No videos for ${c.name} yet. Paste a YouTube link above.`
+    ? `No videos for ${c.name} yet. Search for some above, or paste a YouTube link.`
     : "Add a child first, then their videos." })]));
 
   // Channels and playlists: the TV shows each as its own row of videos.

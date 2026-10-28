@@ -557,6 +557,56 @@ function refreshAllChannels() {
   }
 }
 
+// --- Searching YouTube ---------------------------------------------------------
+
+const SEARCH_TYPES = ["video", "channel", "playlist"]
+const SEARCH_CACHE_MS = 60 * 60 * 1000
+
+/**
+ * Searches YouTube for [type] ("video", "channel" or "playlist") with SafeSearch on strict.
+ * Needs YOUTUBE_API_KEY; each search costs 100 of the key's 10,000 free daily units, so
+ * answers are kept for an hour and repeating a search is free.
+ */
+function search(text, type) {
+  const q = String(text || "").trim().slice(0, 100)
+  if (!q) throw new BadRequestError("Type something to search for.")
+  if (!SEARCH_TYPES.includes(type)) type = "video"
+  const key = $os.getenv("YOUTUBE_API_KEY")
+  if (!key) throw new BadRequestError("Searching needs a YouTube API key on the server. Paste a link instead.")
+
+  const cacheKey = `wonderbox_search:${type}:${q.toLowerCase()}`
+  const cached = $app.store().get(cacheKey)
+  if (cached && Date.now() - cached.at < SEARCH_CACHE_MS) return cached.results
+
+  const extra = type === "video" ? "&videoEmbeddable=true&videoSyndicated=true" : ""
+  const res = $http.send({
+    url: `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&safeSearch=strict&regionCode=GB&relevanceLanguage=en&type=${type}${extra}&q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`,
+    timeout: 15,
+  })
+  if (res.statusCode === 403) throw new ApiError(503, "YouTube's search limit for today is used up. Paste a link instead, or try again tomorrow.")
+  if (res.statusCode !== 200 || !res.json) throw new ApiError(502, "Couldn't reach YouTube to search. Try again in a minute.")
+  const results = []
+  for (const item of res.json.items || []) {
+    const id = item.id || {}
+    const snippet = item.snippet || {}
+    const thumbs = snippet.thumbnails || {}
+    const result = {
+      kind: type,
+      title: decodeEntities(snippet.title),
+      channel: decodeEntities(snippet.channelTitle),
+      thumbnail: ((thumbs.high || thumbs.medium || thumbs.default) || {}).url || "",
+    }
+    if (type === "video" && id.videoId) result.url = `https://www.youtube.com/watch?v=${id.videoId}`
+    else if (type === "channel" && id.channelId) result.url = `https://www.youtube.com/channel/${id.channelId}`
+    else if (type === "playlist" && id.playlistId) result.url = `https://www.youtube.com/playlist?list=${id.playlistId}`
+    else continue
+    if (type === "video" && snippet.liveBroadcastContent && snippet.liveBroadcastContent !== "none") continue
+    results.push(result)
+  }
+  $app.store().set(cacheKey, { at: Date.now(), results })
+  return results
+}
+
 /** A channel or playlist link's details, or null if it's neither. */
 function resolveSource(text) {
   const playlist = parsePlaylist(text)
@@ -656,6 +706,6 @@ function cleanupPairings() {
 module.exports = {
   caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, removeChild,
   saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
-  refreshChannel, refreshAllChannels, updateItem, newPairingCode, findPairing, cleanupPairings,
+  refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,
 }
