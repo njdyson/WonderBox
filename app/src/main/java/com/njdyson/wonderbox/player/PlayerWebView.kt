@@ -73,7 +73,15 @@ object PlayerWebView {
         listener = null
         preloading = false
         error = null
+        position = 0.0
+        duration = 0.0
     }
+
+    /** Where the video was and how long it is (seconds), as of the last state change. */
+    var position = 0.0
+        private set
+    var duration = 0.0
+        private set
 
     fun js(code: String) = view?.evaluateJavascript("if (window.player && player.getPlayerState) { $code }", null)
 
@@ -102,6 +110,14 @@ object PlayerWebView {
         fun onReady() {
             // Preloading: buffer the opening seconds silently. Otherwise play straight away.
             main.post { js(if (preloading) "player.mute(); player.playVideo();" else "player.playVideo();") }
+        }
+
+        @JavascriptInterface
+        fun onTime(current: Double, length: Double) {
+            main.post {
+                position = current
+                duration = length
+            }
         }
 
         @JavascriptInterface
@@ -138,7 +154,7 @@ object PlayerWebView {
       playerVars: { controls: 0, disablekb: 1, fs: 0, rel: 0, iv_load_policy: 3, playsinline: 1, modestbranding: 1, origin: '$ORIGIN' },
       events: {
         onReady: function () { Android.onReady(); },
-        onStateChange: function (e) { Android.onState(e.data); },
+        onStateChange: function (e) { Android.onTime(player.getCurrentTime() || 0, player.getDuration() || 0); Android.onState(e.data); },
         onError: function (e) { Android.onError(e.data); }
       }
     });
