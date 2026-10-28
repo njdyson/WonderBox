@@ -20,6 +20,8 @@ data class Question(
     val choicePictures: List<String> = emptyList(),
     /** Which choice is right, when choices aren't told apart by their words. -1: the one that's [answer]. */
     val answerIndex: Int = -1,
+    /** What each choice is, for the activity log, when the buttons are only pictures (the flags). */
+    val choiceNames: List<String> = emptyList(),
     /** What kind of question it is, for the activity log: "add", "first", "quiz"... */
     val kind: String = "",
     /**
@@ -33,7 +35,7 @@ data class Question(
     fun isRight(choice: Int) = if (answerIndex >= 0) choice == answerIndex else choices.getOrNull(choice) == answer
 
     /** A choice in words, for the activity log. */
-    fun describe(choice: Int) = choices.getOrNull(choice)?.ifBlank { null } ?: "picture ${choice + 1}"
+    fun describe(choice: Int) = choiceNames.getOrNull(choice) ?: choices.getOrNull(choice)?.ifBlank { null } ?: "picture ${choice + 1}"
 }
 
 /** The made-up games. Levels are 1-based ready-made setups; the phone app sets each child's. */
@@ -69,12 +71,23 @@ enum class Game(val title: String, val icon: String, val levels: List<String>) {
             "Any minute",
         ),
     ),
+    Flags(
+        "Flags", "/clipart/flags/gb.png",
+        listOf(
+            "UK and Ireland",
+            "Well-known flags",
+            "Well-known flags, both ways",
+            "Europe",
+            "The whole world",
+        ),
+    ),
     ;
 
     fun question(level: Int, random: Random = Random): Question = when (this) {
         Maths -> MathsQuestions.question(MathsSetup.preset(level), random)
         Spelling -> SpellingQuestions.question(SpellingSetup.preset(level), random)
         Clock -> ClockQuestions.question(ClockSetup.preset(level), random)
+        Flags -> FlagQuestions.question(FlagSetup.preset(level), random)
     }
 }
 

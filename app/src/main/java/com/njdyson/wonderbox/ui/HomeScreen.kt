@@ -233,6 +233,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
         Game.Clock -> TILE_COLORS[3]
+        Game.Flags -> TILE_COLORS[4]
         null -> if (game.key == JIGSAW) TILE_COLORS[2] else TILE_COLORS[index % TILE_COLORS.size]
     }
     Surface(

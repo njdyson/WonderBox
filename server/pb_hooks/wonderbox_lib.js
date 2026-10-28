@@ -113,6 +113,7 @@ function games(child) {
   const spelling = child.getInt("spelling_level") || GAME_DEFAULTS.spelling
   const stored = quiz.jsonField(child, "game_setup") || {}
   const clockLevel = Math.min(quiz.CLOCK_PRESETS.length, Math.max(1, Math.round(Number(stored.clockLevel)) || 1))
+  const flagLevel = Math.min(quiz.FLAG_PRESETS.length, Math.max(1, Math.round(Number(stored.flagLevel)) || 1))
   return {
     maths,
     spelling,
@@ -123,6 +124,8 @@ function games(child) {
     // Telling the time: its level and setup live in game_setup, like the games below.
     clock: clockLevel,
     clockSetup: quiz.clockSetup(stored.clock, clockLevel),
+    flags: flagLevel,
+    flagSetup: quiz.flagSetup(stored.flags, flagLevel),
     // Which games win a treat: maths, spelling, clock, quizzes, hangman, memory, jigsaw.
     treatGames: quiz.treatGames(stored.treats),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
@@ -143,7 +146,7 @@ function jigsawSize(stored) {
 }
 
 /**
- * {id, maths, spelling, clock, roundSize, mathsSetup, spellingSetup, clockSetup, treatGames,
+ * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
  * jigsaw, sounds}: how hard a child's games are (jigsaw 0 is off), which of them win a treat,
  * and their sound effects.
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
@@ -162,6 +165,8 @@ function saveGames(userId, body) {
     spelling: current.spellingSetup,
     clock: current.clockSetup,
     clockLevel: current.clock,
+    flags: current.flagSetup,
+    flagLevel: current.flags,
     treats: current.treatGames,
   }
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
@@ -186,6 +191,14 @@ function saveGames(userId, body) {
     setup.clock = quiz.clockPreset(clock)
   }
   setup.clockLevel = clock
+  let flags = clamp(body.flags, 1, quiz.FLAG_PRESETS.length, current.flags)
+  if (body.flagSetup) {
+    setup.flags = quiz.flagSetup(body.flagSetup, flags)
+    flags = quiz.flagLevelOf(setup.flags) || flags
+  } else if (flags !== current.flags) {
+    setup.flags = quiz.flagPreset(flags)
+  }
+  setup.flagLevel = flags
   if (Array.isArray(body.treatGames)) setup.treats = quiz.treatGames(body.treatGames)
   child.set("maths_level", maths)
   child.set("spelling_level", spelling)

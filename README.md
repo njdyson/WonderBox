@@ -20,13 +20,13 @@ Family photos from the phone show on the TV as a slideshow.
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
 - **A child's home page:** big tiles on a screen of their own colour so they can tell it's
-  theirs: Quizzes (Maths, Spelling, Clock and the parent's quizzes), Games (jigsaws), Videos, Music
+  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws), Videos, Music
   and Photos, always in that order, leaving out any with nothing in them. Each opens its own
   screen; Videos and Music are rows, like a TV app (their own videos, then a row for each
   channel). Treat videos never show there: finishing a game (10 right answers by default)
   wins a treat and goes straight to a "Pick a treat!" screen of them. A treat not picked yet
   shows as a Treats tile, first on the home page, until it is. The parent chooses which
-  games win a treat: maths, spelling, the clock, quizzes and hangman until changed, not
+  games win a treat: maths, spelling, the clock, flags, quizzes and hangman until changed, not
   jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
@@ -44,6 +44,9 @@ Family photos from the phone show on the TV as a slideshow.
 - **Clock:** a clock face with both hands; pick the time, said the British way ("quarter
   past 3", "20 to 5"). Five levels, from o'clock to any minute, or a mix of o'clock, half
   past, quarter past and to, five minutes and any minute.
+- **Flags:** see a flag and pick the country (names are read out as they're focused), or
+  hear a country and pick its flag. Five levels: the UK's nations and Ireland, well-known
+  flags, both ways round, Europe, then the whole world; or the parent's own mix of regions.
 - **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
   with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
   emoji) or both. Each quiz is a tile next to Maths and Spelling, under Quizzes, for the children it's for;

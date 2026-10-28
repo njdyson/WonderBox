@@ -39,6 +39,10 @@ data class GameEntry(
                 val setup = child.games.clock()
                 Round(roundSize, setup.level()) { recent.fresh { ClockQuestions.question(setup, random) } }
             }
+            Game.Flags -> {
+                val setup = child.games.flags()
+                Round(roundSize, setup.level()) { recent.fresh { FlagQuestions.question(setup, random) } }
+            }
             else -> {
                 val setup = child.games.maths()
                 Round(roundSize, setup.level()) { recent.fresh { MathsQuestions.question(setup, random) } }
@@ -131,6 +135,8 @@ fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = b
     if (spelling.on) add(GameEntry("spelling", Game.Spelling.title, Game.Spelling.icon, subtitle(spelling.level()), Game.Spelling))
     val clock = child.games.clock()
     if (clock.on) add(GameEntry("clock", Game.Clock.title, Game.Clock.icon, subtitle(clock.level()), Game.Clock))
+    val flags = child.games.flags()
+    if (flags.on) add(GameEntry("flags", Game.Flags.title, Game.Flags.icon, subtitle(flags.level()), Game.Flags))
     if (photos && child.games.jigsaw > 0) {
         val size = child.games.jigsaw.coerceIn(JIGSAW_SIZES.first, JIGSAW_SIZES.last)
         add(GameEntry(JIGSAW, "Jigsaw", "🧩", "$size × $size pieces"))

@@ -100,6 +100,31 @@ data class ClockSetup(
     fun level() = PRESETS.indexOfFirst { it.types == types && it.choices == choices } + 1
 }
 
+/** What a child's flag game asks: which flags, which way round, and how many answers. */
+@Serializable
+data class FlagSetup(
+    val on: Boolean = true,
+    /** Any of "uk" (the UK's nations and Ireland), "famous", "europe", "asia", "africa", "americas", "oceania". */
+    val regions: List<String> = listOf("uk"),
+    /** "name" (see a flag, pick the country) and "flag" (hear a country, pick its flag). */
+    val types: List<String> = listOf("name"),
+    val choices: Int = 3,
+) {
+    companion object {
+        val PRESETS = listOf(
+            FlagSetup(regions = listOf("uk"), types = listOf("name"), choices = 3),
+            FlagSetup(regions = listOf("uk", "famous"), types = listOf("name"), choices = 3),
+            FlagSetup(regions = listOf("uk", "famous"), types = listOf("name", "flag"), choices = 4),
+            FlagSetup(regions = listOf("europe"), types = listOf("name", "flag"), choices = 4),
+            FlagSetup(regions = listOf("europe", "asia", "africa", "americas", "oceania"), types = listOf("name", "flag"), choices = 4),
+        )
+
+        fun preset(level: Int) = PRESETS[level.coerceIn(1, PRESETS.size) - 1]
+    }
+
+    fun level() = PRESETS.indexOfFirst { it.regions == regions && it.types == types && it.choices == choices } + 1
+}
+
 /** One of the parent's spelling words. [picture] is an emoji or a quiz image's path, or empty. */
 @Serializable
 data class MyWord(val word: String, val picture: String = "")
