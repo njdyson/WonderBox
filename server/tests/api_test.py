@@ -141,7 +141,7 @@ try:
 
     # Game settings: defaults, then clamped to the levels the TV has. Each level is a setup.
     g = lib["children"][0]["games"]
-    assert (g["maths"], g["spelling"], g["roundSize"]) == (1, 1, 10)
+    assert (g["maths"], g["spelling"], g["roundSize"], g["jigsaw"]) == (1, 1, 10, 3)
     assert g["mathsSetup"] == {"on": True, "types": ["count"], "max": 5, "tables": [2, 5, 10], "choices": 3, "pictures": True}, g
     assert g["spellingSetup"] == {"on": True, "types": ["first"], "lists": ["short"], "choices": 3, "myWords": []}, g
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "maths": 3, "spelling": 99, "roundSize": 1}, token)
@@ -170,6 +170,15 @@ try:
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "spelling": 2}, token)
     sp = lib["children"][0]["games"]["spellingSetup"]
     assert sp["types"] == ["missing"] and len(sp["myWords"]) == 2, sp
+    # Photo jigsaws: 2 to 5 pieces a side, 0 is off, and leaving it out keeps it.
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "jigsaw": 9}, token)
+    assert lib["children"][0]["games"]["jigsaw"] == 5
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "jigsaw": 0}, token)
+    assert lib["children"][0]["games"]["jigsaw"] == 0
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "roundSize": 12}, token)
+    assert lib["children"][0]["games"]["jigsaw"] == 0
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "jigsaw": 2}, token)
+    assert lib["children"][0]["games"]["jigsaw"] == 2
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)

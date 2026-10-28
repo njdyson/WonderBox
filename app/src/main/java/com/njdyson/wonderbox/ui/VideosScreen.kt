@@ -60,6 +60,7 @@ import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.games.GameEntry
+import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerWebView
 import kotlinx.coroutines.delay
@@ -88,7 +89,7 @@ fun VideosScreen(
     val hasTreats = shelves.any { it.treat }
     val color = parseColor(child.color)
     val ink = color.onColor()
-    val games = app.library.gamesFor(child)
+    val games = app.library.gamesFor(child, photos = app.photos.isNotEmpty())
     val firstGame = "games/${games.firstOrNull()?.key}"
     // The focused card ("games/Maths", "photos/<id>" or a video's ID), so focus comes back to it after a video.
     var focusedKey by rememberSaveable(child.id) { mutableStateOf<String?>(null) }
@@ -309,7 +310,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
     val colors = when (game.game) {
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
-        null -> TILE_COLORS[index % TILE_COLORS.size]
+        null -> if (game.key == JIGSAW) TILE_COLORS[2] else TILE_COLORS[index % TILE_COLORS.size]
     }
     Surface(
         onClick = onClick,

@@ -12,11 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.GameScreen
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
+import com.njdyson.wonderbox.ui.JigsawScreen
 import com.njdyson.wonderbox.ui.LinkScreen
 import com.njdyson.wonderbox.ui.PhotosScreen
 import com.njdyson.wonderbox.ui.ProfileScreen
@@ -32,6 +34,7 @@ private sealed interface Screen {
     data class Photos(val childId: String, val start: Int) : Screen
     /** [game] is a [com.njdyson.wonderbox.games.GameEntry] key: "maths", "spelling" or "quiz/<id>". */
     data class Playing(val childId: String, val game: String) : Screen
+    data class Jigsaw(val childId: String) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -98,7 +101,9 @@ class MainActivity : ComponentActivity() {
                                     startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title, it.channel, child.id))
                                 },
                                 onPhoto = { open(Screen.Photos(child.id, it)) },
-                                onGame = { open(Screen.Playing(child.id, it.key)) },
+                                onGame = {
+                                    if (it.key == JIGSAW) open(Screen.Jigsaw(child.id)) else open(Screen.Playing(child.id, it.key))
+                                },
                                 focusTreats = pickingTreat,
                                 onTreatsFocused = { pickingTreat = false },
                             )
@@ -124,6 +129,33 @@ class MainActivity : ComponentActivity() {
                                         EventLog.log("reward.earn", child.id, subject = "treat") {
                                             put("reason", "quiz.finish")
                                             put("game", screen.game)
+                                        }
+                                    }
+                                },
+                                onPickTreat = {
+                                    pickingTreat = true
+                                    back()
+                                },
+                                onBack = { back() },
+                            )
+                        }
+                    }
+                    is Screen.Jigsaw -> {
+                        val child = app.library.children.firstOrNull { it.id == screen.childId }
+                        if (child == null) {
+                            LaunchedEffect(Unit) { back() }
+                        } else {
+                            val hasTreats = app.library.shelvesFor(child.id).any { it.treat }
+                            JigsawScreen(
+                                app,
+                                child,
+                                hasTreats = hasTreats,
+                                onFinished = {
+                                    if (hasTreats) {
+                                        app.earnTreat(child.id)
+                                        EventLog.log("reward.earn", child.id, subject = "treat") {
+                                            put("reason", "jigsaw.finish")
+                                            put("game", "jigsaw")
                                         }
                                     }
                                 },

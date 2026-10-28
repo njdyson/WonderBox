@@ -51,6 +51,8 @@ document.head.append(el("style", { textContent: `
 `}));
 
 const ROUND_SIZES = [3, 5, 10, 15, 20, 25, 30];
+// Photo jigsaws on the TV: pieces along each side (app/.../games/Jigsaw.kt). 0 is off.
+const JIGSAW_SIZES = [2, 3, 4, 5];
 
 // The TV's levels: the same setups as pb_hooks/quizzes_lib.js and app/.../games/Setup.kt.
 const MATHS_LEVELS = [
@@ -219,9 +221,22 @@ function renderGames(c) {
     }
   }
 
+  // Photo jigsaws
+  const jigsaw = g.jigsaw ?? 3;
+  const jigsawPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🧩 Photo jigsaws" }),
+      toggle(jigsaw > 0, (on) => save({ jigsaw: on ? 3 : 0 }), "Show jigsaws of the family photos on the TV")));
+  if (jigsaw > 0) {
+    jigsawPart.append(
+      el("div", { className: "sub-h", textContent: "Pieces" }),
+      seg(JIGSAW_SIZES.map((n) => [n, `${n} × ${n}`]), jigsaw, (v) => save({ jigsaw: v })),
+      el("div", { className: "muted", textContent: `${jigsaw * jigsaw} pieces. ${c.name} picks a photo, then swaps pieces with the arrows and OK. Shows once you've added photos.` }));
+  }
+
   $("games").replaceChildren(
     mathsPart,
     spellingPart,
+    jigsawPart,
     el("label", { className: "field" }, "Right answers to win a treat",
       select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize || 10, (v) => save({ roundSize: v }))),
     el("div", { className: "muted", textContent: hasTreats
