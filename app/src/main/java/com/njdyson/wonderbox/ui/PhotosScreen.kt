@@ -75,7 +75,7 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
     val focus = remember { FocusRequester() }
 
     if (photos.isEmpty()) {
-        Box(Modifier.fillMaxSize().background(Night), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().background(Lagoon), contentAlignment = Alignment.Center) {
             Text("No photos yet. Ask a grown-up to add some!", color = Color.White.copy(alpha = 0.8f), fontSize = 24.sp)
         }
         return
@@ -125,9 +125,9 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("◀", color = Sunshine, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text("◀", color = Tangerine, fontSize = 26.sp, fontWeight = FontWeight.Black)
                 Text("${current + 1} of ${photos.size}", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("▶", color = Sunshine, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text("▶", color = Tangerine, fontSize = 26.sp, fontWeight = FontWeight.Black)
                 Text(if (playing) "OK to stop" else "OK to play", color = Color.White.copy(alpha = 0.7f), fontSize = 18.sp)
             }
         }
@@ -183,14 +183,15 @@ fun PhotosRow(
     onFocus: (String) -> Unit = {},
     focusedId: String? = null,
     focusModifier: Modifier = Modifier,
+    ink: Color = Color.White,
 ) {
     val photos = app.photos
     if (photos.isEmpty()) return
     Column {
         Text(
             "📷 Photos",
-            color = Color.White,
-            fontSize = 22.sp,
+            color = ink,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp),
         )
@@ -205,11 +206,13 @@ fun PhotosRow(
                         .width(256.dp)
                         .aspectRatio(16f / 9f)
                         .onFocusChanged { if (it.isFocused) onFocus(photo.id) },
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Deep, focusedContainerColor = Deep),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Ink, focusedContainerColor = Ink),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+                    // White sticker edges, like the video cards.
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(BorderStroke(6.dp, Sunshine), shape = RoundedCornerShape(18.dp)),
+                        border = Border(BorderStroke(3.dp, Color.White.copy(alpha = 0.7f)), shape = RoundedCornerShape(20.dp)),
+                        focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = RoundedCornerShape(20.dp)),
                     ),
                 ) {
                     PhotoThumb(app, photo, Modifier.fillMaxSize())

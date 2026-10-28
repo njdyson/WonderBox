@@ -50,12 +50,12 @@ fun GrownUpGate(onPassed: () -> Unit) {
     }
     val first = remember { FocusRequester() }
     Column(
-        Modifier.fillMaxSize().background(Night).padding(48.dp),
+        Modifier.fillMaxSize().background(Lagoon).padding(48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
     ) {
         Text("Grown-ups only", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text("What is ${sum.first}?", color = Sunshine, fontSize = 44.sp, fontWeight = FontWeight.Black)
+        Text("What is ${sum.first}?", color = Tangerine, fontSize = 44.sp, fontWeight = FontWeight.Black)
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             sum.third.forEachIndexed { i, choice ->
                 OutlinedButton(
@@ -81,7 +81,7 @@ fun SettingsScreen(app: AppState, resumeCount: Int) {
     val first = remember { FocusRequester() }
     var confirmUnlink by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxSize().background(Night).verticalScroll(rememberScrollState()).padding(horizontal = 48.dp, vertical = 32.dp),
+        Modifier.fillMaxSize().background(Lagoon).verticalScroll(rememberScrollState()).padding(horizontal = 48.dp, vertical = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Logo()
@@ -106,7 +106,7 @@ fun SettingsScreen(app: AppState, resumeCount: Int) {
             color = Color.White,
             fontSize = 14.sp,
         )
-        app.syncError?.let { Text("Last refresh failed: $it", color = Bubblegum, fontSize = 14.sp) }
+        app.syncError?.let { Text("Last refresh failed: $it", color = Coral, fontSize = 14.sp) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = { scope.launch { app.sync() } }) { Text("Refresh now") }
             if (confirmUnlink) {
