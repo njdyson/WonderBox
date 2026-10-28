@@ -146,10 +146,10 @@
 <section id="mainView" hidden>
   <div id="pairCard"></div>
 
-  <h2>ADD A VIDEO, SONG OR CHANNEL</h2>
+  <h2>ADD A VIDEO, SONG, CHANNEL OR PLAYLIST</h2>
   <form class="row" id="addForm">
-    <input type="url" id="link" class="grow" placeholder="Paste a YouTube video or channel link" autocomplete="off" inputmode="url" enterkeyhint="go">
-    <button id="checkBtn">Check</button>
+    <input type="text" id="link" class="grow" placeholder="Search YouTube, or paste a link" autocomplete="off" autocapitalize="off" enterkeyhint="search">
+    <button id="checkBtn">Search</button>
   </form>
   <div id="adding"></div>
 
@@ -358,11 +358,60 @@ function setLibrary(data) {
 
 $("addForm").onsubmit = (e) => { e.preventDefault(); check(); };
 // Pasting a link checks it straight away.
-$("link").addEventListener("paste", () => setTimeout(check, 0));
+$("link").addEventListener("paste", () => setTimeout(() => isLink($("link").value) && check(), 0));
+$("link").addEventListener("input", () => { $("checkBtn").textContent = isLink($("link").value) ? "Check" : "Search"; });
+
+/** A link (or a bare video, channel or playlist ID) rather than words to search for. */
+function isLink(text) {
+  const s = text.trim();
+  return /^(https?:\/\/|www\.|m\.|youtube\.com|youtu\.be|music\.youtube)/i.test(s) || /^(@[\w.-]+|UC[\w-]{22}|PL[\w-]{16,}|[\w-]{11})$/.test(s) && !/^[a-z]+$/i.test(s);
+}
+
+// --- Searching YouTube ------------------------------------------------------
+
+let searching = null; // {q, type, results} while showing search results
+const SEARCH_TYPES = [["video", "📺 Videos"], ["channel", "Channels"], ["playlist", "Playlists"]];
+
+async function runSearch(q, type) {
+  searching = { q, type, results: null };
+  renderSearch();
+  try {
+    const data = await api(`/api/wonder/search?type=${type}&q=${encodeURIComponent(q)}`);
+    if (searching && searching.q === q && searching.type === type) searching.results = data.results;
+  } catch (e) {
+    if (e instanceof AuthError) return signedOut();
+    if (searching) searching.error = e.message;
+  }
+  renderSearch();
+}
+
+function renderSearch() {
+  if (!searching) return;
+  const { q, type, results, error } = searching;
+  $("adding").replaceChildren(el("div", { className: "card stack" },
+    seg(SEARCH_TYPES, type, (t) => runSearch(q, t)),
+    error ? el("div", { className: "error", style: "margin-top:0", textContent: error })
+      : !results ? el("div", { className: "muted", textContent: `Searching for "${q}"…` })
+      : !results.length ? el("div", { className: "muted", textContent: "Nothing found. Try other words." })
+      : el("div", {}, ...results.map((r) => el("div", { className: "video", style: "cursor:pointer", onclick: () => {
+          searching = null;
+          $("link").value = r.url;
+          $("checkBtn").textContent = "Check";
+          check();
+        } },
+          el("img", { src: r.thumbnail, alt: "", loading: "lazy", className: r.kind === "channel" ? "round" : "" }),
+          el("div", { className: "grow" },
+            el("div", { className: "t", textContent: r.title }),
+            el("div", { className: "muted", textContent: r.kind === "channel" ? "Channel" : r.channel }))))),
+    el("div", { className: "muted", textContent: "SafeSearch is on. Tap one to check it and choose who it's for." }),
+    el("button", { className: "ghost", textContent: "Close", onclick: () => { searching = null; $("link").value = ""; $("checkBtn").textContent = "Search"; $("adding").replaceChildren(); } })));
+}
 
 async function check() {
   const url = $("link").value.trim();
   if (!url) return;
+  if (!isLink(url)) return runSearch(url, searching ? searching.type : "video");
+  searching = null;
   $("checkBtn").disabled = true;
   $("adding").replaceChildren(el("div", { className: "muted", style: "margin-top:10px", textContent: "Checking it will play on the TV…" }));
   try {
@@ -384,9 +433,12 @@ async function check() {
   }
 }
 
-/** The video or channel already in the library that [info] (from a check) is. */
+const isSource = (kind) => kind === "channel" || kind === "playlist";
+const sourceName = (item) => item.kind === "playlist" ? "Playlist" : "Channel";
+
+/** The video, channel or playlist already in the library that [info] (from a check) is. */
 function existingFor(info) {
-  return info.kind === "channel"
+  return isSource(info.kind)
     ? library.channels.find((c) => c.channelId === info.channelId)
     : library.videos.find((v) => v.youtubeId === info.youtubeId);
 }
@@ -402,21 +454,23 @@ const SECTION_OPTIONS = [["videos", "📺 Videos"], ["music", "🎵 Music"]];
 const TIER_HELP = "Treats are locked on the TV until a game is finished; each game won unlocks one treat.";
 
 function renderAdding() {
-  if (!checked) return $("adding").replaceChildren();
+  if (!checked) return searching ? renderSearch() : $("adding").replaceChildren();
   const { info } = checked;
-  const isChannel = info.kind === "channel";
+  const isChannel = isSource(info.kind);
   const already = !!existingFor(info);
   $("adding").replaceChildren(el("div", { className: "card stack" },
     el("div", { className: "preview" },
-      el("img", { src: info.thumbnail, alt: "", className: isChannel ? "round" : "" }),
+      el("img", { src: info.thumbnail, alt: "", className: info.kind === "channel" ? "round" : "" }),
       el("div", { className: "grow" },
-        el("div", { className: "t", textContent: info.title || (isChannel ? "Channel" : "Untitled video") }),
-        el("div", { className: "muted", textContent: isChannel ? `Channel · ${info.videoCount} videos for now` : info.channel }))),
+        el("div", { className: "t", textContent: info.title || (isChannel ? sourceName(info) : "Untitled video") }),
+        el("div", { className: "muted", textContent: isChannel ? `${sourceName(info)}${info.owner ? ` by ${info.owner}` : ""} · ${info.videoCount} videos for now` : info.channel }))),
     isChannel
       ? el("div", { className: "strip" }, ...info.videos.map((v) => el("img", { src: v.thumbnail, alt: v.title, title: v.title, loading: "lazy" })))
       : "",
     el("div", { className: "muted", textContent: isChannel
-      ? "Its newest videos are added now, and new ones every few hours. (Shorts are left out.)"
+      ? info.kind === "playlist"
+        ? "Its videos are added now, and any added to the playlist later come every few hours."
+        : "Its newest videos are added now, and new ones every few hours. (Shorts are left out.)"
       : info.checked === "full"
         ? "✓ Plays on the TV."
         : "✓ Plays outside YouTube. (Age-restricted videos are only caught with a YouTube API key on the server.)" }),
@@ -434,7 +488,7 @@ function renderAdding() {
     seg(TIER_OPTIONS, checked.tier, (v) => { checked.tier = v; renderAdding(); }),
     checked.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
     el("div", { className: "row" },
-      el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : isChannel ? "Add channel" : "Add video", onclick: async (e) => {
+      el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : isChannel ? `Add ${sourceName(info).toLowerCase()}` : "Add video", onclick: async (e) => {
         e.target.disabled = true;
         e.target.textContent = isChannel ? "Getting its videos…" : "Adding…";
         const data = await edit(isChannel ? "/api/wonder/channels/add" : "/api/wonder/videos/add",
@@ -477,18 +531,18 @@ function render() {
       el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(v, "videos") }),
       el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(v, c, "videos") })),
   )) : [el("div", { className: "empty", textContent: c
-    ? `No videos for ${c.name} yet. Paste a YouTube link above.`
+    ? `No videos for ${c.name} yet. Search for some above, or paste a YouTube link.`
     : "Add a child first, then their videos." })]));
 
-  // Channels: one row per channel; the TV shows each as its own row of videos.
+  // Channels and playlists: the TV shows each as its own row of videos.
   const channels = c ? library.channels.filter((ch) => ch.children.includes(c.id)) : [];
   $("channelsHeading").hidden = $("channels").hidden = !channels.length;
-  $("channelsHeading").textContent = c ? `${c.name.toUpperCase()}'S CHANNELS` : "CHANNELS";
+  $("channelsHeading").textContent = c ? `${c.name.toUpperCase()}'S CHANNELS AND PLAYLISTS` : "CHANNELS AND PLAYLISTS";
   $("channels").replaceChildren(...channels.map((ch, i) => el("div", { className: "video" },
-    el("img", { src: ch.thumbnail, alt: "", loading: "lazy", className: "round" }),
+    el("img", { src: ch.thumbnail, alt: "", loading: "lazy", className: ch.kind === "playlist" ? "" : "round" }),
     el("div", { className: "grow", onclick: () => itemSheet(ch, "channels") },
       el("div", { className: "t", textContent: ch.title || ch.channelId }),
-      badges(ch, `${ch.videos.length} videos`)),
+      badges(ch, `${ch.kind === "playlist" ? "Playlist · " : ""}${ch.videos.length} videos`)),
     el("div", { className: "tools" },
       el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => edit("/api/wonder/channels/move", { id: ch.id, delta: -1 }) }),
       el("button", { className: "ghost", textContent: "↓", disabled: i === channels.length - 1, onclick: () => edit("/api/wonder/channels/move", { id: ch.id, delta: 1 }) }),
@@ -629,10 +683,10 @@ function itemSheet(item, kind) {
   const isChannel = kind === "channels";
   const draw = () => openSheet(
     el("div", { className: "preview" },
-      el("img", { src: item.thumbnail, alt: "", className: isChannel ? "round" : "" }),
+      el("img", { src: item.thumbnail, alt: "", className: item.kind === "channel" ? "round" : "" }),
       el("div", { className: "grow" },
         el("div", { className: "t", textContent: item.title }),
-        el("div", { className: "muted", textContent: isChannel ? `Channel · ${item.videos.length} videos` : item.channel }))),
+        el("div", { className: "muted", textContent: isChannel ? `${sourceName(item)} · ${item.videos.length} videos` : item.channel }))),
     el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
     el("div", { className: "kids" }, ...library.children.map((c) => {
       const on = draft.children.includes(c.id);
@@ -644,7 +698,7 @@ function itemSheet(item, kind) {
     seg(SECTION_OPTIONS, draft.section, (v) => { draft.section = v; draw(); }),
     seg(TIER_OPTIONS, draft.tier, (v) => { draft.tier = v; draw(); }),
     draft.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
-    el("button", { textContent: draft.children.length ? "Save" : isChannel ? "Remove channel" : "Remove video", onclick: async () => {
+    el("button", { textContent: draft.children.length ? "Save" : isChannel ? `Remove ${sourceName(item).toLowerCase()}` : "Remove video", onclick: async () => {
       await edit(`/api/wonder/${kind}/update`, { id: item.id, ...draft });
       closeSheet();
     } }),
