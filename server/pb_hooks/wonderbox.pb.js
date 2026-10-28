@@ -46,6 +46,15 @@ routerAdd("POST", "/api/wonder/children/games", (e) => {
 
 // --- Videos ------------------------------------------------------------------
 
+// ?q=words&type=video|channel|playlist: YouTube search results, each with a url to check
+// and add as usual. Needs the YouTube API key.
+routerAdd("GET", "/api/wonder/search", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  lib.requireUser(e)
+  const query = e.request.url.query()
+  return e.json(200, { results: lib.search(query.get("q"), query.get("type")) })
+})
+
 // {url}: a video or channel link. For a video, whether it will play on the TV, and its title
 // and thumbnail; for a channel, its name, picture and latest videos. Errors say why not.
 // The answer's kind is "video" or "channel".
@@ -91,7 +100,7 @@ routerAdd("POST", "/api/wonder/videos/move", (e) => {
 
 // --- Channels ----------------------------------------------------------------
 
-// {url, children: [ids], tier, section}: adds a whole channel at the top; its latest videos come with it.
+// {url, children: [ids], tier, section}: adds a whole channel or a playlist at the top; its videos come with it.
 routerAdd("POST", "/api/wonder/channels/add", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const user = lib.requireUser(e)
