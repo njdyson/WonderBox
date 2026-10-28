@@ -1,6 +1,6 @@
 <resources>
     <style name="Theme.WonderBox" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/night</item>
+        <item name="android:windowBackground">@color/lagoon</item>
     </style>
-    <color name="night">#FF24164F</color>
+    <color name="lagoon">#FF0E5E66</color>
 </resources>

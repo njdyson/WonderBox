@@ -16,8 +16,11 @@ Family photos from the phone show on the TV as a slideshow.
 
 - **Link:** on first start the TV shows a code and a QR code. The parent scans it, signs in
   to the phone app and approves it. Check for update is on this screen too.
-- **Who's watching?** one big face per child. The focused name is read aloud.
-- **A child's screen:** rows, like a TV app. First the games (Maths and Spelling), then
+- **Who's watching?** one big, bobbing face per child: their own picture (uploaded in the
+  phone app) or an animal. The screen turns the focused child's colour and their name is
+  read aloud.
+- **A child's screen:** rows, like a TV app, on a screen of their own colour so they can tell
+  it's theirs. First the games (Maths and Spelling), then
   their videos, their music, and a row for each channel. Treats come last, locked: finishing
   a game (10 right answers by default) unlocks one, and the child picks any treat.
 - **Games:** answers are big buttons picked with the remote, and every question is read
@@ -51,3 +54,17 @@ Needs JDK 17 and the Android SDK (`platforms;android-35`, `build-tools;35.0.0`):
 ```
 `WONDERBOX_SERVER_URL=http://…` builds an app that talks to a test server instead of
 https://wonder.psybob.uk.
+
+The unit tests include `ScreenshotsTest`, which renders the main TV screens to
+`app/build/screenshots/` (Robolectric and Roborazzi, no emulator needed). The Build APK
+workflow uploads them as the `tv-screenshots` artifact, so every pull request comes with
+pictures of the TV.
+
+## Artwork and fonts
+
+- Avatar animals: [Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (3D style) by
+  Microsoft, MIT licence. Copies in `app/src/main/assets/avatars/` and
+  `server/pb_public/avatars/`, named by code point.
+- Font: [Fredoka](https://fonts.google.com/specimen/Fredoka), SIL Open Font Licence, in
+  `app/src/main/res/font/` (medium and bold cut from the variable font).
+- Licence texts ship in the APK under `assets/licences/`.

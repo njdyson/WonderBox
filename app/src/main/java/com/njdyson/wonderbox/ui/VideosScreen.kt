@@ -1,7 +1,11 @@
 package com.njdyson.wonderbox.ui
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +42,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -80,6 +85,7 @@ fun VideosScreen(
     val treatsLeft = app.treatsFor(child.id)
     val hasTreats = shelves.any { it.treat }
     val color = parseColor(child.color)
+    val ink = color.onColor()
     // The focused card ("games/Maths", "photos/<id>" or a video's ID), so focus comes back to it after a video.
     var focusedKey by rememberSaveable(child.id) { mutableStateOf<String?>(null) }
     var focusedVideo by remember { mutableStateOf<Video?>(null) }
@@ -105,110 +111,123 @@ fun VideosScreen(
                     },
                     focusedId = focusedKey?.removePrefix("photos/").takeIf { focusedKey?.startsWith("photos/") == true && !focusTreats },
                     focusModifier = Modifier.focusRequester(restore),
+                    ink = ink,
                 )
             }
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Night)) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(Modifier.size(52.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
-                Text(child.avatar.ifBlank { child.name.take(1).uppercase() }, fontSize = 28.sp, color = Deep, fontWeight = FontWeight.Black)
+    PlayBackground(color) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Box(Modifier.size(64.dp).background(color, CircleShape).border(4.dp, Color.White, CircleShape)) {
+                    ChildFace(child, app.serverUrl, textSize = 32.sp, shape = CircleShape)
+                }
+                Text(child.name, color = ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                if (hasTreats) TreatCount(treatsLeft)
+                Box(Modifier.weight(1f))
+                message?.let {
+                    Text(
+                        it,
+                        color = Ink,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.background(Color.White, RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+                Logo(boxColor = if (ink == Ink) Ink else Color.White)
             }
-            Text(child.name, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
-            if (hasTreats) TreatCount(treatsLeft)
-            Box(Modifier.weight(1f))
-            message?.let { Text(it, color = Sunshine, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
-            Logo()
-        }
 
-        LazyColumn(
-            state = list,
-            contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            item(key = "games") {
-                RowTitle(if (hasTreats) "Play a game to win a treat" else "Games")
-                Row(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                    Game.entries.forEach { game ->
-                        val key = "games/${game.name}"
-                        GameTile(
-                            game,
-                            level = if (game == Game.Maths) child.games.maths else child.games.spelling,
-                            onClick = { onGame(game) },
-                            onFocus = {
-                                focusedKey = key
-                                focusedVideo = null
-                            },
-                            modifier = if (key == (focusedKey ?: "games/${Game.Maths.name}")) Modifier.focusRequester(restore) else Modifier,
-                        )
+            LazyColumn(
+                state = list,
+                contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                item(key = "games") {
+                    RowTitle(if (hasTreats) "Play a game to win a treat" else "Games", ink)
+                    Row(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        Game.entries.forEach { game ->
+                            val key = "games/${game.name}"
+                            GameTile(
+                                game,
+                                level = if (game == Game.Maths) child.games.maths else child.games.spelling,
+                                onClick = { onGame(game) },
+                                onFocus = {
+                                    focusedKey = key
+                                    focusedVideo = null
+                                },
+                                modifier = if (key == (focusedKey ?: "games/${Game.Maths.name}")) Modifier.focusRequester(restore) else Modifier,
+                            )
+                        }
                     }
                 }
-            }
-            shelves.forEachIndexed { row, shelf ->
-                if (row + 1 == firstTreatRow) photosRow()
-                item(key = shelf.key) {
-                    val locked = shelf.treat && treatsLeft == 0
-                    Column {
-                        RowTitle(if (shelf.treat) "⭐ ${shelf.title}" else shelf.title, shelf.picture)
-                        LazyRow(
-                            contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 10.dp, bottom = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(26.dp),
-                        ) {
-                            itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
-                                val treatFocus = focusTreats && row + 1 == firstTreatRow && i == 0
-                                VideoCard(
-                                    video,
-                                    locked = locked,
-                                    onClick = {
-                                        when {
-                                            !video.isTreat -> onPlay(video)
-                                            app.spendTreat(child.id) -> {
-                                                EventLog.log("reward.unlock", child.id, subject = video.youtubeId) {
-                                                    put("reason", "quiz.finish")
-                                                    put("tier", video.tier)
-                                                    put("title", video.title)
+                shelves.forEachIndexed { row, shelf ->
+                    if (row + 1 == firstTreatRow) photosRow()
+                    item(key = shelf.key) {
+                        val locked = shelf.treat && treatsLeft == 0
+                        Column {
+                            RowTitle(if (shelf.treat) "⭐ ${shelf.title}" else shelf.title, ink, shelf.picture)
+                            LazyRow(
+                                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 10.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(26.dp),
+                            ) {
+                                itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
+                                    val treatFocus = focusTreats && row + 1 == firstTreatRow && i == 0
+                                    VideoCard(
+                                        video,
+                                        locked = locked,
+                                        ink = ink,
+                                        tilt = if (i % 2 == 0) -2f else 2f,
+                                        onClick = {
+                                            when {
+                                                !video.isTreat -> onPlay(video)
+                                                app.spendTreat(child.id) -> {
+                                                    EventLog.log("reward.unlock", child.id, subject = video.youtubeId) {
+                                                        put("reason", "quiz.finish")
+                                                        put("tier", video.tier)
+                                                        put("title", video.title)
+                                                    }
+                                                    onPlay(video)
                                                 }
-                                                onPlay(video)
-                                            }
-                                            else -> {
-                                                app.say("Play a game to unlock a treat!")
-                                                message = "🔒 Play a game to unlock a treat!"
-                                                scope.launch {
-                                                    focusedKey = "games/${Game.Maths.name}"
-                                                    list.animateScrollToItem(0)
-                                                    restore.requestFocusWhenReady()
-                                                    delay(3_000)
-                                                    message = null
+                                                else -> {
+                                                    app.say("Play a game to unlock a treat!")
+                                                    message = "🔒 Play a game to unlock a treat!"
+                                                    scope.launch {
+                                                        focusedKey = "games/${Game.Maths.name}"
+                                                        list.animateScrollToItem(0)
+                                                        restore.requestFocusWhenReady()
+                                                        delay(3_000)
+                                                        message = null
+                                                    }
                                                 }
                                             }
-                                        }
-                                    },
-                                    onFocus = {
-                                        focusedKey = video.id
-                                        focusedVideo = video
-                                    },
-                                    modifier = if (treatFocus || (!focusTreats && video.id == focusedKey)) Modifier.focusRequester(restore) else Modifier,
-                                )
+                                        },
+                                        onFocus = {
+                                            focusedKey = video.id
+                                            focusedVideo = video
+                                        },
+                                        modifier = if (treatFocus || (!focusTreats && video.id == focusedKey)) Modifier.focusRequester(restore) else Modifier,
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
-            if (firstTreatRow < 0) photosRow()
-            if (shelves.isEmpty()) {
-                item(key = "empty") {
-                    Text(
-                        "No videos yet. Ask a grown-up to add some!",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 22.sp,
-                        modifier = Modifier.padding(start = 48.dp, top = 30.dp),
-                    )
+                if (firstTreatRow < 0) photosRow()
+                if (shelves.isEmpty()) {
+                    item(key = "empty") {
+                        Text(
+                            "No videos yet. Ask a grown-up to add some!",
+                            color = ink,
+                            fontSize = 24.sp,
+                            modifier = Modifier.padding(start = 48.dp, top = 30.dp),
+                        )
+                    }
                 }
             }
         }
@@ -241,7 +260,7 @@ fun VideosScreen(
 }
 
 @Composable
-private fun RowTitle(text: String, picture: String = "") {
+private fun RowTitle(text: String, ink: Color, picture: String = "") {
     Row(
         Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -250,7 +269,7 @@ private fun RowTitle(text: String, picture: String = "") {
         if (picture.isNotBlank()) {
             AsyncImage(model = picture, contentDescription = null, modifier = Modifier.size(30.dp).clip(CircleShape))
         }
-        Text(text, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = ink, fontSize = 24.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -259,25 +278,28 @@ private fun RowTitle(text: String, picture: String = "") {
 private fun TreatCount(count: Int) {
     Text(
         if (count > 0) "⭐ $count" else "🔒",
-        color = if (count > 0) Deep else Color.White,
+        color = if (count > 0) Ink else Color.White,
         fontSize = 20.sp,
         fontWeight = FontWeight.Black,
         modifier = Modifier
-            .background(if (count > 0) Sunshine else Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+            .background(if (count > 0) Color.White else Ink.copy(alpha = 0.3f), RoundedCornerShape(50))
             .padding(horizontal = 14.dp, vertical = 4.dp),
     )
 }
 
 @Composable
 private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = if (game == Game.Maths) listOf(Sky, Color(0xFF2C7DA0)) else listOf(Bubblegum, Color(0xFFC2185B))
+    val colors = if (game == Game.Maths) listOf(Color(0xFF4D96FF), Color(0xFF2B5FD9)) else listOf(Color(0xFFA259FF), Color(0xFF6A2BD9))
     Surface(
         onClick = onClick,
         modifier = modifier.width(280.dp).height(104.dp).onFocusChanged { if (it.isFocused) onFocus() },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(6.dp, Sunshine), shape = RoundedCornerShape(24.dp))),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(3.dp, Color.White.copy(alpha = 0.7f)), shape = RoundedCornerShape(24.dp)),
+            focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = RoundedCornerShape(24.dp)),
+        ),
     ) {
         Row(
             Modifier.fillMaxSize().background(Brush.linearGradient(colors)).padding(horizontal = 22.dp),
@@ -294,20 +316,36 @@ private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () ->
 }
 
 @Composable
-private fun VideoCard(video: Video, locked: Boolean, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+private fun VideoCard(
+    video: Video,
+    locked: Boolean,
+    ink: Color,
+    tilt: Float,
+    onClick: () -> Unit,
+    onFocus: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var focused by remember { mutableStateOf(false) }
-    Column(Modifier.width(256.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Tilts a little when focused, like a sticker being picked up.
+    val rotation by animateFloatAsState(
+        if (focused) tilt else 0f,
+        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "tilt",
+    )
+    Column(Modifier.width(256.dp).graphicsLayer { rotationZ = rotation }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
             onClick = onClick,
             modifier = modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged {
                 if (it.isFocused) onFocus()
                 focused = it.isFocused
             },
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Deep, focusedContainerColor = Deep),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Ink, focusedContainerColor = Ink),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+            // A white edge like a sticker: thin normally, thick when chosen.
             border = ClickableSurfaceDefaults.border(
-                focusedBorder = Border(BorderStroke(6.dp, Sunshine), shape = RoundedCornerShape(18.dp)),
+                border = Border(BorderStroke(3.dp, Color.White.copy(alpha = 0.7f)), shape = RoundedCornerShape(20.dp)),
+                focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = RoundedCornerShape(20.dp)),
             ),
         ) {
             // hqdefault is 4:3 with black bars; cropping to 16:9 removes them.
@@ -318,23 +356,24 @@ private fun VideoCard(video: Video, locked: Boolean, onClick: () -> Unit, onFocu
                 modifier = Modifier.fillMaxSize(),
             )
             if (locked) {
-                Box(Modifier.fillMaxSize().background(Deep.copy(alpha = 0.62f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().background(Ink.copy(alpha = 0.62f)), contentAlignment = Alignment.Center) {
                     Text("🔒", fontSize = 44.sp)
                 }
             } else if (video.isTreat) {
                 Text(
                     "⭐",
                     fontSize = 22.sp,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Sunshine, CircleShape).padding(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Tangerine, CircleShape).padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             }
         }
         // Fixed height, so rows line up whatever the title length.
         Text(
             video.title,
-            color = if (focused) Sunshine else Color.White.copy(alpha = 0.85f),
-            fontSize = 15.sp,
-            fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
+            color = if (focused) ink else ink.copy(alpha = 0.8f),
+            fontSize = 16.sp,
+            lineHeight = 20.sp,
+            fontWeight = if (focused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.height(40.dp).padding(horizontal = 4.dp),

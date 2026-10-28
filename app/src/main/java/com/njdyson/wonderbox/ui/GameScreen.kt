@@ -80,7 +80,7 @@ fun GameScreen(
     DisposableEffect(Unit) { onDispose { app.stopSpeaking() } }
 
     Box(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Night, Deep))),
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink))),
     ) {
         if (finished) {
             Finished(child, hasTreats, onPickTreat, onPlayAgain = {
@@ -138,9 +138,9 @@ fun GameScreen(
 private fun Progress(right: Int, goal: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (goal <= 15) {
-            repeat(goal) { i -> Text("★", fontSize = 26.sp, color = if (i < right) Sunshine else Color.White.copy(alpha = 0.18f)) }
+            repeat(goal) { i -> Text("★", fontSize = 26.sp, color = if (i < right) Tangerine else Color.White.copy(alpha = 0.18f)) }
         } else {
-            Text("★ $right / $goal", fontSize = 26.sp, color = Sunshine, fontWeight = FontWeight.Bold)
+            Text("★ $right / $goal", fontSize = 26.sp, color = Tangerine, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -248,10 +248,10 @@ private fun AnswerButton(text: String, wide: Boolean, faded: Boolean, highlight:
         modifier = modifier.height(120.dp).widthIn(min = if (wide) 200.dp else 120.dp).alpha(if (faded) 0.3f else 1f),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(28.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (highlight) Leaf else Plum,
-            contentColor = if (highlight) Deep else Color.White,
-            focusedContainerColor = if (highlight) Leaf else Sunshine,
-            focusedContentColor = Deep,
+            containerColor = if (highlight) Leaf else Reef,
+            contentColor = if (highlight) Ink else Color.White,
+            focusedContainerColor = if (highlight) Leaf else Tangerine,
+            focusedContentColor = Ink,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(5.dp, Color.White), shape = RoundedCornerShape(28.dp))),
@@ -280,7 +280,7 @@ private fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit, 
         verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically),
     ) {
         Text("🎉", fontSize = 110.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
-        Text("You did it, ${child.name}!", color = Sunshine, fontSize = 48.sp, fontWeight = FontWeight.Black)
+        Text("You did it, ${child.name}!", color = Tangerine, fontSize = 48.sp, fontWeight = FontWeight.Black)
         Text(
             if (hasTreats) "You've won a treat ⭐" else "Brilliant work!",
             color = Color.White,
@@ -301,10 +301,10 @@ fun BigButton(text: String, modifier: Modifier, onClick: () -> Unit) {
         modifier = modifier,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Plum,
+            containerColor = Reef,
             contentColor = Color.White,
-            focusedContainerColor = Sunshine,
-            focusedContentColor = Deep,
+            focusedContainerColor = Tangerine,
+            focusedContentColor = Ink,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
     ) {

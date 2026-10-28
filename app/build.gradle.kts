@@ -54,6 +54,11 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        // ScreenshotsTest renders the TV screens to app/build/screenshots (Robolectric + Roborazzi).
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all { it.systemProperty("roborazzi.test.record", "true") }
+    }
 }
 
 dependencies {
@@ -69,4 +74,9 @@ dependencies {
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

@@ -81,7 +81,7 @@ fun LinkScreen(app: AppState, resumeCount: Int) {
     }
 
     Row(
-        Modifier.fillMaxSize().background(Night).padding(48.dp),
+        Modifier.fillMaxSize().background(Lagoon).padding(48.dp),
         horizontalArrangement = Arrangement.spacedBy(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -100,7 +100,7 @@ fun LinkScreen(app: AppState, resumeCount: Int) {
             if (current != null) {
                 Text("1. Scan the code with your phone, or open ${app.serverUrl.removePrefix("https://")}", color = Color.White, fontSize = 16.sp)
                 Text("2. Sign in, then choose Link this TV.", color = Color.White, fontSize = 16.sp)
-                Text(current.chunked(3).joinToString(" "), color = Sunshine, fontSize = 44.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
+                Text(current.chunked(3).joinToString(" "), color = Tangerine, fontSize = 44.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
             }
             Text(message, color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp)
             Column(Modifier.focusRequester(updateFocus)) { UpdateButton(resumeCount) }
