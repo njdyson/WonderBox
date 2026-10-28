@@ -34,11 +34,10 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
-import com.njdyson.wonderbox.data.Photo
 
 /** "Who's watching?": one big face per child. The grown-ups' button sits quietly in the corner. */
 @Composable
-fun ProfileScreen(app: AppState, lastChildId: String?, onPick: (Child) -> Unit, onPhotos: () -> Unit, onGrownUps: () -> Unit) {
+fun ProfileScreen(app: AppState, lastChildId: String?, onPick: (Child) -> Unit, onGrownUps: () -> Unit) {
     val children = app.library.children
     val first = remember { FocusRequester() }
     Box(Modifier.fillMaxSize().background(Night)) {
@@ -70,10 +69,6 @@ fun ProfileScreen(app: AppState, lastChildId: String?, onPick: (Child) -> Unit, 
                             onFocus = { app.speak(child.name) },
                             modifier = if (i == focusIndex) Modifier.focusRequester(first) else Modifier,
                         )
-                    }
-                    // Family photos are for everyone, so they sit beside the faces rather than under one child.
-                    app.photos.firstOrNull()?.let { newest ->
-                        PhotosButton(app, newest, onClick = onPhotos, onFocus = { app.speak("Photos") })
                     }
                 }
             }
@@ -115,43 +110,6 @@ private fun Face(child: Child, onClick: () -> Unit, onFocus: () -> Unit, modifie
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(200.dp),
-        )
-    }
-}
-
-/** The way into the family photos: a round picture of the newest one, sized like a face. */
-@Composable
-private fun PhotosButton(app: AppState, newest: Photo, onClick: () -> Unit, onFocus: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Surface(
-            onClick = onClick,
-            modifier = Modifier.size(170.dp).onFocusChanged {
-                if (it.isFocused && !focused) onFocus()
-                focused = it.isFocused
-            },
-            shape = ClickableSurfaceDefaults.shape(CircleShape),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Sky, focusedContainerColor = Sky),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
-            border = ClickableSurfaceDefaults.border(
-                border = Border(BorderStroke(5.dp, Sky), shape = CircleShape),
-                focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = CircleShape),
-            ),
-        ) {
-            PhotoThumb(app, newest, Modifier.fillMaxSize())
-            Text(
-                "📷",
-                fontSize = 34.sp,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 10.dp),
-            )
-        }
-        Text(
-            "Photos",
-            color = if (focused) Sunshine else Color.White,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
             modifier = Modifier.width(200.dp),
         )
     }

@@ -17,8 +17,9 @@ Simple learning games come later.
   to the phone app and approves it. Check for update is on this screen too.
 - **Who's watching?** one big face per child. The focused name is read aloud.
 - **Videos:** that child's videos as big thumbnails, three across. OK plays.
-- **Photos** (beside the faces, once there are any): the family photos full screen, newest
-  first. Left and right flip through them, OK plays or stops a slideshow, Back goes home.
+- **Photos** (a row under each child's videos, once there are any; every child sees the same
+  ones): OK on a photo shows it full screen. Left and right flip through them, OK plays or
+  stops a slideshow, Back goes back to the child's screen.
 - **Player:** full screen. OK pauses, left and right skip 10 seconds, Back closes. Paused
   and finished videos are covered, so YouTube's suggestions never show. A video that won't
   play gets a friendly screen; it never opens the YouTube app.

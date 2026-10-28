@@ -5,10 +5,17 @@ import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -31,8 +38,12 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.imageLoader
@@ -44,15 +55,16 @@ import kotlinx.coroutines.delay
 private const val SLIDE_MS = 6_000L
 
 /**
- * The family photos, one at a time, filling the screen. Left and right flip through them
- * (wrapping round at the ends), OK starts or stops the slideshow, Back goes home. The next
- * and previous photos load in the background so flipping is instant.
+ * The family photos, one at a time, filling the screen, starting from [start]. Left and right
+ * flip through them (wrapping round at the ends), OK starts or stops the slideshow, Back goes
+ * back to the child's screen. The next and previous photos load in the background so flipping
+ * is instant. Every child sees the same photos; [childId] is who's looking.
  */
 @Composable
-fun PhotosScreen(app: AppState) {
+fun PhotosScreen(app: AppState, @Suppress("UNUSED_PARAMETER") childId: String, start: Int = 0) {
     val context = LocalContext.current
     val photos = app.photos
-    var index by rememberSaveable { mutableStateOf(0) }
+    var index by rememberSaveable { mutableStateOf(start) }
     var playing by rememberSaveable { mutableStateOf(false) }
     // The counter and hint show for a few seconds after each key press, then get out of the way.
     var pressed by remember { mutableStateOf(0) }
@@ -148,9 +160,52 @@ private fun photoRequest(context: Context, app: AppState, photo: Photo, crossfad
         .crossfade(if (crossfade) 400 else 0)
         .build()
 
-/** The newest photo's thumbnail, for the Photos button on the faces screen. */
+/**
+ * "Photos": a row of thumbnails, newest first, for a child's screen. OK on one opens the
+ * slideshow there ([onOpen] gets its index). Shows nothing until there are photos.
+ */
 @Composable
-fun PhotoThumb(app: AppState, photo: Photo, modifier: Modifier = Modifier) {
+fun PhotosRow(
+    app: AppState,
+    onOpen: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    firstModifier: Modifier = Modifier,
+    edge: Dp = 48.dp,
+) {
+    val photos = app.photos
+    if (photos.isEmpty()) return
+    Column(modifier) {
+        Text(
+            "📷 Photos",
+            color = Color.White,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = edge, end = edge, top = 6.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(start = edge, end = edge, top = 10.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(26.dp),
+        ) {
+            itemsIndexed(photos, key = { _, p -> p.id }) { i, photo ->
+                Surface(
+                    onClick = { onOpen(i) },
+                    modifier = (if (i == 0) firstModifier else Modifier).width(256.dp).aspectRatio(16f / 9f),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Deep, focusedContainerColor = Deep),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    border = ClickableSurfaceDefaults.border(
+                        focusedBorder = Border(BorderStroke(6.dp, Sunshine), shape = RoundedCornerShape(18.dp)),
+                    ),
+                ) {
+                    PhotoThumb(app, photo, Modifier.fillMaxSize())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoThumb(app: AppState, photo: Photo, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     AsyncImage(
         model = ImageRequest.Builder(context)

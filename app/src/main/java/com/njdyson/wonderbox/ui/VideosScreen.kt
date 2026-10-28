@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -50,12 +51,13 @@ import com.njdyson.wonderbox.player.PlayerWebView
 import kotlinx.coroutines.delay
 
 /**
- * One child's videos: a grid of big thumbnails, three across, so about six fit on screen.
+ * One child's videos: a grid of big thumbnails, three across, so about six fit on screen,
+ * with the family photos in a row underneath.
  * The focused one's title is read aloud, and after a moment its player starts loading in
  * the background so it starts quickly when chosen.
  */
 @Composable
-fun VideosScreen(app: AppState, child: Child, onPlay: (Video) -> Unit) {
+fun VideosScreen(app: AppState, child: Child, onPlay: (Video) -> Unit, onPhoto: (Int) -> Unit) {
     val context = LocalContext.current
     val videos = app.library.videosFor(child.id)
     val color = parseColor(child.color)
@@ -78,8 +80,14 @@ fun VideosScreen(app: AppState, child: Child, onPlay: (Video) -> Unit) {
         }
 
         if (videos.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No videos yet. Ask a grown-up to add some!", color = Color.White.copy(alpha = 0.8f), fontSize = 24.sp)
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+                Text(
+                    "No videos yet. Ask a grown-up to add some!",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 24.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 40.dp),
+                )
+                PhotosRow(app, onPhoto, firstModifier = Modifier.focusRequester(first))
             }
         } else {
             LazyVerticalGrid(
@@ -99,13 +107,19 @@ fun VideosScreen(app: AppState, child: Child, onPlay: (Video) -> Unit) {
                         modifier = if (i == focusedIndex.coerceAtMost(videos.lastIndex)) Modifier.focusRequester(first) else Modifier,
                     )
                 }
+                item(key = "photos", span = { GridItemSpan(maxLineSpan) }) {
+                    // The grid already indents it; a little room so the focused photo can grow.
+                    PhotosRow(app, onPhoto, Modifier.padding(top = 12.dp), edge = 14.dp)
+                }
             }
         }
     }
 
-    LaunchedEffect(videos.size) {
+    LaunchedEffect(videos.size, app.photos.isEmpty()) {
         if (videos.isNotEmpty()) {
             grid.scrollToItem(focusedIndex.coerceAtMost(videos.lastIndex))
+            first.requestFocusWhenReady()
+        } else if (app.photos.isNotEmpty()) {
             first.requestFocusWhenReady()
         }
     }

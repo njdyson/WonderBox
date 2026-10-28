@@ -25,7 +25,7 @@ import kotlinx.coroutines.delay
 private sealed interface Screen {
     data object Profiles : Screen
     data class Videos(val childId: String) : Screen
-    data object Photos : Screen
+    data class Photos(val childId: String, val start: Int) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -71,7 +71,6 @@ class MainActivity : ComponentActivity() {
                             lastChildId = it.id
                             open(Screen.Videos(it.id))
                         },
-                        onPhotos = { open(Screen.Photos) },
                         onGrownUps = { open(Screen.Gate) },
                     )
                     is Screen.Videos -> {
@@ -80,13 +79,18 @@ class MainActivity : ComponentActivity() {
                             // Removed in the phone app while open.
                             LaunchedEffect(Unit) { back() }
                         } else {
-                            VideosScreen(app, child, onPlay = {
-                                app.stopSpeaking()
-                                startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title))
-                            })
+                            VideosScreen(
+                                app,
+                                child,
+                                onPlay = {
+                                    app.stopSpeaking()
+                                    startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title))
+                                },
+                                onPhoto = { open(Screen.Photos(child.id, it)) },
+                            )
                         }
                     }
-                    Screen.Photos -> PhotosScreen(app)
+                    is Screen.Photos -> PhotosScreen(app, screen.childId, screen.start)
                     Screen.Gate -> GrownUpGate(onPassed = {
                         stack.removeAt(stack.lastIndex)
                         open(Screen.Settings)
