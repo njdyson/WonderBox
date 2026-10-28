@@ -87,8 +87,17 @@ const SPELLING_TYPES = [["first", "First letter"], ["missing", "Missing letter"]
   ["hear", "Hear it, pick the spelling"], ["hearbuild", "Hear it, spell it"]];
 const CLOCK_TYPES = [["oclock", "O'clock"], ["half", "Half past"], ["quarter", "Quarter past and to"], ["five", "Five minutes"], ["minute", "Any minute"]];
 // The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"]];
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman"];
+const FLAG_LEVELS = [
+  ["UK and Ireland", { regions: ["uk"], types: ["name"], choices: 3 }],
+  ["Well-known flags", { regions: ["uk", "famous"], types: ["name"], choices: 3 }],
+  ["Well-known flags, both ways", { regions: ["uk", "famous"], types: ["name", "flag"], choices: 4 }],
+  ["Europe", { regions: ["europe"], types: ["name", "flag"], choices: 4 }],
+  ["The whole world", { regions: ["europe", "asia", "africa", "americas", "oceania"], types: ["name", "flag"], choices: 4 }],
+];
+const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
+const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"]];
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman"];
 const MAXES = [5, 10, 20, 50, 100];
 
 const sameList = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -102,6 +111,11 @@ function spellingLevelOf(s) {
   if (s.lists.includes("mine")) return 0;
   const key = (x) => JSON.stringify([x.types, x.lists, x.types.every((t) => t === "build") ? 0 : x.choices]);
   return SPELLING_LEVELS.findIndex(([, p]) => key(p) === key(s)) + 1;
+}
+
+function flagLevelOf(s) {
+  const key = (x) => JSON.stringify([x.regions, x.types, x.choices]);
+  return FLAG_LEVELS.findIndex(([, p]) => key(p) === key(s)) + 1;
 }
 
 function clockLevelOf(s) {
@@ -151,10 +165,12 @@ function renderGames(c) {
   const maths = g.mathsSetup || { on: true, ...MATHS_LEVELS[(g.maths || 1) - 1][1], tables: [2, 5, 10] };
   const spelling = g.spellingSetup || { on: true, ...SPELLING_LEVELS[(g.spelling || 1) - 1][1], myWords: [] };
   const clock = g.clockSetup || { on: true, ...CLOCK_LEVELS[(g.clock || 1) - 1][1] };
+  const flags = g.flagSetup || { on: true, ...FLAG_LEVELS[(g.flags || 1) - 1][1] };
   const save = (change) => edit("/api/wonder/children/games", { id: c.id, ...change }).then((d) => d && toast("Saved"));
   const saveMaths = (change) => save({ mathsSetup: { ...maths, ...change } });
   const saveSpelling = (change) => save({ spellingSetup: { ...spelling, ...change } });
   const saveClock = (change) => save({ clockSetup: { ...clock, ...change } });
+  const saveFlags = (change) => save({ flagSetup: { ...flags, ...change } });
   const select = (options, value, onChange) => {
     const s = el("select", { onchange: () => onChange(Number(s.value)) }, ...options.map(([v, label]) => el("option", { value: v, textContent: label, selected: v === value })));
     return s;
@@ -272,6 +288,33 @@ function renderGames(c) {
     }
   }
 
+  // Flags of the world (the clipart picker's flags)
+  const flagLevel = flagLevelOf(flags);
+  const flagKey = `${c.id}/flags`;
+  const flagOpen = openSetups.has(flagKey) || !flagLevel;
+  const flagsPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🏳️ Flags" }),
+      toggle(flags.on, (on) => saveFlags({ on }), "Show the flag game on the TV")));
+  if (flags.on) {
+    flagsPart.append(
+      select([...(flagLevel ? [] : [[0, "Your own mix"]]), ...FLAG_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], flagLevel,
+        (v) => v && saveFlags({ ...FLAG_LEVELS[v - 1][1] })),
+      el("button", { type: "button", className: "more", textContent: flagOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
+        openSetups[flagOpen ? "delete" : "add"](flagKey);
+        renderGames(c);
+      } }));
+    if (flagOpen) {
+      flagsPart.append(
+        el("div", { className: "sub-h", textContent: "Which flags" }),
+        chips(FLAG_REGIONS, flags.regions, (regions) => regions.length && saveFlags({ regions })),
+        el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
+        chips(FLAG_TYPES, flags.types, (types) => types.length && saveFlags({ types })),
+        el("div", { className: "sub-h", textContent: "Answers to pick from" }),
+        seg([2, 3, 4].map((n) => [n, String(n)]), flags.choices, (choices) => saveFlags({ choices })),
+        el("div", { className: "muted", textContent: "Country names are read out as each answer is picked, for children who can't read them yet." }));
+    }
+  }
+
   // Photo jigsaws
   const jigsaw = g.jigsaw ?? 3;
   const jigsawPart = el("div", { className: "game" },
@@ -351,7 +394,8 @@ function renderGames(c) {
   $("games").replaceChildren(
     mathsPart,
     spellingPart,
-    clockPart);
+    clockPart,
+    flagsPart);
   $("playGames").replaceChildren(
     hangmanPart,
     jigsawPart,

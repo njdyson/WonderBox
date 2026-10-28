@@ -54,13 +54,13 @@ public link. Every child sees the same photos.
 ## Games and quizzes
 
 Each child's `games` in the library has their levels and round size, plus `mathsSetup`,
-`spellingSetup` and `clockSetup`: exactly what each game asks (see `pb_hooks/quizzes_lib.js`). Picking a level
+`spellingSetup`, `clockSetup` and `flagSetup`: exactly what each game asks (see `pb_hooks/quizzes_lib.js`). Picking a level
 in the phone app sets that level's setup; changing any part makes it the child's own mix.
-`POST /api/wonder/children/games` takes any of `{id, maths, spelling, clock, roundSize,
-mathsSetup, spellingSetup, clockSetup, treatGames, jigsaw, sounds}`. `treatGames` lists the
-games that win a treat (`maths`, `spelling`, `clock`, `quizzes`, `hangman`, `memory`,
+`POST /api/wonder/children/games` takes any of `{id, maths, spelling, clock, flags, roundSize,
+mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames, jigsaw, sounds}`. `treatGames` lists the
+games that win a treat (`maths`, `spelling`, `clock`, `flags`, `quizzes`, `hangman`, `memory`,
 `jigsaw`); until it's set, all but memory pairs and jigsaws. The clock and `treatGames` are
-kept in `children.game_setup` (as `clock`, `clockLevel` and `treats`). The TV makes the questions up from the setup. `jigsaw` is the
+kept in `children.game_setup` (as `clock`, `clockLevel`, `flags`, `flagLevel` and `treats`). The TV makes the questions up from the setup. `jigsaw` is the
 photo jigsaw's pieces along each side, 2 to 5 (3 by default), or 0 for none; it's stored in
 `children.jigsaw_size`, where 0 means not set and 1 means off.
 

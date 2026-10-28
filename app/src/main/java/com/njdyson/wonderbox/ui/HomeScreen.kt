@@ -239,6 +239,7 @@ private val TILE_COLORS = listOf(
     listOf(Color(0xFFFF8A3D), Color(0xFFD9541B)),
     listOf(Color(0xFF2EC4B6), Color(0xFF13867C)),
     listOf(Color(0xFFFF5C7A), Color(0xFFD12E55)),
+    listOf(Color(0xFF3FB950), Color(0xFF1E7A33)),
 )
 
 @Composable
@@ -247,6 +248,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
         Game.Clock -> TILE_COLORS[3]
+        Game.Flags -> TILE_COLORS[5]
         null -> when (game.key) {
             JIGSAW -> TILE_COLORS[2]
             HANGMAN -> TILE_COLORS[4]

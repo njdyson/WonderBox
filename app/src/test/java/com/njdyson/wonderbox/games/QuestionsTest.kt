@@ -22,8 +22,10 @@ class QuestionsTest {
                 assertEquals(where, q.answer.toList().sorted(), q.choices.map { it.single() }.sorted())
                 assertTrue(where, q.choices.joinToString("") != q.answer)
             } else {
-                assertTrue(where, q.answer in q.choices)
-                assertEquals(where, q.choices.size, q.choices.distinct().size)
+                // Flags to pick from are pictures, told apart by their names.
+                val names = q.choiceNames.ifEmpty { q.choices }
+                assertTrue(where, q.answer in names)
+                assertEquals(where, names.size, names.distinct().size)
                 assertTrue(where, q.choices.size >= 3)
                 assertTrue(where, q.choices.indices.count { q.isRight(it) } == 1)
             }
@@ -155,6 +157,7 @@ class QuestionsTest {
         MathsSetup.PRESETS.forEachIndexed { i, p -> assertEquals(i + 1, p.level()) }
         SpellingSetup.PRESETS.forEachIndexed { i, p -> assertEquals(i + 1, p.level()) }
         ClockSetup.PRESETS.forEachIndexed { i, p -> assertEquals(i + 1, p.level()) }
+        FlagSetup.PRESETS.forEachIndexed { i, p -> assertEquals(i + 1, p.level()) }
         assertEquals(0, ClockSetup.preset(1).copy(choices = 4).level())
         assertEquals(0, MathsSetup.preset(3).copy(max = 20).level())
         // Changing which tables doesn't matter to a level without times tables.
@@ -253,5 +256,36 @@ class QuestionsTest {
         // Other words get none.
         val other = SpellingQuestions.question(SpellingSetup(types = listOf("pick"), lists = listOf("long")), random)
         assertTrue(other.sounds.isEmpty())
+    }
+
+    @Test
+    fun flagQuestionsAreFair() {
+        val codes = FlagQuestions.COUNTRIES.map { it.code }
+        assertEquals(codes.size, codes.distinct().size)
+        assertTrue(FlagQuestions.COUNTRIES.size > 150)
+        for (code in FlagQuestions.UK + FlagQuestions.FAMOUS) assertTrue(code, code in codes)
+        for (region in FlagQuestions.REGIONS) assertTrue(region, FlagQuestions.pool(listOf(region)).size >= 4)
+        for (region in FlagQuestions.REGIONS) for (type in listOf("name", "flag")) for (choices in 2..4) {
+            val setup = FlagSetup(regions = listOf(region), types = listOf(type), choices = choices)
+            val pool = FlagQuestions.pool(listOf(region))
+            repeat(60) {
+                val q = FlagQuestions.question(setup, random)
+                val where = "$setup: $q"
+                val country = FlagQuestions.COUNTRIES.first { it.code == q.topic }
+                assertTrue(where, country in pool)
+                assertEquals(where, choices, q.choices.size)
+                assertEquals(where, 1, q.choices.indices.count { q.isRight(it) })
+                if (type == "flag") {
+                    assertEquals(where, country.picture, q.choicePictures[q.answerIndex])
+                    assertEquals(where, choices, q.choicePictures.distinct().size)
+                    assertEquals(where, country.name, q.describe(q.answerIndex))
+                    assertTrue(where, q.choices.all { it.isEmpty() })
+                } else {
+                    assertEquals(where, country.picture, q.picture)
+                    assertEquals(where, choices, q.choices.distinct().size)
+                }
+                assertTrue(where, q.picture.isEmpty() || q.picture.startsWith("/clipart/flags/"))
+            }
+        }
     }
 }

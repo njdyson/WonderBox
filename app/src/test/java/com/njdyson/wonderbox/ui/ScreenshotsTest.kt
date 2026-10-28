@@ -1,7 +1,9 @@
 package com.njdyson.wonderbox.ui
 
 import android.content.Context
+import java.io.File
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
@@ -40,6 +42,7 @@ import com.njdyson.wonderbox.games.MyWord
 import com.njdyson.wonderbox.games.Quiz
 import com.njdyson.wonderbox.games.QuizAnswer
 import com.njdyson.wonderbox.games.QuizQuestion
+import com.njdyson.wonderbox.games.FlagSetup
 import com.njdyson.wonderbox.games.SpellingSetup
 import com.njdyson.wonderbox.games.gamesFor
 import org.junit.Rule
@@ -186,6 +189,7 @@ class ScreenshotsTest {
 
     private fun game(child: Child, key: String, name: String) {
         val app = app()
+        fakePhotos(ApplicationProvider.getApplicationContext())
         val entry = app.library.gamesFor(child).first { it.key == key }
         compose.setContent { WonderBoxTheme { GameScreen(app, child, entry, {}, {}, {}, hasTreats = true) } }
         shoot(name)
@@ -194,6 +198,13 @@ class ScreenshotsTest {
     @Test fun game() = game(jesse, "maths", "game-maths")
 
     @Test fun gameClock() = game(jesse, "clock", "game-clock")
+
+    @Test fun gameFlags() = game(jesse, "flags", "game-flags")
+
+    @Test fun gameFlagsPick() {
+        val pick = jesse.copy(games = jesse.games.copy(flagSetup = FlagSetup(regions = listOf("famous"), types = listOf("flag"), choices = 4)))
+        game(pick, "flags", "game-flags-pick")
+    }
 
     @Test fun gamePhonics() {
         val phonics = jesse.copy(games = jesse.games.copy(spellingSetup = SpellingSetup(types = listOf("missing"), lists = listOf("phase2"))))
@@ -327,6 +338,12 @@ class ScreenshotsTest {
                 add(object : Interceptor {
                     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
                         val url = chain.request.data.toString()
+                        // The flags are in the repo, as the server serves them.
+                        val flag = Regex("/clipart/flags/([a-z-]+)\\.png").find(url)?.groupValues?.get(1)
+                        if (flag != null) {
+                            val bitmap = BitmapFactory.decodeFile(File("../server/pb_public/clipart/flags/$flag.png").absolutePath)
+                            return SuccessResult(BitmapDrawable(context.resources, bitmap), chain.request, DataSource.MEMORY)
+                        }
                         if ("/api/wonder/photos/" !in url) return chain.proceed(chain.request)
                         val n = Regex("p(\\d)").find(url)?.groupValues?.get(1)?.toInt() ?: 1
                         return SuccessResult(BitmapDrawable(context.resources, picture(n)), chain.request, DataSource.MEMORY)
