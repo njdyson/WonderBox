@@ -46,6 +46,7 @@ about it.
 | `channel.open` | channel id | | `name` | A channel is opened. |
 | `quiz.answer` | game id, e.g. `maths.add`, `spelling` | 1 right, 0 wrong | `question`, `answer`, `expected`, `level` | Each answer. |
 | `quiz.finish` | game id | score (number right) | `total`, `seconds`, `level` | A round ends. |
+| `reward.earn` | `treat` | | `reason`, `game` | A finished game round wins a treat to pick. |
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason`, `tier` | A treat or reward is unlocked. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 

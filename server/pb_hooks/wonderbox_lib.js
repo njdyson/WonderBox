@@ -44,6 +44,10 @@ function videoRecords(userId) {
   return toArray($app.findRecordsByFilter("videos", "user = {:u}", "sort,created", 5000, 0, { u: userId }))
 }
 
+function channelRecords(userId) {
+  return toArray($app.findRecordsByFilter("channels", "user = {:u}", "sort,created", 500, 0, { u: userId }))
+}
+
 function toArray(records) {
   const list = []
   for (let i = 0; i < records.length; i++) list.push(records[i])
@@ -59,6 +63,7 @@ function library(userId) {
       avatar: c.getString("avatar"),
       color: c.getString("color"),
       picture: pictureUrl(c),
+      games: games(c),
     })),
     videos: videoRecords(userId).map((v) => ({
       id: v.id,
@@ -67,8 +72,70 @@ function library(userId) {
       channel: v.getString("channel"),
       thumbnail: v.getString("thumbnail"),
       children: v.getStringSlice("children"),
+      tier: tier(v.getString("tier")),
+      section: section(v.getString("section")),
+    })),
+    channels: channelRecords(userId).map((c) => ({
+      id: c.id,
+      channelId: c.getString("channel_id"),
+      title: c.getString("title"),
+      thumbnail: c.getString("thumbnail"),
+      children: c.getStringSlice("children"),
+      tier: tier(c.getString("tier")),
+      section: section(c.getString("section")),
+      videos: channelVideos(c),
+      refreshed: c.getString("refreshed"),
     })),
   }
+}
+
+/** "treat" or "free": anything else (including empty, for videos added before tiers) is free. */
+function tier(value) {
+  return value === "treat" ? "treat" : "free"
+}
+
+/** "music" (the TV's Music row) or "videos". */
+function section(value) {
+  return value === "music" ? "music" : "videos"
+}
+
+const GAME_DEFAULTS = { maths: 1, spelling: 1, roundSize: 10 }
+
+/** A child's game settings, with defaults for anything not set yet. */
+function games(child) {
+  return {
+    maths: child.getInt("maths_level") || GAME_DEFAULTS.maths,
+    spelling: child.getInt("spelling_level") || GAME_DEFAULTS.spelling,
+    roundSize: child.getInt("round_size") || GAME_DEFAULTS.roundSize,
+  }
+}
+
+/** {id, maths, spelling, roundSize}: how hard a child's games are. */
+function saveGames(userId, body) {
+  const child = own("children", body.id, userId)
+  const clamp = (value, min, max, fallback) => {
+    const n = Math.round(Number(value))
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
+  }
+  const current = games(child)
+  child.set("maths_level", clamp(body.maths, 1, MATHS_LEVELS, current.maths))
+  child.set("spelling_level", clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling))
+  child.set("round_size", clamp(body.roundSize, 3, 30, current.roundSize))
+  $app.save(child)
+}
+
+// The TV app has this many levels of each game (app/.../games).
+const MATHS_LEVELS = 6
+const SPELLING_LEVELS = 5
+
+/** The stored video list of a channel, as plain objects. */
+function channelVideos(channel) {
+  // A JSON field comes back as raw bytes.
+  let list = []
+  try {
+    list = JSON.parse(toString(channel.get("videos")) || "[]")
+  } catch (_) {}
+  return Array.isArray(list) ? list : []
 }
 
 /** A record of the user's, or a 404. */
@@ -146,7 +213,7 @@ function setPicture(userId, e) {
   $app.save(record)
 }
 
-/** Removes a child. Videos that were only theirs go too; shared ones stay for the others. */
+/** Removes a child. Videos and channels that were only theirs go too; shared ones stay for the others. */
 function removeChild(userId, id) {
   const child = own("children", id, userId)
   for (const video of videoRecords(userId)) {
@@ -158,6 +225,17 @@ function removeChild(userId, id) {
       $app.save(video)
     } else {
       $app.delete(video)
+    }
+  }
+  for (const channel of channelRecords(userId)) {
+    const kids = channel.getStringSlice("children")
+    if (!kids.includes(child.id)) continue
+    const rest = kids.filter((k) => k !== child.id)
+    if (rest.length) {
+      channel.set("children", rest)
+      $app.save(channel)
+    } else {
+      $app.delete(channel)
     }
   }
   $app.delete(child)
@@ -258,7 +336,7 @@ function checkVideo(text) {
 }
 
 /** Checks and adds a video for [childIds], or updates who it's for if it's already there. New ones go first. */
-function addVideo(userId, text, childIds) {
+function addVideo(userId, text, childIds, tierValue, sectionValue) {
   const kids = ownChildIds(childIds, userId)
   if (!kids.length) throw new BadRequestError("Choose who it's for.")
   const info = checkVideo(text)
@@ -279,8 +357,236 @@ function addVideo(userId, text, childIds) {
   record.set("title", info.title)
   record.set("channel", info.channel)
   record.set("thumbnail", info.thumbnail)
+  if (tierValue !== undefined) record.set("tier", tier(tierValue))
+  if (sectionValue !== undefined) record.set("section", section(sectionValue))
   $app.save(record)
   return record
+}
+
+// --- Channels ----------------------------------------------------------------
+
+const CHANNEL_VIDEO_LIMIT = 50
+// YouTube's cookie for "rejected all" on the consent page, so a server in the UK or EU
+// gets the channel page rather than the consent form.
+const YOUTUBE_HEADERS = { "Cookie": "SOCS=CAI", "Accept-Language": "en-GB,en;q=0.8", "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" }
+
+/**
+ * What a channel link points at: {id} for a /channel/UC… link or bare ID, otherwise {path}
+ * (the part after youtube.com, such as "/@numberblocks" or "/c/name"). Null if it isn't one.
+ */
+function parseChannel(text) {
+  const s = String(text || "").trim()
+  if (/^UC[A-Za-z0-9_-]{22}$/.test(s)) return { id: s }
+  if (/^@[\w.-]{2,}$/.test(s)) return { path: "/" + s }
+  const m = s.match(/(?:^|\/\/|\.)youtube\.com(\/(?:channel\/(UC[A-Za-z0-9_-]{22})|@[^/?#]+|c\/[^/?#]+|user\/[^/?#]+))/)
+  if (!m) return null
+  return m[2] ? { id: m[2] } : { path: m[1] }
+}
+
+/** The response body as text. */
+function bodyText(res) {
+  if (typeof res.raw === "string" && res.raw) return res.raw
+  return res.body ? toString(res.body) : ""
+}
+
+function decodeEntities(s) {
+  return String(s || "")
+    .replace(/&quot;/g, "\"").replace(/&#39;|&#x27;|&apos;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&amp;/g, "&")
+}
+
+/** Finds a channel's ID, name and picture from its page, so @handles and /c/ links work without an API key. */
+function channelFromPage(path) {
+  const res = $http.send({ url: `https://www.youtube.com${path}`, headers: YOUTUBE_HEADERS, timeout: 20 })
+  if (res.statusCode === 404) throw new BadRequestError("Couldn't find that channel. Check the link.")
+  if (res.statusCode !== 200) throw new ApiError(502, "Couldn't reach YouTube to look up that channel. Try again in a minute.")
+  const html = bodyText(res)
+  const id = (html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[A-Za-z0-9_-]{22})"/) ||
+    html.match(/"externalId":"(UC[A-Za-z0-9_-]{22})"/) || [])[1]
+  if (!id) throw new ApiError(502, "YouTube didn't say which channel that is. Try the link from the channel's About page.")
+  const meta = (name) => decodeEntities((html.match(new RegExp(`<meta property="og:${name}" content="([^"]*)"`)) || [])[1] || "")
+  return { channelId: id, title: meta("title"), thumbnail: meta("image") }
+}
+
+/** The channel's details from the YouTube Data API, or null if the API can't help. */
+function channelFromApi(ref, key) {
+  let query
+  if (ref.id) query = `id=${ref.id}`
+  else if (ref.path.startsWith("/@")) query = `forHandle=${encodeURIComponent(decodeURIComponent(ref.path.slice(1)))}`
+  else if (ref.path.startsWith("/user/")) query = `forUsername=${encodeURIComponent(ref.path.slice(6))}`
+  else return null
+  const res = $http.send({ url: `https://www.googleapis.com/youtube/v3/channels?part=snippet&${query}&key=${encodeURIComponent(key)}`, timeout: 15 })
+  if (res.statusCode !== 200 || !res.json) return null
+  const item = (res.json.items || [])[0]
+  if (!item) throw new BadRequestError("Couldn't find that channel. Check the link.")
+  const thumbs = (item.snippet || {}).thumbnails || {}
+  return {
+    channelId: item.id,
+    title: (item.snippet || {}).title || "",
+    thumbnail: ((thumbs.high || thumbs.medium || thumbs.default) || {}).url || "",
+  }
+}
+
+/** A channel's ID, name and picture from any channel link. */
+function resolveChannel(text) {
+  const ref = parseChannel(text)
+  if (!ref) return null
+  const key = $os.getenv("YOUTUBE_API_KEY")
+  if (key) {
+    const found = channelFromApi(ref, key)
+    if (found) return found
+  }
+  return channelFromPage(ref.id ? `/channel/${ref.id}` : ref.path)
+}
+
+/**
+ * The channel's latest videos, newest first, without Shorts. With YOUTUBE_API_KEY: up to 50,
+ * each checked to play embedded on the TV. Without: the 15 in YouTube's feed, unchecked.
+ */
+function fetchChannelVideos(channelId) {
+  const key = $os.getenv("YOUTUBE_API_KEY")
+  if (key) {
+    const viaApi = channelVideosFromApi(channelId, key)
+    if (viaApi) return { videos: viaApi, complete: true }
+  }
+  const res = $http.send({ url: `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, headers: YOUTUBE_HEADERS, timeout: 20 })
+  if (res.statusCode === 404) throw new BadRequestError("That channel has no public videos.")
+  if (res.statusCode !== 200) throw new ApiError(502, "Couldn't reach YouTube to get that channel's videos. Try again in a minute.")
+  const videos = []
+  for (const entry of bodyText(res).split("<entry>").slice(1)) {
+    const id = (entry.match(/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/) || [])[1]
+    if (!id || /href="https:\/\/www\.youtube\.com\/shorts\//.test(entry)) continue
+    videos.push({ youtubeId: id, title: decodeEntities((entry.match(/<title>([^<]*)<\/title>/) || [])[1]), thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })
+  }
+  return { videos, complete: false }
+}
+
+/** Null if the API fails (quota, bad key), so the feed can be used instead. */
+function channelVideosFromApi(channelId, key) {
+  // UULF… is the channel's uploads without Shorts or live streams; UU… is every upload.
+  let items = null
+  for (const prefix of ["UULF", "UU"]) {
+    const res = $http.send({
+      url: `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=${CHANNEL_VIDEO_LIMIT}&playlistId=${prefix}${channelId.slice(2)}&key=${encodeURIComponent(key)}`,
+      timeout: 15,
+    })
+    if (res.statusCode === 200 && res.json) {
+      items = res.json.items || []
+      break
+    }
+    if (res.statusCode !== 404) return null
+  }
+  if (!items) return []
+  const ids = items.map((i) => (i.contentDetails || {}).videoId).filter(Boolean)
+  if (!ids.length) return []
+  const res = $http.send({
+    url: `https://www.googleapis.com/youtube/v3/videos?part=snippet,status,contentDetails&id=${ids.join(",")}&key=${encodeURIComponent(key)}`,
+    timeout: 15,
+  })
+  if (res.statusCode !== 200 || !res.json) return null
+  const byId = {}
+  for (const item of res.json.items || []) byId[item.id] = item
+  const videos = []
+  for (const id of ids) {
+    const item = byId[id]
+    if (!item) continue
+    const status = item.status || {}
+    const details = item.contentDetails || {}
+    const region = details.regionRestriction || {}
+    if (status.privacyStatus === "private" || status.embeddable === false) continue
+    if ((details.contentRating || {}).ytRating === "ytAgeRestricted") continue
+    if ((region.blocked || []).includes("GB") || (region.allowed && !region.allowed.includes("GB"))) continue
+    if ((item.snippet || {}).liveBroadcastContent !== "none") continue
+    videos.push({ youtubeId: id, title: (item.snippet || {}).title || "", thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })
+  }
+  return videos
+}
+
+/**
+ * Fetches a channel's latest videos into its record. Without an API key the feed only has the
+ * latest 15, so videos seen before are kept (up to 50) and the list grows over time.
+ */
+function refreshChannel(record) {
+  const fetched = fetchChannelVideos(record.getString("channel_id"))
+  let list = fetched.videos
+  if (!fetched.complete) {
+    const seen = new Set(list.map((v) => v.youtubeId))
+    list = list.concat(channelVideos(record).filter((v) => !seen.has(v.youtubeId)))
+  }
+  record.set("videos", list.slice(0, CHANNEL_VIDEO_LIMIT))
+  record.set("refreshed", new Date().toISOString())
+  $app.save(record)
+  return record
+}
+
+/** Every channel, every few hours (see the cron job in wonderbox.pb.js). One failing doesn't stop the rest. */
+function refreshAllChannels() {
+  const all = $app.findRecordsByFilter("channels", "id != ''", "refreshed", 2000, 0)
+  for (const record of all) {
+    try {
+      refreshChannel(record)
+    } catch (e) {
+      console.log(`Wonder Box: couldn't refresh channel ${record.getString("channel_id")}: ${e}`)
+    }
+  }
+}
+
+/** A video or channel link: its details, with kind "video" or "channel". Errors say why it can't be added. */
+function checkLink(text) {
+  if (parseYouTubeId(text) || !parseChannel(text)) return { kind: "video", ...checkVideo(text) }
+  const channel = resolveChannel(text)
+  const { videos } = fetchChannelVideos(channel.channelId)
+  if (!videos.length) throw new BadRequestError("That channel has no videos that will play on the TV.")
+  return { kind: "channel", ...channel, videos: videos.slice(0, 8), videoCount: videos.length }
+}
+
+/** Adds a channel for [childIds], or updates who it's for if it's already there. New ones go first. */
+function addChannel(userId, text, childIds, tierValue, sectionValue) {
+  const kids = ownChildIds(childIds, userId)
+  if (!kids.length) throw new BadRequestError("Choose who it's for.")
+  const info = resolveChannel(text)
+  if (!info) throw new BadRequestError("That doesn't look like a YouTube channel link.")
+  let record = null
+  try {
+    record = $app.findFirstRecordByFilter("channels", "user = {:u} && channel_id = {:c}", { u: userId, c: info.channelId })
+  } catch (_) {}
+  if (record) {
+    record.set("children", [...new Set([...record.getStringSlice("children"), ...kids])])
+  } else {
+    record = new Record($app.findCollectionByNameOrId("channels"))
+    record.set("user", userId)
+    record.set("channel_id", info.channelId)
+    const first = channelRecords(userId)[0]
+    record.set("sort", first ? first.getInt("sort") - 1 : 0)
+    record.set("children", kids)
+  }
+  record.set("title", info.title)
+  record.set("thumbnail", info.thumbnail)
+  if (tierValue !== undefined) record.set("tier", tier(tierValue))
+  if (sectionValue !== undefined) record.set("section", section(sectionValue))
+  refreshChannel(record)
+  return record
+}
+
+/**
+ * {id, children, tier, section}: who a video or channel is for, whether it's a treat, and
+ * whether it's music. Any of them can be left out. No children left removes it.
+ */
+function updateItem(collection, userId, body) {
+  const record = own(collection, body.id, userId)
+  if (body.children !== undefined) {
+    const kids = ownChildIds(body.children, userId)
+    if (!kids.length) {
+      $app.delete(record)
+      return
+    }
+    record.set("children", kids)
+  }
+  if (body.tier !== undefined) record.set("tier", tier(body.tier))
+  if (body.section !== undefined) record.set("section", section(body.section))
+  $app.save(record)
 }
 
 // --- Linking a TV ----------------------------------------------------------
@@ -311,7 +617,8 @@ function cleanupPairings() {
 }
 
 module.exports = {
-  caller, requireUser, library, own, ownChildIds, childRecords, move, saveChild, setPicture, removeChild,
-  moveVideo, parseYouTubeId, checkVideo, addVideo, newPairingCode, findPairing, cleanupPairings,
+  caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
+  saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, checkLink, addChannel,
+  refreshChannel, refreshAllChannels, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,
 }

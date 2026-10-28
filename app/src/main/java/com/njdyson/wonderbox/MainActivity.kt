@@ -12,7 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.player.PlayerActivity
+import com.njdyson.wonderbox.ui.GameScreen
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
 import com.njdyson.wonderbox.ui.LinkScreen
@@ -21,10 +23,12 @@ import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.VideosScreen
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.put
 
 private sealed interface Screen {
     data object Profiles : Screen
     data class Videos(val childId: String) : Screen
+    data class Playing(val childId: String, val game: Game) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -43,6 +47,8 @@ class MainActivity : ComponentActivity() {
             val app = remember { AppState(applicationContext).also { this.app = it } }
             val stack = remember { mutableStateListOf<Screen>(Screen.Profiles) }
             var lastChildId by remember { mutableStateOf<String?>(null) }
+            // Just won a treat: the videos screen goes straight to the treats.
+            var pickingTreat by remember { mutableStateOf(false) }
 
             // The parent can change the videos from the phone at any time.
             LaunchedEffect(resumeCount.intValue, app.linked) { app.sync() }
@@ -81,10 +87,46 @@ class MainActivity : ComponentActivity() {
                             // Removed in the phone app while open.
                             LaunchedEffect(Unit) { back() }
                         } else {
-                            VideosScreen(app, child, onPlay = {
-                                app.stopSpeaking()
-                                startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title, it.channel, child.id))
-                            })
+                            VideosScreen(
+                                app,
+                                child,
+                                onPlay = {
+                                    app.stopSpeaking()
+                                    startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title, it.channel, child.id))
+                                },
+                                onGame = { open(Screen.Playing(child.id, it)) },
+                                focusTreats = pickingTreat,
+                                onTreatsFocused = { pickingTreat = false },
+                            )
+                        }
+                    }
+                    is Screen.Playing -> {
+                        val child = app.library.children.firstOrNull { it.id == screen.childId }
+                        if (child == null) {
+                            LaunchedEffect(Unit) { back() }
+                        } else {
+                            val hasTreats = app.library.shelvesFor(child.id).any { it.treat }
+                            GameScreen(
+                                app,
+                                child,
+                                screen.game,
+                                hasTreats = hasTreats,
+                                onFinished = {
+                                    if (hasTreats) {
+                                        app.earnTreat(child.id)
+                                        // A treat to pick; reward.unlock is logged when it's picked.
+                                        EventLog.log("reward.earn", child.id, subject = "treat") {
+                                            put("reason", "quiz.finish")
+                                            put("game", screen.game.name.lowercase())
+                                        }
+                                    }
+                                },
+                                onPickTreat = {
+                                    pickingTreat = true
+                                    back()
+                                },
+                                onBack = { back() },
+                            )
                         }
                     }
                     Screen.Gate -> GrownUpGate(onPassed = {

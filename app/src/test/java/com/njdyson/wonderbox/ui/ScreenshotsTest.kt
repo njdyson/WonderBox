@@ -7,8 +7,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.Library
+import com.njdyson.wonderbox.data.MUSIC
+import com.njdyson.wonderbox.data.TREAT
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.json
+import com.njdyson.wonderbox.games.Game
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,7 +31,9 @@ class ScreenshotsTest {
     private fun app(): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo")
-        val videos = titles.mapIndexed { i, title -> Video("v$i", "aqz-KE-bpKQ", title, children = listOf("c1", "c2")) }
+        val videos = titles.mapIndexed { i, title ->
+            Video("v$i", "aqz-KE-bpKQ", title, children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos")
+        }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
             .putString("library", json.encodeToString(Library.serializer(), Library(listOf(summer, jesse), videos)))
@@ -55,8 +60,14 @@ class ScreenshotsTest {
 
     @Test fun videos() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}) } }
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}, {}) } }
         shoot("videos-summer")
+    }
+
+    @Test fun game() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { GameScreen(app, summer, Game.Maths, {}, {}, {}, hasTreats = true) } }
+        shoot("game-maths")
     }
 
     @Test fun settings() {
@@ -72,7 +83,7 @@ class ScreenshotsTest {
 
     @Test fun videosJesse() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, jesse, {}) } }
+        compose.setContent { WonderBoxTheme { VideosScreen(app, jesse, {}, {}) } }
         shoot("videos-jesse")
     }
 }

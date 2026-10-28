@@ -2,7 +2,8 @@
 
 A Fire TV Stick app for two children, with a phone app for the parent. The parent picks
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
-YouTube can be reached. Photos and simple learning games come later.
+YouTube can be reached. Whole channels can be added, music gets its own row, and "treat"
+videos are unlocked by finishing a maths or spelling game.
 
 | Folder | What it is |
 |---|---|
@@ -17,8 +18,14 @@ YouTube can be reached. Photos and simple learning games come later.
 - **Who's watching?** one big, bobbing face per child: their own picture (uploaded in the
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
-- **Videos:** that child's videos as big thumbnails, three across, on a screen of their own
-  colour so they can tell it's theirs. OK plays.
+- **A child's screen:** rows, like a TV app, on a screen of their own colour so they can tell
+  it's theirs. First the games (Maths and Spelling), then
+  their videos, their music, and a row for each channel. Treats come last, locked: finishing
+  a game (10 right answers by default) unlocks one, and the child picks any treat.
+- **Games:** answers are big buttons picked with the remote, and every question is read
+  aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
+  to the 2, 5 and 10 times tables), spelling five (first letter up to spelling the whole
+  word); each child's levels and round length are set in the phone app.
 - **Player:** full screen. OK pauses, left and right skip 10 seconds, Back closes. Paused
   and finished videos are covered, so YouTube's suggestions never show. A video that won't
   play gets a friendly screen; it never opens the YouTube app.
