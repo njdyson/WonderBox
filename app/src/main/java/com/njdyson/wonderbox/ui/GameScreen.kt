@@ -446,6 +446,8 @@ internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.padding(top = 12.dp)) {
             if (hasTreats) BigButton("⭐ Pick a treat", Modifier.focusRequester(first), onPickTreat)
+            // The treat waits on the Treats tile, to pick there later.
+            if (hasTreats) BigButton("Save for later", Modifier, onBack)
             BigButton("Play again", if (hasTreats) Modifier else Modifier.focusRequester(first), onPlayAgain)
             if (!hasTreats) BigButton("Back", Modifier, onBack)
         }

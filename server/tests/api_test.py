@@ -278,6 +278,11 @@ try:
 
     lib = call("POST", "/api/wonder/videos/move", {"id": zoo, "delta": -1, "child": sam}, token)
     assert [v["id"] for v in lib["videos"]] == [zoo, bunny]
+    # The phone names the neighbour it shows when it lists one kind at a time.
+    lib = call("POST", "/api/wonder/videos/move", {"id": zoo, "delta": 1, "child": sam, "other": bunny}, token)
+    assert [v["id"] for v in lib["videos"]] == [bunny, zoo]
+    lib = call("POST", "/api/wonder/videos/move", {"id": zoo, "delta": -1, "child": sam, "other": bunny}, token)
+    assert [v["id"] for v in lib["videos"]] == [zoo, bunny]
     lib = call("POST", "/api/wonder/videos/update", {"id": zoo, "children": [jo]}, token)
     assert lib["videos"][0]["children"] == [jo]
 

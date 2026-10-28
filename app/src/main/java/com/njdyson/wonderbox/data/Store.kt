@@ -1,6 +1,7 @@
 package com.njdyson.wonderbox.data
 
 import android.content.Context
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 
@@ -33,6 +34,13 @@ class Store(context: Context) {
             runCatching { json.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), it) }.getOrNull()
         } ?: emptyMap()
         set(value) = prefs.edit().putString("treats", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), value)).apply()
+
+    /** Treats each child has picked and not watched yet, by child ID: [Video.id]s, oldest first. */
+    var savedTreats: Map<String, List<String>>
+        get() = prefs.getString("saved_treats", null)?.let {
+            runCatching { json.decodeFromString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), it) }.getOrNull()
+        } ?: emptyMap()
+        set(value) = prefs.edit().putString("saved_treats", json.encodeToString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), value)).apply()
 
     /** Read video titles aloud when they're focused. */
     var speakTitles: Boolean

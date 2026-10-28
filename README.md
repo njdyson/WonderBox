@@ -3,7 +3,7 @@
 A Fire TV Stick app for two children, with a phone app for the parent. The parent picks
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
 YouTube can be reached. Whole channels can be added, music gets its own screen, and "treat"
-videos stay hidden until a game is won, then the child picks one.
+videos are won by finishing games and saved up to watch later.
 Family photos from the phone show on the TV as a slideshow.
 
 | Folder | What it is |
@@ -21,11 +21,12 @@ Family photos from the phone show on the TV as a slideshow.
   read aloud.
 - **A child's home page:** big tiles on a screen of their own colour so they can tell it's
   theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws), Videos, Music
-  and Photos, always in that order, leaving out any with nothing in them. Each opens its own
-  screen; Videos and Music are rows, like a TV app (their own videos, then a row for each
-  channel). Treat videos never show there: finishing a game (10 right answers by default)
-  wins a treat and goes straight to a "Pick a treat!" screen of them. A treat not picked yet
-  shows as a Treats tile, first on the home page, until it is. The parent chooses which
+  and Photos, always in that order, leaving out any with nothing in them, then Treats. Each
+  opens its own screen; Videos and Music are rows, like a TV app (their own videos, then a
+  row for each channel). Treat videos never show there: finishing a game (10 right answers
+  by default) wins a treat, and the child picks one to save (or saves the pick for later)
+  and carries on learning. Saved treats wait in the Treats section (its tile counts them)
+  and watching one uses it up; a won treat not picked yet can be picked there too. The parent chooses which
   games win a treat: maths, spelling, the clock, flags, quizzes and hangman until changed, not
   jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read

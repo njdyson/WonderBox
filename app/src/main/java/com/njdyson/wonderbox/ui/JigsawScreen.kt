@@ -376,6 +376,8 @@ private fun Celebrate(
     if (hasTreats) Text("You've won a treat ⭐", color = Color.White, fontSize = 22.sp)
     if (showButtons) {
         if (hasTreats) BigButton("⭐ Pick a treat", Modifier.focusRequester(firstButton), onPickTreat)
+        // The treat waits on the Treats tile, to pick there later.
+        if (hasTreats) BigButton("Save for later", Modifier, onBack)
         BigButton("🧩 Another", if (hasTreats) Modifier else Modifier.focusRequester(firstButton), onAnother)
         if (!hasTreats) BigButton("Back", Modifier, onBack)
     }

@@ -10,6 +10,8 @@ import com.njdyson.wonderbox.data.Library
 import com.njdyson.wonderbox.data.Server
 import com.njdyson.wonderbox.data.Store
 import com.njdyson.wonderbox.data.UnlinkedException
+import com.njdyson.wonderbox.data.Shelf
+import com.njdyson.wonderbox.data.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -48,13 +50,47 @@ class AppState(context: Context) {
         store.treats = treats
     }
 
-    /** Uses up one of the child's treats; false if they have none. */
-    fun spendTreat(childId: String): Boolean {
+    /** Picked treats waiting in each child's Treats section, as [Video.id]s, by child ID. Kept on this TV. */
+    var savedTreats by mutableStateOf(store.savedTreats)
+        private set
+
+    /**
+     * A child's saved treats, oldest first, that are still in the library (the parent may have
+     * removed one). Each video's ID is "saved/<n>/<id>", n its place in [savedTreats], so the
+     * same treat saved twice shows twice.
+     */
+    fun savedTreatsFor(childId: String): List<Video> {
+        val all = library.treatShelvesFor(childId).flatMap { it.videos }.associateBy { it.id }
+        return savedTreats[childId].orEmpty().mapIndexedNotNull { i, id -> all[id]?.copy(id = "saved/$i/$id") }
+    }
+
+    /** The Treats section's rows: their saved treats, then all the treats while they've one to pick. */
+    fun treatsSectionFor(childId: String): List<Shelf> = buildList {
+        val mine = savedTreatsFor(childId)
+        if (mine.isNotEmpty()) add(Shelf("saved", "My treats", true, mine))
+        if (treatsFor(childId) > 0) {
+            addAll(library.treatShelvesFor(childId).map { it.copy(title = if (it.key == "treats") "Pick one to save" else "Pick one to save: ${it.title}") })
+        }
+    }
+
+    /** Uses up one of the child's treats to save [video] in their Treats section; false if they have none. */
+    fun saveTreat(childId: String, video: Video): Boolean {
         val have = treatsFor(childId)
         if (have <= 0) return false
         treats = treats + (childId to have - 1)
         store.treats = treats
+        savedTreats = savedTreats + (childId to savedTreats[childId].orEmpty() + video.id)
+        store.savedTreats = savedTreats
         return true
+    }
+
+    /** Takes a saved treat (one from [savedTreatsFor]) out of the Treats section, as it's watched. */
+    fun useSavedTreat(childId: String, saved: Video) {
+        val index = saved.id.split("/").getOrNull(1)?.toIntOrNull() ?: return
+        val list = savedTreats[childId].orEmpty()
+        if (index !in list.indices) return
+        savedTreats = savedTreats + (childId to list.filterIndexed { i, _ -> i != index })
+        store.savedTreats = savedTreats
     }
 
     /** The games' sound effects. */

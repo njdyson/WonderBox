@@ -156,9 +156,11 @@ const toggle = (on, onChange, title) =>
 
 /** A child's games, saved as soon as anything changes. */
 function renderGames(c) {
-  $("gamesHeading").hidden = $("games").hidden = !c;
+  // The learning games are in the Quizzes tab; the rest, and the treat rules, in the Games tab.
+  for (const id of ["gamesHeading", "games", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
   if (!c) return;
-  $("gamesHeading").textContent = `${c.name.toUpperCase()}'S GAMES`;
+  $("gamesHeading").textContent = `${c.name.toUpperCase()}'S QUIZZES`;
+  $("playHeading").textContent = `${c.name.toUpperCase()}'S GAMES`;
   const g = c.games || {};
   const maths = g.mathsSetup || { on: true, ...MATHS_LEVELS[(g.maths || 1) - 1][1], tables: [2, 5, 10] };
   const spelling = g.spellingSetup || { on: true, ...SPELLING_LEVELS[(g.spelling || 1) - 1][1], myWords: [] };
@@ -393,17 +395,19 @@ function renderGames(c) {
     mathsPart,
     spellingPart,
     clockPart,
-    flagsPart,
+    flagsPart);
+  $("playGames").replaceChildren(
     hangmanPart,
     jigsawPart,
-    memoryPart,
-    soundsPart,
+    memoryPart);
+  $("treatRules").replaceChildren(
     treatsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
       select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize || 10, (v) => save({ roundSize: v }))),
     el("div", { className: "muted", textContent: hasTreats
       ? TIER_HELP + " A quiz is won by answering all its questions."
-      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }));
+      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }),
+    soundsPart);
 }
 
 // --- Quizzes -----------------------------------------------------------------
