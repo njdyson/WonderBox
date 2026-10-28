@@ -1,6 +1,7 @@
 package com.njdyson.wonderbox.ui
 
 import android.content.Context
+import android.os.SystemClock
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +50,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
+import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.data.Photo
 import kotlinx.coroutines.delay
 
@@ -61,7 +64,7 @@ private const val SLIDE_MS = 6_000L
  * is instant. Every child sees the same photos; [childId] is who's looking.
  */
 @Composable
-fun PhotosScreen(app: AppState, @Suppress("UNUSED_PARAMETER") childId: String, start: Int = 0) {
+fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
     val context = LocalContext.current
     val photos = app.photos
     var index by rememberSaveable { mutableStateOf(start) }
@@ -142,7 +145,14 @@ fun PhotosScreen(app: AppState, @Suppress("UNUSED_PARAMETER") childId: String, s
         delay(SLIDE_MS)
         step(1)
     }
-    // TODO log photo.view (seconds on each photo) once the activity log lands.
+    // The activity log: how long each photo stayed up, logged as it's left.
+    DisposableEffect(photo.id) {
+        val shownAt = SystemClock.elapsedRealtime()
+        onDispose {
+            val seconds = (SystemClock.elapsedRealtime() - shownAt) / 1000.0
+            if (seconds >= 1) EventLog.log("photo.view", childId, subject = photo.id, value = seconds)
+        }
+    }
     // Load the neighbours ahead of time.
     LaunchedEffect(current, photos.size) {
         for (delta in listOf(1, -1, 2)) {

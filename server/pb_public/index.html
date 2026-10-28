@@ -144,6 +144,8 @@
     <div class="muted" id="photosNote">Everyone can look through these on the TV. Photos are made smaller before they're sent, to save space.</div>
     <div class="photos" id="photos"></div>
   </div>
+  <h2>STATS</h2>
+  <div id="stats"></div>
 
   <h2>YOUR TVS</h2>
   <div class="card" id="tvs"></div>
@@ -257,6 +259,7 @@ async function start(user) {
   showPairing();
   loadPhotos();
   loadTvs();
+  loadStats();
 }
 
 async function load() {
@@ -636,5 +639,6 @@ async function loadTvs() {
   }
 })();
 </script>
+<script src="/stats.js"></script>
 </body>
 </html>
