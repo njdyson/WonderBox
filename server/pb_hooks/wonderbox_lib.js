@@ -101,7 +101,10 @@ function section(value) {
   return value === "music" ? "music" : "videos"
 }
 
-const GAME_DEFAULTS = { maths: 1, spelling: 1, roundSize: 10 }
+const GAME_DEFAULTS = { maths: 1, spelling: 1, roundSize: 10, jigsaw: 3 }
+// Photo jigsaws are 2 x 2 up to 5 x 5 pieces; 0 turns them off (stored as 1, since 0 is "not set").
+const JIGSAW_MIN = 2
+const JIGSAW_MAX = 5
 
 /** A child's game settings, with defaults for anything not set yet. */
 function games(child) {
@@ -116,11 +119,18 @@ function games(child) {
     // What each game asks; a child set up before these existed gets their level's.
     mathsSetup: quiz.mathsSetup(stored.maths, maths),
     spellingSetup: quiz.spellingSetup(stored.spelling, spelling),
+    jigsaw: jigsawSize(child.getInt("jigsaw_size")),
   }
 }
 
+function jigsawSize(stored) {
+  if (!stored) return GAME_DEFAULTS.jigsaw
+  return stored === 1 ? 0 : Math.min(JIGSAW_MAX, Math.max(JIGSAW_MIN, stored))
+}
+
 /**
- * {id, maths, spelling, roundSize, mathsSetup, spellingSetup}: how hard a child's games are.
+ * {id, maths, spelling, roundSize, mathsSetup, spellingSetup, jigsaw}: how hard a child's
+ * games are (jigsaw 0 is off).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -151,6 +161,12 @@ function saveGames(userId, body) {
   child.set("spelling_level", spelling)
   child.set("round_size", clamp(body.roundSize, 3, 30, current.roundSize))
   child.set("game_setup", setup)
+  // Left out (an older phone app): left as it is.
+  if (body.jigsaw !== undefined) {
+    const jigsaw = Math.round(Number(body.jigsaw))
+    if (jigsaw === 0) child.set("jigsaw_size", 1)
+    else if (Number.isFinite(jigsaw)) child.set("jigsaw_size", Math.min(JIGSAW_MAX, Math.max(JIGSAW_MIN, jigsaw)))
+  }
   $app.save(child)
 }
 

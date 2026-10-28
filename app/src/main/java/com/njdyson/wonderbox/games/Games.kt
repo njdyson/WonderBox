@@ -4,10 +4,13 @@ import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.Library
 import kotlin.random.Random
 
+/** The photo jigsaw's [GameEntry.key]; it has its own screen (JigsawScreen), not rounds of questions. */
+const val JIGSAW = "jigsaw"
+
 /**
- * A game on a child's screen: maths, spelling (unless the parent turned it off) or one of
- * the parent's quizzes for them. [key] is also the activity log's subject: "maths",
- * "spelling" or "quiz/<id>".
+ * A game on a child's screen: maths, spelling (unless the parent turned it off), a photo
+ * jigsaw or one of the parent's quizzes for them. [key] is also the activity log's subject:
+ * "maths", "spelling" or "quiz/<id>" ([JIGSAW] logs its own events).
  */
 data class GameEntry(
     val key: String,
@@ -62,12 +65,19 @@ fun QuizQuestion.toQuestion(random: Random = Random): Question {
     )
 }
 
-/** The games on [child]'s screen, in order: maths, spelling, then the parent's quizzes. */
-fun Library.gamesFor(child: Child): List<GameEntry> = buildList {
+/**
+ * The games on [child]'s screen, in order: maths, spelling, a jigsaw (when there are
+ * [photos] and the child has jigsaws on), then the parent's quizzes.
+ */
+fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = buildList {
     val maths = child.games.maths()
     if (maths.on) add(GameEntry("maths", Game.Maths.title, Game.Maths.icon, subtitle(maths.level()), Game.Maths))
     val spelling = child.games.spelling()
     if (spelling.on) add(GameEntry("spelling", Game.Spelling.title, Game.Spelling.icon, subtitle(spelling.level()), Game.Spelling))
+    if (photos && child.games.jigsaw > 0) {
+        val size = child.games.jigsaw.coerceIn(JIGSAW_SIZES.first, JIGSAW_SIZES.last)
+        add(GameEntry(JIGSAW, "Jigsaw", "🧩", "$size × $size pieces"))
+    }
     quizzes.filter { child.id in it.children && it.questions.any { q -> q.answers.size >= 2 } }.forEach { quiz ->
         val count = quiz.questions.size
         add(GameEntry("quiz/${quiz.id}", quiz.title.ifBlank { "Quiz" }, quiz.icon.ifBlank { "❓" }, "$count question${if (count == 1) "" else "s"}", quiz = quiz))

@@ -46,7 +46,9 @@ about it.
 | `channel.open` | channel id | | `name` | A channel is opened. |
 | `quiz.answer` | game id: `maths`, `spelling`, or `quiz/<id>` for a parent's quiz | 1 right, 0 wrong | `question`, `answer`, `expected`, `level` (0 for the parent's own setup or a quiz), `kind` (`add`, `sub`, `missing`, `bigger`, `times`, `count`, `first`, `pick`, `build`, `quiz`), `title` (quizzes) | Each answer. |
 | `quiz.finish` | game id | score (number right) | `total`, `wrong`, `seconds`, `level`, `title` (quizzes) | A round ends. |
-| `reward.earn` | `treat` | | `reason`, `game` | A finished game round wins a treat to pick. |
+| `jigsaw.start` | photo id | | `size` (pieces along each side) | A photo jigsaw starts. |
+| `jigsaw.finish` | photo id | number of pieces | `size`, `moves` (swaps), `seconds` | A photo jigsaw is finished. |
+| `reward.earn` | `treat` | | `reason` (`quiz.finish` or `jigsaw.finish`), `game` (`jigsaw` for jigsaws) | A finished game round or jigsaw wins a treat to pick. |
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason`, `tier` | A treat or reward is unlocked. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 

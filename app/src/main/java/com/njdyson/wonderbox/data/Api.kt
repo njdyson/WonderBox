@@ -31,7 +31,8 @@ data class Child(
 /**
  * How hard a child's games are (set in the phone app), and how many right answers earn a treat.
  * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
- * server sends only the levels).
+ * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
+ * 3 x 3), or 0 for no jigsaws.
  */
 @Serializable
 data class GameSettings(
@@ -40,6 +41,7 @@ data class GameSettings(
     val roundSize: Int = 10,
     val mathsSetup: MathsSetup? = null,
     val spellingSetup: SpellingSetup? = null,
+    val jigsaw: Int = 3,
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)

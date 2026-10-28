@@ -57,7 +57,9 @@ Each child's `games` in the library has their levels and round size, plus `maths
 `spellingSetup`: exactly what each game asks (see `pb_hooks/quizzes_lib.js`). Picking a level
 in the phone app sets that level's setup; changing any part makes it the child's own mix.
 `POST /api/wonder/children/games` takes any of `{id, maths, spelling, roundSize, mathsSetup,
-spellingSetup}`. The TV makes the questions up from the setup.
+spellingSetup, jigsaw}`. The TV makes the questions up from the setup. `jigsaw` is the
+photo jigsaw's pieces along each side, 2 to 5 (3 by default), or 0 for none; it's stored in
+`children.jigsaw_size`, where 0 means not set and 1 means off.
 
 Quizzes are in the library as `quizzes`: `{id, title, icon, children, shuffle, questions:
 [{text, picture, answers: [{text, picture}], correct}]}`. Save with `POST

@@ -37,6 +37,12 @@ Family photos from the phone show on the TV as a slideshow.
   emoji) or both. Each quiz is a tile next to Maths and Spelling for the children it's for;
   answering every question wins it (and a treat). Answers are shuffled and read out as
   they're focused.
+- **Jigsaws:** a Jigsaw tile (once there are family photos) turns a photo the child picks
+  into a jumbled jigsaw, 2 x 2 up to 5 x 5 pieces (set per child in the phone app, 3 x 3 by
+  default, or off). Played with just the arrows and OK: OK picks a piece up, the arrows carry
+  it, OK puts it down and it swaps with the piece there. Pieces click into place with a soft
+  chime and stay put, the whole picture is shown alongside, and after a while a carried
+  piece's place is hinted. Finishing one wins a treat. Back puts a carried piece down.
 - **Photos** (a row on each child's screen, before the treats, once there are any; every
   child sees the same ones): OK on a photo shows it full screen. Left and right flip through
   them, OK plays or stops a slideshow, Back goes back to the child's screen.
