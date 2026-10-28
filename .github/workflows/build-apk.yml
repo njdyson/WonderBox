@@ -1,0 +1,58 @@
+name: Build APK
+
+# Builds the debug APK on every push to main and publishes it to the "apk-latest" release,
+# so a Fire Stick can always fetch the newest build from one fixed URL:
+# https://github.com/njdyson/WonderBox/releases/latest/download/WonderBox.apk
+# Pull requests are compiled too (no release), so a broken build shows before merging.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  # Never cancel mid-publish: the release is deleted and recreated in the last step.
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Enough history to list the commits a merge brought in, for the update notes.
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew assembleDebug testDebugUnitTest
+      - run: cp app/build/outputs/apk/debug/app-debug.apk WonderBox.apk
+      # Read by the app's "Check for update" button. The notes are the commit subjects a
+      # merge brought in (or the one commit for a direct push), shown as "What's new".
+      - run: |
+          if git rev-parse -q --verify HEAD^2 >/dev/null; then range="HEAD^1..HEAD"; else range="-1 HEAD"; fi
+          git log --no-merges --format=%s $range | head -n 5 \
+            | jq -R . | jq -s --argjson v "${GITHUB_RUN_NUMBER}" --arg sha "${GITHUB_SHA::7}" \
+                '{versionCode: $v, sha: $sha, notes: .}' > version.json
+          cat version.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WonderBox-apk
+          path: WonderBox.apk
+      - name: Publish to apk-latest release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-latest --cleanup-tag --yes || true
+          gh release create apk-latest WonderBox.apk version.json \
+            --title "Latest APK" \
+            --notes "Build ${GITHUB_RUN_NUMBER}, from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}." \
+            --target "$GITHUB_SHA" \
+            --latest
