@@ -219,7 +219,7 @@ class ScreenshotsTest {
     private fun memory(child: Child, seed: Int, name: String, withPhotos: Boolean = false) {
         val app = app(withPhotos)
         // The same deal as the screen's, to know where a pair is.
-        val faces = deal(ApplicationProvider.getApplicationContext(), child.games.memory, app.photos, Random(seed)).faces
+        val faces = deal(ApplicationProvider.getApplicationContext(), child.games.memory, app.photosFor(child.id), Random(seed)).faces
         compose.setContent { WonderBoxTheme { MemoryScreen(app, child, true, {}, {}, {}, random = Random(seed)) } }
         settle()
         val columns = Memory.columns(faces.size)

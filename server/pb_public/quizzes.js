@@ -278,7 +278,7 @@ function renderGames(c) {
       seg([["clipart", "Animals"], ["photos", "Photos"], ["both", "Both"]], memory.pictures, (pictures) => saveMemory({ pictures })),
       el("div", { className: "muted", textContent: memory.pictures === "clipart"
         ? "Cards with cartoon animals."
-        : "Cards with the family photos from the Photos tab; animals fill in if there aren't enough." }));
+        : `Cards with ${c.name}'s photos from the Photos tab; animals fill in if there aren't enough.` }));
   }
 
   // Sound effects (app/.../ui/Sounds.kt)

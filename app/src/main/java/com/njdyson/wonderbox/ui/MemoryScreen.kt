@@ -73,7 +73,7 @@ fun MemoryScreen(
     onFinished: () -> Unit,
     onPickTreat: () -> Unit,
     onBack: () -> Unit,
-    photos: List<Photo> = app.photos,
+    photos: List<Photo> = app.photosFor(child.id),
     random: Random = Random,
 ) {
     var game by remember { mutableIntStateOf(0) }
