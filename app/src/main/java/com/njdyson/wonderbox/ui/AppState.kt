@@ -1,7 +1,6 @@
 package com.njdyson.wonderbox.ui
 
 import android.content.Context
-import android.speech.tts.TextToSpeech
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,7 +13,6 @@ import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 /** The TV app's state: whether it's linked, the children and videos, treats earned, and the grown-ups' settings. */
 class AppState(context: Context) {
@@ -45,6 +43,24 @@ class AppState(context: Context) {
 
     fun treatsFor(childId: String) = treats[childId] ?: 0
 
+    /** Videos each child has watched all the way through (YouTube IDs), recorded by the player. */
+    var watched by mutableStateOf(store.watched.mapValues { it.value.toSet() })
+        private set
+
+    fun watchedFor(childId: String): Set<String> = watched[childId].orEmpty()
+
+    /**
+     * Picks up what the player recorded while it was on top: videos watched, and treats won by
+     * watching them. Returns the children who won a treat since.
+     */
+    fun reloadFromPlayer(): Set<String> {
+        watched = store.watched.mapValues { it.value.toSet() }
+        val fresh = store.treats
+        val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
+        treats = fresh
+        return won
+    }
+
     fun earnTreat(childId: String) {
         treats = treats + (childId to treatsFor(childId) + 1)
         store.treats = treats
@@ -64,14 +80,9 @@ class AppState(context: Context) {
         return savedTreats[childId].orEmpty().mapIndexedNotNull { i, id -> all[id]?.copy(id = "saved/$i/$id") }
     }
 
-    /** The Treats section's rows: their saved treats, then all the treats while they've one to pick. */
-    fun treatsSectionFor(childId: String): List<Shelf> = buildList {
-        val mine = savedTreatsFor(childId)
-        if (mine.isNotEmpty()) add(Shelf("saved", "My treats", true, mine))
-        if (treatsFor(childId) > 0) {
-            addAll(library.treatShelvesFor(childId).map { it.copy(title = if (it.key == "treats") "Pick one to save" else "Pick one to save: ${it.title}") })
-        }
-    }
+    /** The Treats section's row: only the treats they've won and picked, never the rest. */
+    fun treatsSectionFor(childId: String): List<Shelf> =
+        savedTreatsFor(childId).let { mine -> if (mine.isEmpty()) emptyList() else listOf(Shelf("saved", "My treats", true, mine)) }
 
     /** Uses up one of the child's treats to save [video] in their Treats section; false if they have none. */
     fun saveTreat(childId: String, video: Video): Boolean {
@@ -96,18 +107,8 @@ class AppState(context: Context) {
     /** The games' sound effects. */
     val sounds = Sounds(context.applicationContext)
 
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-
-    init {
-        tts = TextToSpeech(context.applicationContext) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) {
-                tts?.language = Locale.UK
-                tts?.setSpeechRate(0.9f)
-            }
-        }
-    }
+    /** Reads questions and titles aloud: the server's voice, or this TV's. */
+    val voice = Voice(context) { deviceKey?.let { serverUrl to it } }.also { it.serverHasVoice = library.voice }
 
     /** Fetches the latest children and videos. Keeps the cached ones if the network is down. */
     suspend fun sync() {
@@ -117,6 +118,7 @@ class AppState(context: Context) {
             val fresh = withContext(Dispatchers.IO) { server.library() }
             library = fresh
             store.library = fresh
+            voice.serverHasVoice = fresh.voice
             syncError = null
             // Photos are extra: if they fail (say, a server without them yet) the videos still work.
             runCatching { withContext(Dispatchers.IO) { server.photos() } }.onSuccess {
@@ -160,7 +162,7 @@ class AppState(context: Context) {
     fun chooseSpeakTitles(on: Boolean) {
         speakTitles = on
         store.speakTitles = on
-        if (!on) tts?.stop()
+        if (!on) voice.stop()
     }
 
     /** Reads [text] aloud (a 4-year-old can't read the titles), replacing anything still being said. */
@@ -170,16 +172,15 @@ class AppState(context: Context) {
 
     /** Reads [text] aloud even when titles aren't read: the games' questions need it. */
     fun say(text: String) {
-        if (ttsReady && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "focus")
+        voice.say(text)
     }
 
     fun stopSpeaking() {
-        tts?.stop()
+        voice.stop()
     }
 
     fun close() {
-        tts?.shutdown()
-        tts = null
+        voice.close()
         sounds.close()
     }
 }

@@ -113,6 +113,8 @@ fun GameScreen(
                     }
                     Text(entry.title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
                     Box(Modifier.weight(1f))
+                    // Nothing can speak on this TV: say so, rather than leave a silent game.
+                    if (app.voice.silent) Text("🔇 No voice on this TV: see Grown-ups", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp)
                     // Up from the answers: the question again, for spelling a word from its sound.
                     if (question.spoken.isNotBlank()) BigButton("🔊 Hear it again", Modifier) { app.say(question.spoken) }
                     Progress(right, goal)
@@ -446,8 +448,6 @@ internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.padding(top = 12.dp)) {
             if (hasTreats) BigButton("⭐ Pick a treat", Modifier.focusRequester(first), onPickTreat)
-            // The treat waits on the Treats tile, to pick there later.
-            if (hasTreats) BigButton("Save for later", Modifier, onBack)
             BigButton("Play again", if (hasTreats) Modifier else Modifier.focusRequester(first), onPlayAgain)
             if (!hasTreats) BigButton("Back", Modifier, onBack)
         }

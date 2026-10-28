@@ -53,7 +53,7 @@ about it.
 | `hangman.finish` | `hangman` | words found | `missed` (words the balloons ran out on), `seconds` | A game of hangman is finished. |
 | `memory.start` | `memory` | | `pairs`, `pictures` (`clipart`, `photos` or `both`) | A game of memory pairs starts. |
 | `memory.finish` | `memory` | pairs | `pairs`, `flips` (cards turned), `pictures`, `seconds` | Every pair is found. |
-| `reward.earn` | `treat` | | `reason` (`quiz.finish`, `jigsaw.finish`, `hangman.finish` or `memory.finish`), `game` (`jigsaw`, `hangman`, `memory`, or the round's game) | A finished game round, jigsaw, hangman or pairs wins a treat to pick (only the games the parent chose). |
+| `reward.earn` | `treat` | | `reason` (`quiz.finish`, `jigsaw.finish`, `hangman.finish`, `memory.finish` or `video.finish`), `game` (`jigsaw`, `hangman`, `memory`, `videos`, or the round's game), `video` (YouTube ID, for `video.finish`) | A finished game round, jigsaw, hangman or pairs, or a free video watched all the way through for the first time, wins a treat to pick (only what the parent chose). |
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked and saved in the child's Treats section (watching it later logs `video.play`). |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 

@@ -66,6 +66,8 @@ function library(userId) {
       games: games(c),
     })),
     quizzes: require(`${__hooks}/quizzes_lib.js`).quizList(userId),
+    // The server can read things aloud for the TV (speech.pb.js).
+    voice: require(`${__hooks}/speech_lib.js`).available(),
     videos: videoRecords(userId).map((v) => ({
       id: v.id,
       youtubeId: v.getString("youtube_id"),

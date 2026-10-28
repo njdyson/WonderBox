@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.data.GameSettings
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
@@ -127,7 +128,15 @@ class MainActivity : ComponentActivity() {
             }
             fun play(video: Video, childId: String) {
                 app.stopSpeaking()
-                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId))
+                // Watching a whole free video (not music, not a treat) can win a treat, if the parent chose that.
+                val earns = !video.isTreat && !video.isMusic && earnsTreat(childId, GameSettings.VIDEOS)
+                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns))
+            }
+            // Back from a video: tick it if it was watched all through, and pick the treat if that won one.
+            LaunchedEffect(resumeCount.intValue) {
+                val won = app.reloadFromPlayer()
+                val here = stack.last()
+                if (here is Screen.Videos && here.childId in won) open(Screen.PickTreat(here.childId))
             }
             BackHandler(enabled = stack.size > 1) { back() }
 
@@ -158,9 +167,11 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 HomeScreen(app, child, onOpen = {
                                     EventLog.log("category.open", child.id, subject = it.name.lowercase())
+                                // A won treat not picked yet: pick it first, then land in the Treats section with it.
+                                if (it == Category.Treats && app.treatsFor(child.id) > 0) open(Screen.Treats(child.id))
                                     open(
                                         when (it) {
-                                            Category.Treats -> Screen.Treats(child.id)
+                                            Category.Treats -> if (app.treatsFor(child.id) > 0) Screen.PickTreat(child.id) else Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
                                             Category.Videos, Category.Music, Category.Exercise -> Screen.Videos(child.id, it)
                                             Category.Photos -> Screen.PhotoGrid(child.id)
@@ -200,7 +211,7 @@ class MainActivity : ComponentActivity() {
                                     Category.Exercise -> app.library.exerciseShelvesFor(child.id)
                                     else -> app.library.videoShelvesFor(child.id)
                                 }
-                                VideosScreen(app, child, screen.category.title, shelves, onPlay = { play(it, child.id) })
+                                VideosScreen(app, child, screen.category.title, shelves, watched = app.watchedFor(child.id), onPlay = { play(it, child.id) })
                             }
                         }
                         is Screen.Treats -> {
@@ -209,25 +220,17 @@ class MainActivity : ComponentActivity() {
                             if (child == null || catalogue.isEmpty()) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val toPick = app.treatsFor(child.id)
-                                val mine = app.savedTreatsFor(child.id)
-                                val shelves = app.treatsSectionFor(child.id)
+                                // Only the treats they've won and picked; watching one uses it up.
                                 VideosScreen(
                                     app,
                                     child,
                                     Category.Treats.title,
-                                    shelves,
+                                    app.treatsSectionFor(child.id),
                                     stars = true,
                                     empty = "Win a quiz to save up a treat!",
-                                    greeting = if (toPick > 0) "You've a treat to pick!" else null,
                                     onPlay = { video ->
-                                        if (mine.any { it.id == video.id }) {
-                                            // Watching a saved treat uses it up.
-                                            app.useSavedTreat(child.id, video)
-                                            play(video, child.id)
-                                        } else {
-                                            saveTreat(child.id, video)
-                                        }
+                                        app.useSavedTreat(child.id, video)
+                                        play(video, child.id)
                                     },
                                 )
                             }

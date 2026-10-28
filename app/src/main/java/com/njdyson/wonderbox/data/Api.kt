@@ -37,7 +37,8 @@ data class Child(
  * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
  * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
- * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw".
+ * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw",
+ * and "videos" (watching a whole free video, not music, for the first time).
  * [hangman] and [memory] are those games' setups.
  */
 @Serializable
@@ -67,7 +68,10 @@ data class GameSettings(
 
     companion object {
         // The same as the server's, for an older server that doesn't send them.
-        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "quizzes", "hangman")
+        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "quizzes", "hangman", VIDEOS)
+
+        /** The [treatGames] key for watching whole videos. */
+        const val VIDEOS = "videos"
     }
 }
 
@@ -121,6 +125,8 @@ data class Library(
     val quizzes: List<Quiz> = emptyList(),
     val videos: List<Video> = emptyList(),
     val channels: List<Channel> = emptyList(),
+    /** The server can read things aloud in its own voice (GET /api/wonder/speech). */
+    val voice: Boolean = false,
 ) {
     fun videosFor(childId: String) = videos.filter { childId in it.children }
 

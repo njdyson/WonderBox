@@ -86,6 +86,8 @@ fun VideosScreen(
     greeting: String? = null,
     /** Stars on the cards, for treats. */
     stars: Boolean = false,
+    /** YouTube IDs they've watched all the way through: ticked and faded. */
+    watched: Set<String> = emptySet(),
 ) {
     val context = LocalContext.current
     val ink = parseColor(child.color).onColor()
@@ -114,6 +116,7 @@ fun VideosScreen(
                                 VideoCard(
                                     video,
                                     star = stars,
+                                    watched = video.youtubeId in watched,
                                     ink = ink,
                                     tilt = if (i % 2 == 0) -2f else 2f,
                                     onClick = { onPlay(video) },
@@ -179,6 +182,7 @@ private fun RowTitle(text: String, ink: Color, picture: String = "") {
 private fun VideoCard(
     video: Video,
     star: Boolean,
+    watched: Boolean,
     ink: Color,
     tilt: Float,
     onClick: () -> Unit,
@@ -213,8 +217,19 @@ private fun VideoCard(
                 model = video.thumbnail.ifBlank { "https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg" },
                 contentDescription = video.title,
                 contentScale = ContentScale.Crop,
+                // Watched ones fade back, so new ones stand out; full colour again when focused.
+                alpha = if (watched && !focused) 0.45f else 1f,
                 modifier = Modifier.fillMaxSize(),
             )
+            if (watched) {
+                Text(
+                    "✓",
+                    color = Ink,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(Lime, CircleShape).padding(horizontal = 10.dp, vertical = 0.dp),
+                )
+            }
             if (star) {
                 Text(
                     "⭐",
