@@ -45,7 +45,8 @@ routerAdd("POST", "/api/wonder/quizzes/move", (e) => {
 })
 
 // Multipart: "image" (already shrunk by the phone), "source" (optional, e.g. "fluent:Dog").
-// Returns {id, path}. The same source is stored once and reused.
+// Returns {id, path}. The same source is stored once and reused: sending just "source" asks
+// whether it's already here (an empty id if not), so the phone needn't download it again.
 routerAdd("POST", "/api/wonder/quiz-images/add", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const photos = require(`${__hooks}/photos_lib.js`)
@@ -58,6 +59,7 @@ routerAdd("POST", "/api/wonder/quiz-images/add", (e) => {
     } catch (_) {}
   }
   const image = photos.uploaded(e, "image")
+  if (!image && source) return e.json(200, { id: "", path: "" })
   if (!image) throw new BadRequestError("Choose a picture.")
   const record = new Record($app.findCollectionByNameOrId("quiz_images"))
   record.set("user", user.id)

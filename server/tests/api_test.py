@@ -238,6 +238,8 @@ try:
 
     # Quizzes the parent writes, with pictures.
     upload("/api/wonder/quiz-images/add", {"image": b"not a picture"}, {}, token, expect=400)
+    upload("/api/wonder/quiz-images/add", {}, {}, token, expect=400)
+    assert upload("/api/wonder/quiz-images/add", {}, {"source": "fluent:Dog"}, token) == {"id": "", "path": ""}
     pic = upload("/api/wonder/quiz-images/add", {"image": JPEG}, {"source": "fluent:Dog"}, token)
     assert pic["path"] == f"/api/wonder/quiz-images/{pic['id']}", pic
     # The same clipart again is the same picture, without sending it.

@@ -17,13 +17,23 @@ Family photos from the phone show on the TV as a slideshow.
 - **Link:** on first start the TV shows a code and a QR code. The parent scans it, signs in
   to the phone app and approves it. Check for update is on this screen too.
 - **Who's watching?** one big face per child. The focused name is read aloud.
-- **A child's screen:** rows, like a TV app. First the games (Maths and Spelling), then
+- **A child's screen:** rows, like a TV app. First the games (Maths, Spelling and any quizzes
+  the parent wrote for them), then
   their videos, their music, and a row for each channel. Treats come last, locked: finishing
   a game (10 right answers by default) unlocks one, and the child picks any treat.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
   to the 2, 5 and 10 times tables), spelling five (first letter up to spelling the whole
-  word); each child's levels and round length are set in the phone app.
+  word). In the phone app each child gets a level, or their own mix: which kinds of question
+  (counting, adding, taking away, missing numbers, biggest number, times tables; first or
+  missing letter, which is spelt right, spell the word), numbers up to 5 to 100, which times
+  tables, how many answers to pick from, and their own spelling words (school spellings,
+  names) with pictures. Maths or spelling can be turned off for a child.
+- **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
+  with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
+  emoji) or both. Each quiz is a tile next to Maths and Spelling for the children it's for;
+  answering every question wins it (and a treat). Answers are shuffled and read out as
+  they're focused.
 - **Photos** (a row on each child's screen, before the treats, once there are any; every
   child sees the same ones): OK on a photo shows it full screen. Left and right flip through
   them, OK plays or stops a slideshow, Back goes back to the child's screen.

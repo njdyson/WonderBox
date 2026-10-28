@@ -5,9 +5,9 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 
 | Folder | What it is |
 |---|---|
-| `pb_migrations/` | Database setup: `children` (with game levels), `videos`, `channels`, `photos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
-| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos (`photos.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
-| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, game levels, family photos, stats (`stats.js`), linked TVs. |
+| `pb_migrations/` | Database setup: `children` (with game levels and setups), `quizzes` and `quiz_images`, `videos`, `channels`, `photos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
+| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos (`photos.pb.js`), quizzes and their pictures (`quizzes.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
+| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, each child's games and the parent's quizzes (`quizzes.js`, with the clipart catalogue in `clipart/`), family photos, stats (`stats.js`), linked TVs. |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
 
@@ -38,6 +38,23 @@ in all instead of several MB. The originals stay on the phone. The files live in
 folder under `storage/` and are protected: they're only served through
 `/api/wonder/photos/{id}/image` to the signed-in parent and their linked TVs, never by a
 public link. Every child sees the same photos.
+
+## Games and quizzes
+
+Each child's `games` in the library has their levels and round size, plus `mathsSetup` and
+`spellingSetup`: exactly what each game asks (see `pb_hooks/quizzes_lib.js`). Picking a level
+in the phone app sets that level's setup; changing any part makes it the child's own mix.
+`POST /api/wonder/children/games` takes any of `{id, maths, spelling, roundSize, mathsSetup,
+spellingSetup}`. The TV makes the questions up from the setup.
+
+Quizzes are in the library as `quizzes`: `{id, title, icon, children, shuffle, questions:
+[{text, picture, answers: [{text, picture}], correct}]}`. Save with `POST
+/api/wonder/quizzes/save` (with `id` to change one), `…/remove`, `…/move`. A picture is an
+emoji or a quiz image's path, `/api/wonder/quiz-images/{id}`, served (protected, like the
+photos) to the parent and their TVs. The phone app uploads pictures to
+`/api/wonder/quiz-images/add` (multipart `image`, optional `source`): uploads are shrunk to
+512 pixels; clipart is copied from Fluent Emoji (jsDelivr) once, by its `source`. Pictures no
+quiz or spelling word uses are deleted a day later.
 
 ## Setting it up on the Plesk server
 
