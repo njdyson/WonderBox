@@ -139,6 +139,9 @@
   <h2 id="videosHeading">VIDEOS</h2>
   <div class="card" id="videos"></div>
 
+  <h2>STATS</h2>
+  <div id="stats"></div>
+
   <h2>YOUR TVS</h2>
   <div class="card" id="tvs"></div>
 
@@ -295,6 +298,7 @@ async function start(user) {
   await load();
   showPairing();
   loadTvs();
+  loadStats();
 }
 
 async function load() {
@@ -584,5 +588,6 @@ async function loadTvs() {
   }
 })();
 </script>
+<script src="/stats.js"></script>
 </body>
 </html>

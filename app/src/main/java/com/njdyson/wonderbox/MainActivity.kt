@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
@@ -36,6 +37,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        EventLog.init(applicationContext)
+        if (savedInstanceState == null) EventLog.log("app.start")
         setContent {
             val app = remember { AppState(applicationContext).also { this.app = it } }
             val stack = remember { mutableStateListOf<Screen>(Screen.Profiles) }
@@ -67,6 +70,7 @@ class MainActivity : ComponentActivity() {
                         lastChildId,
                         onPick = {
                             lastChildId = it.id
+                            EventLog.log("profile.pick", it.id)
                             open(Screen.Videos(it.id))
                         },
                         onGrownUps = { open(Screen.Gate) },
@@ -79,7 +83,7 @@ class MainActivity : ComponentActivity() {
                         } else {
                             VideosScreen(app, child, onPlay = {
                                 app.stopSpeaking()
-                                startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title))
+                                startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title, it.channel, child.id))
                             })
                         }
                     }
@@ -96,6 +100,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeCount.intValue++
+        EventLog.flush()
     }
 
     override fun onDestroy() {

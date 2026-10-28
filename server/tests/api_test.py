@@ -144,6 +144,40 @@ try:
     assert call("GET", "/api/wonder/library", device_key=key)["children"][0]["name"] == "Sam"
     # A TV can read but not edit.
     call("POST", "/api/wonder/children/save", {"name": "X"}, device_key=key, expect=401)
+
+    # The activity log: the TV sends events, the phone app reads stats.
+    call("POST", "/api/wonder/events", {"events": [{"type": "video.play"}]}, expect=401)
+    batch = {"events": [
+        {"id": "aaaaaaaaaaaaaa1", "type": "video.play", "child": sam, "subject": "jNQXAC9IVRw", "data": {"title": "Zoo", "channel": "jawed"}},
+        {"id": "aaaaaaaaaaaaaa2", "type": "video.watch", "child": sam, "subject": "jNQXAC9IVRw", "value": 19.5, "data": {"title": "Zoo", "channel": "jawed", "finished": True}},
+        {"type": "quiz.answer", "child": sam, "subject": "maths.add", "value": 1, "data": {"question": "2+2", "answer": "4"}},
+        {"type": "quiz.answer", "child": sam, "subject": "maths.add", "value": 0},
+        {"type": "quiz.finish", "child": sam, "subject": "maths.add", "value": 7, "data": {"total": 10}},
+        {"type": "app.start"},
+        {"type": "Bad Type", "child": sam},
+        {"type": "video.play", "child": "notachild"},
+    ]}
+    assert call("POST", "/api/wonder/events", batch, device_key=key) == {"saved": 6, "skipped": 2}
+    # Sending the same batch again (a retry) saves only the events without ids.
+    assert call("POST", "/api/wonder/events", batch, device_key=key) == {"saved": 4, "skipped": 4}
+    # One event on its own, from the phone app.
+    assert call("POST", "/api/wonder/events", {"type": "photo.view", "child": sam, "subject": "p1", "value": 5}, token)["saved"] == 1
+    call("GET", "/api/wonder/events", device_key=key, expect=401)
+    events = call("GET", "/api/wonder/events?type=video.&child=" + sam, token=token)
+    assert sorted(ev["type"] for ev in events) == ["video.play", "video.watch"], events
+    assert call("GET", "/api/wonder/events?type=app.start", token=token)[0]["child"] == ""
+    stats = call("GET", "/api/wonder/stats?days=7&tz=0", token=token)
+    s = stats["children"][0]
+    assert s["id"] == sam and s["plays"] == 1 and s["watchSeconds"] == 20, s
+    assert s["answers"] == 4 and s["correct"] == 2, s
+    assert s["topVideos"][0]["title"] == "Zoo" and s["topVideos"][0]["finished"] == 1
+    assert s["topChannels"][0]["channel"] == "jawed"
+    assert s["games"] == [{"game": "maths.add", "answers": 4, "correct": 2, "rounds": 2, "bestScore": 7}], s["games"]
+    assert s["byType"]["photo.view"] == {"count": 1, "total": 5}
+    assert len(s["daily"]) == 7 and s["daily"][-1]["plays"] == 1
+    assert stats["other"]["byType"]["app.start"]["count"] == 2
+    call("GET", "/api/wonder/stats", device_key=key, expect=401)
+
     tvs = call("GET", "/api/wonder/devices", token=token)
     assert [t["name"] for t in tvs] == ["Living room"]
     call("POST", "/api/wonder/devices/remove", {"id": tvs[0]["id"]}, token)
