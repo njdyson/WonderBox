@@ -259,6 +259,9 @@ try:
         except urllib.error.HTTPError as err:
             assert err.code == 404, err.code
     call("GET", "/api/wonder/speech?text=hello", None, "", expect=401)
+    check = call("GET", "/api/wonder/voice")
+    assert check["voice"] == bool(lib.get("voice")), check
+    assert bool(check["problem"]) != check["voice"], check
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)

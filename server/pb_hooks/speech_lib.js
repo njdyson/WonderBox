@@ -20,6 +20,16 @@ function config() {
   return { bin, voice }
 }
 
+/** Why this server can't speak, or "" when it can: for GET /api/wonder/voice. */
+function problem() {
+  const bin = $os.getenv("PIPER_BIN")
+  const voice = $os.getenv("PIPER_VOICE")
+  if (!bin || !voice) return "Piper isn't set up: run the install task again (server/README.md, step 4) and read what it says about the voice."
+  try { $os.stat(bin) } catch (_) { return `Piper isn't at ${bin}: run the install task again.` }
+  try { $os.stat(voice) } catch (_) { return `The voice isn't at ${voice}: run the install task again.` }
+  return ""
+}
+
 /** True when this server can speak. */
 function available() {
   return config() !== null
@@ -59,4 +69,4 @@ function clip(text) {
   return wav
 }
 
-module.exports = { available, clean, clip, MAX_TEXT }
+module.exports = { available, problem, clean, clip, MAX_TEXT }
