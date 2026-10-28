@@ -608,6 +608,8 @@ async function loadClipart() {
   return clipart;
 }
 
+const CLIPART_CREDIT = "Clipart: Fluent Emoji by Microsoft and flag-icons by Panayiotis Lipiridis (both MIT licence). Emoji typed in may not show on older Fire TV sticks; clipart, photos and uploads always do.";
+
 /** Where a catalogue picture is: on the server ("/clipart/...") or on the Fluent Emoji CDN. */
 function clipUrl(catalogue, path) {
   return path.startsWith("/") ? path : catalogue.base + path.split("/").map(encodeURIComponent).join("/");
@@ -627,12 +629,17 @@ function pickPicture(what, onPick, current) {
   search.value = words.filter((w) => !["which", "what", "who", "the", "does", "say", "says", "one", "how", "many"].includes(w)).slice(-1)[0] || "";
   let group = 0;
   let catalogue = null;
+  // "clipart" or "photos" (Pixabay, through the server, which holds the key).
+  let mode = "clipart";
+  let photoTimer = 0;
   const file = el("input", { type: "file", accept: "image/*", hidden: true });
+  const credit = el("div", { className: "muted", textContent: CLIPART_CREDIT });
 
   const done = (picture) => { close(); onPick(picture); };
   const busy = (text) => { status.textContent = text; };
 
   const show = () => {
+    if (mode === "photos") return searchPhotos();
     if (!catalogue) return;
     const q = search.value.trim().toLowerCase();
     const terms = q.split(/\s+/).filter(Boolean);
@@ -650,7 +657,62 @@ function pickPicture(what, onPick, current) {
   const groupsRow = el("div", { className: "chips" });
   const drawGroups = () => groupsRow.replaceChildren(...GROUP_NAMES.map((n, i) => el("button", { type: "button", className: i === group ? "on" : "", textContent: n, onclick: () => { group = i; drawGroups(); show(); } })));
   drawGroups();
-  search.addEventListener("input", show);
+  search.addEventListener("input", () => {
+    if (mode !== "photos") return show();
+    // Photos are searched once typing stops, not on every letter.
+    clearTimeout(photoTimer);
+    photoTimer = setTimeout(show, 600);
+  });
+
+  const modeRow = el("div");
+  const drawMode = () => modeRow.replaceChildren(seg([["clipart", "Clipart"], ["photos", "📷 Photos"]], mode, (m) => {
+    mode = m;
+    drawMode();
+    groupsRow.hidden = mode === "photos" || !!search.value.trim();
+    credit.textContent = mode === "photos"
+      ? "Photos from Pixabay (free to use). Safe search is on, but have a look before you pick."
+      : CLIPART_CREDIT;
+    show();
+  }));
+  drawMode();
+
+  let photoQuery = "";
+  async function searchPhotos() {
+    const q = search.value.trim();
+    groupsRow.hidden = true;
+    if (!q) {
+      grid.replaceChildren();
+      return busy("Type what you'd like a photo of, e.g. tiger.");
+    }
+    photoQuery = q;
+    busy("Searching photos…");
+    try {
+      const { results } = await api(`/api/wonder/quiz-images/photos?q=${encodeURIComponent(q)}`);
+      if (photoQuery !== q || mode !== "photos") return;
+      grid.replaceChildren(...results.map((r) => el("button", { type: "button", title: r.tags, onclick: () => choosePhoto(r) },
+        el("img", { src: r.preview, alt: r.tags, loading: "lazy" }))));
+      busy(results.length ? "" : "No photos found. Try another word.");
+    } catch (e) {
+      if (e instanceof AuthError) { close(); return signedOut(); }
+      if (photoQuery === q) { grid.replaceChildren(); busy(e.message); }
+    }
+  }
+
+  // Like clipart, the chosen photo is copied to the server for the TV.
+  async function choosePhoto(r) {
+    busy("Adding the photo…");
+    try {
+      const source = "pixabay:" + r.id;
+      const known = await sendImage(null, source).catch(() => null);
+      if (known && known.path) return done(known.path);
+      const res = await fetch(r.image);
+      if (!res.ok) throw new Error("Couldn't get that photo. Try another.");
+      done((await sendImage(await shrinkPicture(await res.blob(), 512), source)).path);
+    } catch (e) {
+      if (e instanceof AuthError) { close(); return signedOut(); }
+      busy(e.message);
+    }
+  }
 
   // Clipart is copied to the server, so the TV never needs the internet beyond it.
   async function chooseClip(name, path) {
@@ -688,6 +750,7 @@ function pickPicture(what, onPick, current) {
     el("div", { className: "row" },
       el("div", { className: "grow", style: "font-weight:800;font-size:20px", textContent: "Choose a picture" }),
       current ? pic(current, "picbtn") : ""),
+    modeRow,
     search,
     groupsRow,
     status,
@@ -696,7 +759,7 @@ function pickPicture(what, onPick, current) {
       el("button", { type: "button", className: "grow", textContent: "📷 Upload a picture", onclick: () => file.click() }), file),
     el("div", { className: "row" }, emoji,
       el("button", { type: "button", className: "ghost", textContent: "Use emoji", onclick: () => emoji.value.trim() && done(emoji.value.trim()) })),
-    el("div", { className: "muted", textContent: "Clipart: Fluent Emoji by Microsoft and flag-icons by Panayiotis Lipiridis (both MIT licence). Emoji typed in may not show on older Fire TV sticks; clipart and uploads always do." }),
+    credit,
     ...(current ? [el("button", { type: "button", className: "ghost", textContent: "No picture", onclick: () => done("") })] : []),
     el("button", { type: "button", className: "ghost", textContent: "Cancel", onclick: close })));
   host.hidden = false;

@@ -13,7 +13,8 @@
 # It can also run non-interactively, e.g. as a Plesk Scheduled Task (Run Now) as root:
 # set ADMIN_EMAIL and ADMIN_PASSWORD to create the dashboard admin on first install.
 # Optionally set YOUTUBE_API_KEY: the phone app then also refuses age-restricted and
-# region-blocked videos when they're added (it's kept in <data>/wonderbox.env, not in Git).
+# region-blocked videos when they're added, and PIXABAY_API_KEY for photo search in the quiz
+# picture picker (both kept in <data>/wonderbox.env, not in Git).
 #
 # It also installs Piper and a British voice (about 90 MB) so the server can read questions
 # aloud for TVs whose own text-to-speech is missing or poor. Set VOICE=0 to skip that.
@@ -64,14 +65,22 @@ fi
 mkdir -p "$DATA"
 chown "$RUN_AS" "$DATA"
 
-# Server-only settings, read by the service. Running again without YOUTUBE_API_KEY keeps the saved key.
+# Server-only settings, read by the service. Each key given is saved; running again without
+# one keeps the one already saved.
 ENV_FILE="$DATA/wonderbox.env"
-if [ -n "${YOUTUBE_API_KEY:-}" ]; then
+save_key() {
+  local name="$1" value="$2"
+  [ -n "$value" ] || return 0
   umask 077
-  echo "YOUTUBE_API_KEY=$YOUTUBE_API_KEY" > "$ENV_FILE"
+  touch "$ENV_FILE"
+  grep -v "^$name=" "$ENV_FILE" > "$ENV_FILE.new" || true
+  echo "$name=$value" >> "$ENV_FILE.new"
+  mv "$ENV_FILE.new" "$ENV_FILE"
   umask 022
-  echo "Saved the YouTube API key."
-fi
+  echo "Saved $name."
+}
+save_key YOUTUBE_API_KEY "${YOUTUBE_API_KEY:-}"
+save_key PIXABAY_API_KEY "${PIXABAY_API_KEY:-}"
 
 # PocketBase itself.
 if ! "$BIN_DIR/pocketbase" --version 2>/dev/null | grep -q "$PB_VERSION"; then
