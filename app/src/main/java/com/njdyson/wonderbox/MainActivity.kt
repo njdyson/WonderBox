@@ -23,6 +23,7 @@ import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.VideosScreen
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.put
 
 private sealed interface Screen {
     data object Profiles : Screen
@@ -110,8 +111,16 @@ class MainActivity : ComponentActivity() {
                                 child,
                                 screen.game,
                                 hasTreats = hasTreats,
-                                // TODO log reward.unlock once the activity log (PR #2) is in.
-                                onFinished = { if (hasTreats) app.earnTreat(child.id) },
+                                onFinished = {
+                                    if (hasTreats) {
+                                        app.earnTreat(child.id)
+                                        // A treat to pick; reward.unlock is logged when it's picked.
+                                        EventLog.log("reward.earn", child.id, subject = "treat") {
+                                            put("reason", "quiz.finish")
+                                            put("game", screen.game.name.lowercase())
+                                        }
+                                    }
+                                },
                                 onPickTreat = {
                                     pickingTreat = true
                                     back()

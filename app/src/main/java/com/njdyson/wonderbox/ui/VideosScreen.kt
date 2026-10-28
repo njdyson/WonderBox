@@ -49,12 +49,14 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.njdyson.wonderbox.data.Child
+import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.player.PlayerWebView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.put
 
 /**
  * One child's screen: the games first, then rows of videos (their own, their music, each
@@ -144,7 +146,14 @@ fun VideosScreen(
                                     onClick = {
                                         when {
                                             !video.isTreat -> onPlay(video)
-                                            app.spendTreat(child.id) -> onPlay(video)
+                                            app.spendTreat(child.id) -> {
+                                                EventLog.log("reward.unlock", child.id, subject = video.youtubeId) {
+                                                    put("reason", "quiz.finish")
+                                                    put("tier", video.tier)
+                                                    put("title", video.title)
+                                                }
+                                                onPlay(video)
+                                            }
                                             else -> {
                                                 app.say("Play a game to unlock a treat!")
                                                 message = "🔒 Play a game to unlock a treat!"

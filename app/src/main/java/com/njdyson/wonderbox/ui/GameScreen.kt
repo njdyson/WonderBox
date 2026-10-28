@@ -44,10 +44,12 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
+import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.games.Question
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.put
 
 val Leaf = Color(0xFF7BD389)
 
@@ -71,6 +73,9 @@ fun GameScreen(
     var right by remember { mutableIntStateOf(0) }
     var question by remember { mutableStateOf(game.question(level)) }
     var finished by remember { mutableStateOf(false) }
+    var wrongAnswers by remember { mutableIntStateOf(0) }
+    var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
+    val subject = game.name.lowercase()
     val color = parseColor(child.color)
     DisposableEffect(Unit) { onDispose { app.stopSpeaking() } }
 
@@ -80,6 +85,8 @@ fun GameScreen(
         if (finished) {
             Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 right = 0
+                wrongAnswers = 0
+                startedAt = System.currentTimeMillis()
                 question = game.question(level)
                 finished = false
             }, onBack = onBack, app = app)
@@ -96,10 +103,23 @@ fun GameScreen(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     // A new question each time, so each one's state (greyed-out answers) starts fresh.
                     androidx.compose.runtime.key(question) {
-                        Asking(app, question, onRight = {
+                        Asking(app, question, onAnswer = { choice, ok ->
+                            if (!ok) wrongAnswers++
+                            EventLog.log("quiz.answer", child.id, subject = subject, value = if (ok) 1.0 else 0.0) {
+                                put("question", question.prompt.ifBlank { question.spoken })
+                                put("answer", choice)
+                                put("expected", question.answer)
+                                put("level", level)
+                            }
+                        }, onRight = {
                             right++
                             if (right >= goal) {
-                                // TODO log quiz.finish (score, level) once the activity log (PR #2) is in.
+                                EventLog.log("quiz.finish", child.id, subject = subject, value = goal.toDouble()) {
+                                    put("total", goal + wrongAnswers)
+                                    put("wrong", wrongAnswers)
+                                    put("seconds", (System.currentTimeMillis() - startedAt) / 1000)
+                                    put("level", level)
+                                }
                                 finished = true
                                 onFinished()
                             } else {
@@ -126,7 +146,7 @@ private fun Progress(right: Int, goal: Int) {
 }
 
 @Composable
-private fun Asking(app: AppState, q: Question, onRight: () -> Unit) {
+private fun Asking(app: AppState, q: Question, onAnswer: (choice: String, right: Boolean) -> Unit, onRight: () -> Unit) {
     val scope = rememberCoroutineScope()
     val wrong = remember { mutableStateListOf<Int>() }
     // For spelling the whole word: the letters (by button) picked so far.
@@ -195,10 +215,18 @@ private fun Asking(app: AppState, q: Question, onRight: () -> Unit) {
                             if (choice == q.answer[used.size].toString()) {
                                 used += i
                                 app.say(choice)
-                                if (used.size == q.answer.length) yes()
-                            } else oops(i)
-                        } else if (choice == q.answer) yes() else oops(i)
-                        // TODO log quiz.answer (value 1 right, 0 wrong) once the activity log (PR #2) is in.
+                                if (used.size == q.answer.length) {
+                                    onAnswer(q.answer, true)
+                                    yes()
+                                }
+                            } else {
+                                onAnswer(q.answer.take(used.size) + choice, false)
+                                oops(i)
+                            }
+                        } else {
+                            onAnswer(choice, choice == q.answer)
+                            if (choice == q.answer) yes() else oops(i)
+                        }
                     },
                 )
             }
