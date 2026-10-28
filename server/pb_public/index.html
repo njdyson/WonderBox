@@ -94,15 +94,20 @@
   /* Two or three options, one chosen: Video or Music, Always or Treat */
   .seg { display: flex; background: rgba(255,255,255,.1); border-radius: 12px; padding: 3px; gap: 3px; }
   .seg button { flex: 1; background: transparent; color: var(--text); font-weight: 600; padding: 8px 6px; }
-  .seg.cats button { font-size: 14px; padding: 8px 2px; white-space: nowrap; }
+  /* Categories wrap onto a second row rather than push the card wider than the phone */
+  .seg.cats { flex-wrap: wrap; }
+  .seg.cats button { flex: 1 1 calc(33.3% - 3px); font-size: 14px; padding: 8px 2px; white-space: nowrap; }
   .seg button.on { background: var(--text); color: var(--deep); font-weight: 800; }
   label.field { display: grid; gap: 6px; font-weight: 700; }
 
   /* A child's list, one kind at a time: Videos, Music, Treats, Channels, each with how many */
-  .kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-  .kinds button { display: grid; justify-items: center; gap: 2px; padding: 8px 2px; font-size: 12px; font-weight: 700;
-    background: rgba(255,255,255,.12); color: var(--text); white-space: nowrap; overflow: hidden; }
-  .kinds button b { font-size: 18px; font-weight: 900; line-height: 1.1; }
+  /* One row however many there are: picture, name, then how many */
+  .kinds { display: flex; gap: 5px; }
+  .kinds button { flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 1px; padding: 7px 1px; font-size: 11px; font-weight: 700;
+    background: rgba(255,255,255,.12); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kinds button span { font-size: 18px; line-height: 1.2; }
+  .kinds button i { font-style: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .kinds button b { font-size: 17px; font-weight: 900; line-height: 1.1; }
   .kinds button.on { background: var(--text); color: var(--deep); }
   #find { margin-top: 10px; }
   select { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 0; background: #fff; color: #111; width: 100%; }
@@ -648,7 +653,8 @@ function renderVideos(c) {
       $("find").value = "";
       renderVideos(c);
     },
-  }, label, el("b", { textContent: String(listOf(k).length) }))));
+  }, el("span", { textContent: label.split(" ")[0] }), el("i", { textContent: label.split(" ").slice(1).join(" ") }),
+    el("b", { textContent: String(listOf(k).length) }))));
 
   const all = listOf(kind);
   $("find").hidden = all.length <= FIND_FROM;
