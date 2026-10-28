@@ -93,6 +93,7 @@
   /* Two or three options, one chosen: Video or Music, Always or Treat */
   .seg { display: flex; background: rgba(255,255,255,.1); border-radius: 12px; padding: 3px; gap: 3px; }
   .seg button { flex: 1; background: transparent; color: var(--text); font-weight: 600; padding: 8px 6px; }
+  .seg.cats button { font-size: 14px; padding: 8px 2px; white-space: nowrap; }
   .seg button.on { background: var(--text); color: var(--deep); font-weight: 800; }
   label.field { display: grid; gap: 6px; font-weight: 700; }
 
@@ -514,13 +515,21 @@ function existingFor(info) {
 }
 
 /** Buttons for one of a few options; [onPick] gets the option's value. */
-function seg(options, value, onPick) {
-  return el("div", { className: "seg" }, ...options.map(([v, label]) =>
+function seg(options, value, onPick, className = "seg") {
+  return el("div", { className }, ...options.map(([v, label]) =>
     el("button", { type: "button", className: v === value ? "on" : "", textContent: label, onclick: () => onPick(v) })));
 }
 
-const TIER_OPTIONS = [["free", "Always there"], ["treat", "⭐ Treat"]];
-const SECTION_OPTIONS = [["videos", "📚 Learning"], ["music", "🎵 Music"], ["exercise", "🤸 Exercise"]];
+// One choice of category, as on the TV's home page. Treat is stored as tier "treat"; the others are
+// always-there videos in that section.
+const CATEGORY_OPTIONS = [["videos", "📚 Learning"], ["music", "🎵 Music"], ["exercise", "🤸 Exercise"], ["treat", "⭐ Treat"]];
+const categoryOf = (item) => (item.tier === "treat" ? "treat" : item.section || "videos");
+/** Sets [item]'s tier and section for the category picked. */
+function setCategory(item, value) {
+  item.tier = value === "treat" ? "treat" : "free";
+  item.section = value === "treat" ? "videos" : value;
+}
+const costsStars = (item) => item.tier === "treat" || item.section === "music";
 const TIER_HELP = "Treat and music videos cost stars on the TV, by length. Stars come from quizzes, games, learning and exercise videos (you choose which, under Games).";
 
 function renderAdding() {
@@ -554,9 +563,8 @@ function renderAdding() {
           } }, face(c), c.name);
         }))
       : el("div", { className: "muted", textContent: "Add a child in Family first." }),
-    seg(SECTION_OPTIONS, checked.section, (v) => { checked.section = v; renderAdding(); }),
-    seg(TIER_OPTIONS, checked.tier, (v) => { checked.tier = v; renderAdding(); }),
-    checked.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
+    seg(CATEGORY_OPTIONS, categoryOf(checked), (v) => { setCategory(checked, v); renderAdding(); }, "seg cats"),
+    costsStars(checked) ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
     el("div", { className: "row" },
       el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : isChannel ? `Add ${sourceName(info).toLowerCase()}` : "Add video", onclick: async (e) => {
         e.target.disabled = true;
@@ -848,9 +856,8 @@ function itemSheet(item, kind) {
         draw();
       } }, face(c), c.name);
     })),
-    seg(SECTION_OPTIONS, draft.section, (v) => { draft.section = v; draw(); }),
-    seg(TIER_OPTIONS, draft.tier, (v) => { draft.tier = v; draw(); }),
-    draft.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
+    seg(CATEGORY_OPTIONS, categoryOf(draft), (v) => { setCategory(draft, v); draw(); }, "seg cats"),
+    costsStars(draft) ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
     el("button", { textContent: draft.children.length ? "Save" : isChannel ? `Remove ${sourceName(item).toLowerCase()}` : "Remove video", onclick: async () => {
       await edit(`/api/wonder/${kind}/update`, { id: item.id, ...draft });
       closeSheet();
