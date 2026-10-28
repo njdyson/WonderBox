@@ -257,7 +257,11 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         ) {
             QuizPicture(app, game.icon, 72.dp)
             Column {
-                Text(game.title, color = Color.White, fontSize = if (game.title.length > 10) 24.sp else 32.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                Text(game.title, color = Color.White, fontSize = when {
+                    game.title.length > 10 -> 24.sp
+                    game.title.length > 6 -> 28.sp
+                    else -> 32.sp
+                }, fontWeight = FontWeight.Black, maxLines = 2)
                 Text(game.subtitle, color = Color.White.copy(alpha = 0.85f), fontSize = 18.sp)
             }
         }

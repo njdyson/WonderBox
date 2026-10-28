@@ -127,7 +127,7 @@ fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = b
     val spelling = child.games.spelling()
     if (spelling.on) add(GameEntry("spelling", Game.Spelling.title, Game.Spelling.icon, subtitle(spelling.level()), Game.Spelling))
     val hangman = child.games.hangman
-    if (hangman.on) add(GameEntry(HANGMAN, "Hangman", "🎈", "Save the balloons!"))
+    if (hangman.on) add(GameEntry(HANGMAN, "Hangman", "🎈", "Find the word"))
     if (photos && child.games.jigsaw > 0) {
         val size = child.games.jigsaw.coerceIn(JIGSAW_SIZES.first, JIGSAW_SIZES.last)
         add(GameEntry(JIGSAW, "Jigsaw", "🧩", "$size × $size pieces"))
