@@ -103,7 +103,7 @@ routerAdd("POST", "/api/wonder/videos/move", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const user = lib.requireUser(e)
   const body = e.requestInfo().body
-  lib.moveVideo(user.id, body.id, Number(body.delta) < 0 ? -1 : 1, body.child ? String(body.child) : null)
+  lib.moveVideo(user.id, body.id, Number(body.delta) < 0 ? -1 : 1, body.child ? String(body.child) : null, body.other ? String(body.other) : null)
   return e.json(200, lib.library(user.id))
 })
 
