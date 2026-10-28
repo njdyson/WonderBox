@@ -193,11 +193,14 @@
   </section>
 
   <section class="tab" id="photosTab" data-tab="photos" hidden>
-    <h2>FAMILY PHOTOS</h2>
+    <h2>WHOSE PHOTOS</h2>
+    <div class="kids kid-pick"></div>
+
+    <h2 id="photosHeading">PHOTOS</h2>
     <div class="card stack">
       <button type="button" id="addPhotosBtn">Add photos</button>
       <input type="file" id="photoFiles" accept="image/*" multiple hidden>
-      <div class="muted" id="photosNote">Everyone can look through these on the TV. Photos are made smaller before they're sent, to save space.</div>
+      <div class="muted" id="photosNote"></div>
       <div class="photos" id="photos"></div>
     </div>
   </section>
@@ -550,7 +553,7 @@ function renderAdding() {
 // --- Children and their videos ---------------------------------------------
 
 function render() {
-  // The Videos and Games tabs each pick a child; it's the same choice in both.
+  // The Videos, Games and Photos tabs each pick a child; it's the same choice in all of them.
   for (const pick of document.querySelectorAll(".kid-pick")) pick.replaceChildren(
     ...library.children.map((c) => el("button", {
       className: "kid" + (c.id === selected ? " on" : ""),
@@ -597,6 +600,7 @@ function render() {
       el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(ch, c, "channels") })),
   )));
 
+  renderPhotos();
   // The games and quizzes are in quizzes.js.
   if (typeof renderGames === "function") { renderGames(c); renderQuizzes(); }
   $("gamesEmpty").hidden = !!c;
@@ -741,7 +745,7 @@ function childSheet(c) {
         el("button", { className: "ghost grow", textContent: "Move left", onclick: async () => { await edit("/api/wonder/children/move", { id: c.id, delta: -1 }); closeSheet(); } }),
         el("button", { className: "ghost grow", textContent: "Move right", onclick: async () => { await edit("/api/wonder/children/move", { id: c.id, delta: 1 }); closeSheet(); } })),
       el("button", { className: "ghost", textContent: `Remove ${c.name}`, onclick: async () => {
-        if (!confirm(`Remove ${c.name}? Videos that are only theirs are removed too.`)) return;
+        if (!confirm(`Remove ${c.name}? Videos and photos that are only theirs are removed too.`)) return;
         await edit("/api/wonder/children/remove", { id: c.id });
         closeSheet();
       } }),
@@ -825,24 +829,51 @@ const thumbObserver = "IntersectionObserver" in window ? new IntersectionObserve
   }
 }, { rootMargin: "300px" }) : null;
 
+/** The chosen child's photos. New ones go to them; tapping one shares it with the others. */
 function renderPhotos() {
-  $("photos").replaceChildren(...photos.map((p) => {
+  const c = child(selected);
+  const mine = c ? photos.filter((p) => p.children.includes(c.id)) : [];
+  $("photosHeading").textContent = c ? `${c.name.toUpperCase()}'S PHOTOS` : "PHOTOS";
+  $("addPhotosBtn").textContent = c ? `Add photos for ${c.name}` : "Add photos";
+  $("addPhotosBtn").disabled = !c || busyPhotos;
+  $("photos").replaceChildren(...mine.map((p) => {
     const img = el("img", { alt: "" });
     img.dataset.src = p.thumb;
     if (thumbObserver) thumbObserver.observe(img);
     else photoUrl(p.thumb).then((url) => { img.src = url; }).catch(() => {});
     return el("button", { type: "button", onclick: () => photoSheet(p) }, img);
   }));
-  if (!busyPhotos) $("photosNote").textContent = photos.length
-    ? `${photos.length} photo${photos.length === 1 ? "" : "s"}. Everyone can look through them on the TV.`
-    : "Everyone can look through these on the TV. Photos are made smaller before they're sent, to save space.";
+  if (!busyPhotos) $("photosNote").textContent = !c
+    ? "Add a child in Family first, then their photos."
+    : mine.length
+      ? `${mine.length} photo${mine.length === 1 ? "" : "s"} on ${c.name}'s TV screen. Tap one to share it with someone else too.`
+      : `${c.name} hasn't any photos yet. They're made smaller before they're sent, to save space.`;
 }
 
+/** A photo, big: who it's for, and removing it. */
 function photoSheet(p) {
   const img = el("img", { className: "photo-big", alt: "" });
   photoUrl(p.thumb).then((url) => { if (!img.src) img.src = url; }).catch(() => {});
   photoUrl(p.image).then((url) => { img.src = url; }).catch(() => {});
+  let kids = p.children.filter((id) => child(id));
+  const who = el("div", { className: "kids" });
+  const drawWho = () => who.replaceChildren(...library.children.map((c) => {
+    const on = kids.includes(c.id);
+    return el("button", { className: "kid" + (on ? " on" : ""), onclick: () => {
+      kids = on ? kids.filter((id) => id !== c.id) : [...kids, c.id];
+      drawWho();
+      save.textContent = kids.length ? "Save" : "Remove photo";
+    } }, face(c), c.name);
+  }));
+  const save = el("button", { textContent: "Save", onclick: async () => {
+    if (!kids.length && !confirm("Remove this photo? It's only deleted from Wonder Box, not from your phone.")) return;
+    try { setPhotos((await api("/api/wonder/photos/update", { id: p.id, children: kids })).photos); closeSheet(); } catch (e) { showError(e); }
+  } });
+  drawWho();
   openSheet(img,
+    el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
+    who,
+    save,
     el("button", { className: "ghost", textContent: "Remove from the TV", onclick: async () => {
       if (!confirm("Remove this photo? It's only deleted from Wonder Box, not from your phone.")) return;
       try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); } catch (e) { showError(e); }
@@ -886,7 +917,9 @@ $("addPhotosBtn").onclick = () => $("photoFiles").click();
 $("photoFiles").onchange = async () => {
   const files = [...$("photoFiles").files];
   $("photoFiles").value = "";
-  if (!files.length || busyPhotos) return;
+  // Whoever was chosen when they started, even if the choice changes while they upload.
+  const forChild = selected;
+  if (!files.length || busyPhotos || !child(forChild)) return;
   busyPhotos = true;
   $("addPhotosBtn").disabled = true;
   let added = 0, failed = 0;
@@ -900,6 +933,7 @@ $("photoFiles").onchange = async () => {
         form.append("thumb", small.thumb, "thumb.jpg");
         form.append("width", small.width);
         form.append("height", small.height);
+        form.append("children", JSON.stringify([forChild]));
         const res = await fetch("/api/wonder/photos/add", { method: "POST", headers: { Authorization: token }, body: form });
         const data = await res.json().catch(() => ({}));
         if (res.status === 401) throw new AuthError(data.message || "Please sign in again.");
@@ -915,7 +949,6 @@ $("photoFiles").onchange = async () => {
     showError(e);
   } finally {
     busyPhotos = false;
-    $("addPhotosBtn").disabled = false;
     renderPhotos();
   }
   if (added) toast(`${added} photo${added === 1 ? "" : "s"} added`);

@@ -125,9 +125,16 @@ data class Library(
     }
 }
 
-/** A family photo, shown to everyone in the slideshow. [image] and [thumb] are paths on the server. */
+/** A family photo, for the [children] it's for. [image] and [thumb] are paths on the server. */
 @Serializable
-data class Photo(val id: String, val image: String, val thumb: String = "", val width: Int = 0, val height: Int = 0)
+data class Photo(
+    val id: String,
+    val image: String,
+    val thumb: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val children: List<String> = emptyList(),
+)
 
 /** GET /api/wonder/photos: newest first. */
 @Serializable

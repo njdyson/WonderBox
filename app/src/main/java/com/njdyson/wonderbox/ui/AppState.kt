@@ -26,7 +26,7 @@ class AppState(context: Context) {
     var library by mutableStateOf(store.library ?: Library())
         private set
 
-    /** The family photos, newest first. */
+    /** The family photos, newest first, each for one or more children. */
     var photos by mutableStateOf(store.photos)
         private set
 
@@ -111,6 +111,9 @@ class AppState(context: Context) {
         library = Library()
         photos = emptyList()
     }
+
+    /** One child's photos, newest first. */
+    fun photosFor(childId: String) = photos.filter { childId in it.children }
 
     /** The full address of a photo file; the server wants this TV's key with it ([deviceKey]). */
     fun photoUrl(path: String) = serverUrl.trimEnd('/') + path

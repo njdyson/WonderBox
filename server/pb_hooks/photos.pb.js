@@ -1,8 +1,9 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Family photos: the phone app uploads them (already shrunk), the TV shows them as a
-// slideshow. The files are protected, so they're served here, only to the parent (phone
-// app token) and their linked TVs (X-Device-Key), never by a public link.
+// slideshow. Each is for one or more children, like videos. The files are protected, so
+// they're served here, only to the parent (phone app token) and their linked TVs
+// (X-Device-Key), never by a public link.
 
 routerAdd("GET", "/api/wonder/photos", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
@@ -10,7 +11,8 @@ routerAdd("GET", "/api/wonder/photos", (e) => {
   return e.json(200, { photos: photos.photoList(lib.caller(e).id) })
 })
 
-// Multipart: "image" (the TV-sized picture), "thumb" (optional), "width", "height".
+// Multipart: "image" (the TV-sized picture), "thumb" (optional), "width", "height", and
+// "children" (a JSON list of who it's for; left out, it's for everyone).
 // Returns the list with the new photo first.
 routerAdd("POST", "/api/wonder/photos/add", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
@@ -20,8 +22,11 @@ routerAdd("POST", "/api/wonder/photos/add", (e) => {
   if (!image) throw new BadRequestError("Choose a photo.")
   const thumb = photos.uploaded(e, "thumb")
   const body = e.requestInfo().body
+  const kids = photos.photoChildren(body.children, user.id)
+  if (!kids.length) throw new BadRequestError("Choose who it's for.")
   const record = new Record($app.findCollectionByNameOrId("photos"))
   record.set("user", user.id)
+  record.set("children", kids)
   record.set("image", image)
   if (thumb) record.set("thumb", thumb)
   record.set("width", Math.max(0, Math.round(Number(body.width) || 0)))
@@ -33,6 +38,23 @@ routerAdd("POST", "/api/wonder/photos/add", (e) => {
     throw new BadRequestError("That photo couldn't be saved. Try a different one.")
   }
   return e.json(200, { photos: photos.photoList(user.id), saved: record.id })
+})
+
+// {id, children: [ids]}: who a photo is for. No one left removes it.
+routerAdd("POST", "/api/wonder/photos/update", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const photos = require(`${__hooks}/photos_lib.js`)
+  const user = lib.requireUser(e)
+  const body = e.requestInfo().body
+  const photo = lib.own("photos", body.id, user.id)
+  const kids = lib.ownChildIds(body.children, user.id)
+  if (kids.length) {
+    photo.set("children", kids)
+    $app.save(photo)
+  } else {
+    $app.delete(photo)
+  }
+  return e.json(200, { photos: photos.photoList(user.id) })
 })
 
 routerAdd("POST", "/api/wonder/photos/remove", (e) => {
