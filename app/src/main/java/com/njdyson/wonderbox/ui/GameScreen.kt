@@ -54,7 +54,6 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
-import com.njdyson.wonderbox.data.Points
 import com.njdyson.wonderbox.games.ClockQuestions
 import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.Question
@@ -68,8 +67,8 @@ val Leaf = Color(0xFF7BD389)
 
 /**
  * A round of [entry]: maths or spelling as the child's setup says (answer [Child.games]
- * roundSize questions right to finish), or every question of a parent's quiz. Each right
- * answer earns [starsPerAnswer] stars (0 for a game that doesn't earn). A wrong answer just greys out that button and the child tries again; nothing is
+ * roundSize questions right to finish), or every question of a parent's quiz. Finishing earns
+ * a treat. A wrong answer just greys out that button and the child tries again; nothing is
  * ever lost.
  */
 @Composable
@@ -77,8 +76,10 @@ fun GameScreen(
     app: AppState,
     child: Child,
     entry: GameEntry,
-    starsPerAnswer: Int,
+    onFinished: () -> Unit,
+    onPickTreat: () -> Unit,
     onBack: () -> Unit,
+    hasTreats: Boolean,
 ) {
     var round by remember { mutableStateOf(entry.newRound(child)) }
     val goal = round.goal
@@ -87,7 +88,6 @@ fun GameScreen(
     var question by remember { mutableStateOf(round.next()) }
     var finished by remember { mutableStateOf(false) }
     var wrongAnswers by remember { mutableIntStateOf(0) }
-    var earned by remember { mutableIntStateOf(0) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
     val subject = entry.key
     val color = parseColor(child.color)
@@ -97,9 +97,8 @@ fun GameScreen(
         Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink))),
     ) {
         if (finished) {
-            Finished(child, earned, onPlayAgain = {
+            Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 right = 0
-                earned = 0
                 wrongAnswers = 0
                 startedAt = System.currentTimeMillis()
                 round = entry.newRound(child)
@@ -135,10 +134,6 @@ fun GameScreen(
                             }
                         }, onRight = {
                             right++
-                            if (starsPerAnswer > 0) {
-                                Points.earn(child.id, starsPerAnswer, "quiz.answer", subject)
-                                earned += starsPerAnswer
-                            }
                             if (right >= goal) {
                                 EventLog.log("quiz.finish", child.id, subject = subject, value = goal.toDouble()) {
                                     put("total", goal + wrongAnswers)
@@ -149,6 +144,7 @@ fun GameScreen(
                                 }
                                 finished = true
                                 app.sounds.play(Sounds.Effect.Finish, child)
+                                onFinished()
                             } else {
                                 question = round.next()
                             }
@@ -428,13 +424,13 @@ private fun AnswerButton(
     }
 }
 
-/** "You did it!", the stars [earned] (if any), then play again or back. Jigsaws, hangman and pairs end with it too. */
+/** "You did it!", then a treat to pick (when [hasTreats]), play again or back. Hangman and pairs end with it too. */
 @Composable
-internal fun Finished(child: Child, earned: Int, onPlayAgain: () -> Unit, onBack: () -> Unit, app: AppState) {
+internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit, onPlayAgain: () -> Unit, onBack: () -> Unit, app: AppState) {
     val first = remember { FocusRequester() }
     val pop = remember { Animatable(0.3f) }
     LaunchedEffect(Unit) {
-        app.say(if (earned > 0) "You did it, ${child.name}! You earned $earned ${if (earned == 1) "star" else "stars"}!" else "You did it, ${child.name}!")
+        app.say(if (hasTreats) "You did it, ${child.name}! Pick a treat!" else "You did it, ${child.name}!")
         pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
     }
     LaunchedEffect(Unit) { first.requestFocusWhenReady() }
@@ -446,13 +442,14 @@ internal fun Finished(child: Child, earned: Int, onPlayAgain: () -> Unit, onBack
         Text("🎉", fontSize = 110.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
         Text("You did it, ${child.name}!", color = Tangerine, fontSize = 48.sp, fontWeight = FontWeight.Black)
         Text(
-            if (earned > 0) "You earned $earned ⭐" else "Brilliant work!",
+            if (hasTreats) "You've won a treat ⭐" else "Brilliant work!",
             color = Color.White,
             fontSize = 28.sp,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.padding(top = 12.dp)) {
-            BigButton("Play again", Modifier.focusRequester(first), onPlayAgain)
-            BigButton("Back", Modifier, onBack)
+            if (hasTreats) BigButton("⭐ Pick a treat", Modifier.focusRequester(first), onPickTreat)
+            BigButton("Play again", if (hasTreats) Modifier else Modifier.focusRequester(first), onPlayAgain)
+            if (!hasTreats) BigButton("Back", Modifier, onBack)
         }
     }
 }

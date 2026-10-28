@@ -39,37 +39,6 @@ class Store(context: Context) {
         } ?: emptyMap()
         set(value) = prefs.edit().putString("treats", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), value)).apply()
 
-    /** This TV's star changes the server hasn't counted yet (see [Points]). */
-    var pointsChanges: List<PointsChange>
-        get() = prefs.getString("points_changes", null)?.let {
-            runCatching { json.decodeFromString(ListSerializer(PointsChange.serializer()), it) }.getOrNull()
-        }.orEmpty()
-        set(value) = prefs.edit().putString("points_changes", json.encodeToString(ListSerializer(PointsChange.serializer()), value)).commit().let {}
-
-    /** How long videos are, in seconds, by YouTube ID. */
-    var durations: Map<String, Int>
-        get() = prefs.getString("durations", null)?.let {
-            runCatching { json.decodeFromString(MapSerializer(String.serializer(), Int.serializer()), it) }.getOrNull()
-        } ?: emptyMap()
-        set(value) = prefs.edit().putString("durations", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), value)).apply()
-
-    /** The day ("2026-10-28") and how many stars [childId] has earned from learning videos on it, for the daily cap. */
-    fun videoPoints(childId: String): Pair<String, Int> =
-        (prefs.getString("video_points_day_$childId", "") ?: "") to prefs.getInt("video_points_$childId", 0)
-
-    fun setVideoPoints(childId: String, day: String, stars: Int) {
-        prefs.edit().putString("video_points_day_$childId", day).putInt("video_points_$childId", stars).apply()
-    }
-
-    /** Old treats (won or saved, from before stars), turned into stars once; cleared after. */
-    fun takeOldTreats(): Map<String, Int> {
-        val won = treats
-        val saved = savedTreats.mapValues { it.value.size }
-        val all = (won.keys + saved.keys).associateWith { (won[it] ?: 0) + (saved[it] ?: 0) }.filterValues { it > 0 }
-        prefs.edit().remove("treats").remove("saved_treats").commit()
-        return all
-    }
-
     /** Treats each child has picked and not watched yet, by child ID: [Video.id]s, oldest first. */
     var savedTreats: Map<String, List<String>>
         get() = prefs.getString("saved_treats", null)?.let {
@@ -93,6 +62,12 @@ class Store(context: Context) {
         if (youtubeId in mine) return false
         watched = watched + (childId to (mine + youtubeId).takeLast(MAX_WATCHED))
         return true
+    }
+
+    /** One more won treat for [childId], from the player (the main screen's [treats] are reloaded on its return). */
+    fun addTreat(childId: String) {
+        val now = treats
+        prefs.edit().putString("treats", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), now + (childId to (now[childId] ?: 0) + 1))).commit()
     }
 
     /** Read video titles aloud when they're focused. */

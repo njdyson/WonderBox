@@ -56,7 +56,6 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
-import com.njdyson.wonderbox.data.Points
 import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.Game
@@ -69,10 +68,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
 /**
- * Rows of one child's videos under a [title]: their Learning videos, their Music, or their
- * treat Videos. With [prices], each card shows what it costs in stars (once its length is
- * known; before that just a star). A [message] (like "You need 4 stars") shows at the top for
- * a moment. The focused video's title is read aloud, and after a moment its player starts loading in the background so it starts
+ * Rows of one child's videos under a [title]: their Videos, their Music, or their treats
+ * (with [stars] on). The focused video's title is
+ * read aloud, and after a moment its player starts loading in the background so it starts
  * quickly when chosen.
  */
 @Composable
@@ -84,10 +82,10 @@ fun VideosScreen(
     onPlay: (Video) -> Unit,
     /** What to say when there are no [shelves]. */
     empty: String = "No videos yet. Ask a grown-up to add some!",
-    /** Star prices on the cards: treat and music videos cost stars. */
-    prices: Boolean = false,
-    /** Shown above the rows while set. */
-    message: String? = null,
+    /** Said once when the screen opens, e.g. "Pick a treat!". */
+    greeting: String? = null,
+    /** Stars on the cards, for treats. */
+    stars: Boolean = false,
     /** YouTube IDs they've watched all the way through: ticked and faded. */
     watched: Set<String> = emptySet(),
 ) {
@@ -100,17 +98,7 @@ fun VideosScreen(
     val restoreKey = focusedKey?.takeIf { key -> shelves.any { s -> s.videos.any { it.id == key } } } ?: firstKey
     val restore = remember { FocusRequester() }
 
-    val rates = child.games.points
     ChildScreen(app, child, title) {
-        if (message != null) {
-            Text(
-                message,
-                color = Ink,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 48.dp, top = 8.dp).background(Color.White, RoundedCornerShape(50)).padding(horizontal = 22.dp, vertical = 8.dp),
-            )
-        }
         LazyColumn(
             contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -127,7 +115,7 @@ fun VideosScreen(
                             itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
                                 VideoCard(
                                     video,
-                                    price = if (!prices) null else Points.lengthOf(video)?.let { rates.price(it.toDouble()) } ?: 0,
+                                    star = stars,
                                     watched = video.youtubeId in watched,
                                     ink = ink,
                                     tilt = if (i % 2 == 0) -2f else 2f,
@@ -157,6 +145,7 @@ fun VideosScreen(
     }
 
     LaunchedEffect(shelves.size) {
+        if (greeting != null && focusedKey == null) app.say(greeting)
         if (firstKey != null) restore.requestFocusWhenReady()
     }
     // Read the title once focus settles, then preload its player if it stays there.
@@ -192,8 +181,7 @@ private fun RowTitle(text: String, ink: Color, picture: String = "") {
 @Composable
 private fun VideoCard(
     video: Video,
-    /** Stars it costs; 0 while not known yet; null for free ones. */
-    price: Int?,
+    star: Boolean,
     watched: Boolean,
     ink: Color,
     tilt: Float,
@@ -242,13 +230,11 @@ private fun VideoCard(
                     modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(Lime, CircleShape).padding(horizontal = 10.dp, vertical = 0.dp),
                 )
             }
-            if (price != null) {
+            if (star) {
                 Text(
-                    if (price > 0) "⭐ $price" else "⭐",
-                    color = Ink,
+                    "⭐",
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.White, RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 2.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Tangerine, CircleShape).padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             }
         }

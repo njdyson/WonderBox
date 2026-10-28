@@ -75,8 +75,9 @@ import kotlin.random.Random
 fun HangmanScreen(
     app: AppState,
     child: Child,
-    stars: Int,
+    hasTreats: Boolean,
     onFinished: () -> Unit,
+    onPickTreat: () -> Unit,
     onBack: () -> Unit,
     random: Random = Random,
     /** Letters to try straight away (for screenshots). */
@@ -101,7 +102,7 @@ fun HangmanScreen(
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
         if (finished) {
-            Finished(child, stars, onPlayAgain = {
+            Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 found = 0
                 missed = 0
                 startedAt = System.currentTimeMillis()

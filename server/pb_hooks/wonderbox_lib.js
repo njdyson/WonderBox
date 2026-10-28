@@ -63,8 +63,6 @@ function library(userId) {
       avatar: c.getString("avatar"),
       color: c.getString("color"),
       picture: pictureUrl(c),
-      // Stars in their jar (wonderbox_events.js keeps it up to date).
-      points: c.getInt("points"),
       games: games(c),
     })),
     quizzes: require(`${__hooks}/quizzes_lib.js`).quizList(userId),
@@ -79,8 +77,6 @@ function library(userId) {
       children: v.getStringSlice("children"),
       tier: tier(v.getString("tier")),
       section: section(v.getString("section")),
-      // Seconds, 0 if not known yet: the TV prices treat and music videos by length.
-      duration: v.getInt("duration"),
     })),
     channels: channelRecords(userId).map((c) => ({
       id: c.id,
@@ -134,9 +130,8 @@ function games(child) {
     clockSetup: quiz.clockSetup(stored.clock, clockLevel),
     flags: flagLevel,
     flagSetup: quiz.flagSetup(stored.flags, flagLevel),
-    // Which earn stars: maths, spelling, clock, flags, quizzes, hangman, memory, jigsaw, videos (learning ones).
+    // Which games win a treat: maths, spelling, clock, quizzes, hangman, memory, jigsaw.
     treatGames: quiz.treatGames(stored.treats),
-    points: extra.pointsSetup(stored.points),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
     hangman: extra.hangmanSetup(stored.hangman),
@@ -158,9 +153,9 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, memory, points}: how hard a child's games are (jigsaw 0 is off), which of
- * them earn stars and how many, and their sound effects. hangman, memory and points are whole
- * setups (pb_hooks/games_lib.js).
+ * jigsaw, sounds, hangman, memory}: how hard a child's games are (jigsaw 0 is off), which of
+ * them win a treat, and their sound effects. hangman and memory are whole setups
+ * (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -185,7 +180,6 @@ function saveGames(userId, body) {
   })
   setup.hangman = body.hangman ? extra.hangmanSetup(body.hangman) : current.hangman
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
-  setup.points = body.points ? extra.pointsSetup(body.points) : current.points
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
   let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
   if (body.mathsSetup) {
@@ -425,7 +419,6 @@ function checkVideo(text) {
         channel: snippet.channelTitle || "",
         thumbnail,
         madeForKids: !!status.madeForKids,
-        duration: isoSeconds(details.duration),
         checked: "full",
       }
     }
@@ -470,7 +463,6 @@ function addVideo(userId, text, childIds, tierValue, sectionValue) {
   record.set("title", info.title)
   record.set("channel", info.channel)
   record.set("thumbnail", info.thumbnail)
-  if (info.duration) record.set("duration", info.duration)
   if (tierValue !== undefined) record.set("tier", tier(tierValue))
   if (sectionValue !== undefined) record.set("section", section(sectionValue))
   $app.save(record)
@@ -660,7 +652,7 @@ function playlistVideosFromApi(playlistIds, key) {
     if ((details.contentRating || {}).ytRating === "ytAgeRestricted") continue
     if ((region.blocked || []).includes("GB") || (region.allowed && !region.allowed.includes("GB"))) continue
     if ((item.snippet || {}).liveBroadcastContent !== "none") continue
-    videos.push({ youtubeId: id, title: (item.snippet || {}).title || "", thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`, duration: isoSeconds(details.duration) })
+    videos.push({ youtubeId: id, title: (item.snippet || {}).title || "", thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })
   }
   return videos
 }
@@ -682,70 +674,6 @@ function refreshChannel(record) {
   return record
 }
 
-/** Seconds from an ISO 8601 duration as YouTube gives it ("PT4M13S", "P1DT2H"); 0 if missing or odd. */
-function isoSeconds(text) {
-  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(String(text || ""))
-  if (!m) return 0
-  return ((Number(m[1] || 0) * 24 + Number(m[2] || 0)) * 60 + Number(m[3] || 0)) * 60 + Number(m[4] || 0)
-}
-
-/** {youtubeId: seconds} for [ids], 50 to a call (1 quota unit each). Missing ones are left out; null if the API fails. */
-function fetchDurations(ids, key) {
-  const out = {}
-  for (let i = 0; i < ids.length; i += 50) {
-    const res = $http.send({
-      url: `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${ids.slice(i, i + 50).join(",")}&key=${encodeURIComponent(key)}`,
-      timeout: 15,
-    })
-    if (res.statusCode !== 200 || !res.json) return null
-    for (const item of res.json.items || []) {
-      const seconds = isoSeconds((item.contentDetails || {}).duration)
-      if (seconds > 0) out[item.id] = seconds
-    }
-  }
-  return out
-}
-
-/**
- * Fills in the length of every video and channel video that doesn't have one yet (added
- * before lengths were kept, or without the API key). Needs YOUTUBE_API_KEY. Run by a cron
- * job in wonderbox.pb.js; does nothing when every length is known. A video YouTube no longer
- * has stays at 0 and is asked about again next time, which costs little.
- */
-function fillDurations() {
-  const key = $os.getenv("YOUTUBE_API_KEY")
-  if (!key) return 0
-  const videos = $app.findRecordsByFilter("videos", "duration = 0", "", 5000, 0)
-  const channels = $app.findRecordsByFilter("channels", "id != ''", "", 2000, 0).filter((c) => channelVideos(c).some((v) => !v.duration))
-  const ids = new Set()
-  for (const v of videos) ids.add(v.getString("youtube_id"))
-  for (const c of channels) for (const v of channelVideos(c)) if (!v.duration) ids.add(v.youtubeId)
-  if (!ids.size) return 0
-  const found = fetchDurations([...ids], key)
-  if (!found) return 0
-  let filled = 0
-  for (const v of videos) {
-    const seconds = found[v.getString("youtube_id")]
-    if (!seconds) continue
-    v.set("duration", seconds)
-    $app.save(v)
-    filled++
-  }
-  for (const c of channels) {
-    let changed = false
-    const list = channelVideos(c).map((v) => {
-      if (v.duration || !found[v.youtubeId]) return v
-      changed = true
-      filled++
-      return Object.assign({}, v, { duration: found[v.youtubeId] })
-    })
-    if (!changed) continue
-    c.set("videos", list)
-    $app.save(c)
-  }
-  return filled
-}
-
 /** Every channel, every few hours (see the cron job in wonderbox.pb.js). One failing doesn't stop the rest. */
 function refreshAllChannels() {
   const all = $app.findRecordsByFilter("channels", "id != ''", "refreshed", 2000, 0)
@@ -756,7 +684,6 @@ function refreshAllChannels() {
       console.log(`Wonder Box: couldn't refresh channel ${record.getString("channel_id")}: ${e}`)
     }
   }
-  fillDurations()
 }
 
 // --- Searching YouTube ---------------------------------------------------------
@@ -908,6 +835,6 @@ function cleanupPairings() {
 module.exports = {
   caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
   saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
-  refreshChannel, refreshAllChannels, fillDurations, isoSeconds, search, updateItem, newPairingCode, findPairing, cleanupPairings,
+  refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,
 }

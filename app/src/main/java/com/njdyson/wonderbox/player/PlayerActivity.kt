@@ -18,9 +18,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
-import com.njdyson.wonderbox.data.Points
 import com.njdyson.wonderbox.data.Store
 import kotlinx.serialization.json.put
 
@@ -38,10 +36,6 @@ import kotlinx.serialization.json.put
  * MENU on the remote shows how the video is playing (size, codec, dropped frames, buffer,
  * stalls), to tell a slow network (stalls) from a stick that can't keep up (dropped frames).
  * The same numbers go into the video.watch event.
- *
- * Stars: a [paid] video (a treat or music) costs the child's stars once it starts playing and
- * its length is known; a learning video that [earns] adds stars for the time actually played
- * when the player closes.
  */
 class PlayerActivity : Activity(), PlayerWebView.Listener {
 
@@ -69,11 +63,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private var playingSince = 0L
     private var lastStateAt = 0L
     private var finishedVideo = false
-    // A learning video: stars for the time played. A paid one: stars to watch it, taken once.
-    private var earns = false
-    private var paid = false
-    private var charged = false
-    private var child: Child? = null
+    // Watching this one all the way through wins a treat (the first time).
+    private var earnsTreat = false
     // Already recorded as watched all the way through, so it isn't counted twice.
     private var recorded = false
     // Times it stopped to buffer after it had started playing, not counting just after a skip.
@@ -91,10 +82,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         childId = intent.getStringExtra(EXTRA_CHILD_ID)
-        earns = intent.getBooleanExtra(EXTRA_EARNS, false)
-        paid = intent.getBooleanExtra(EXTRA_PAID, false)
-        Points.init(this)
-        child = childId?.let { id -> Store(this).library?.children?.find { it.id == id } }
+        earnsTreat = intent.getBooleanExtra(EXTRA_EARNS_TREAT, false)
         val dp = resources.displayMetrics.density
         // Nothing to draw behind the video: the WebView is opaque black. Saves the stick a full-screen layer every frame.
         window.setBackgroundDrawable(null)
@@ -234,43 +222,24 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     /**
      * Records the video as watched all the way through, if it really was: it got to the end
-     * and was actually playing for most of it, so skipping to the end doesn't count.
+     * and was actually playing for most of it, so skipping to the end doesn't count. The first
+     * time, if [earnsTreat], it wins a treat. True if it did.
      */
-    private fun recordWatched(duration: Double) {
-        val child = childId ?: return
-        if (recorded || duration <= 0) return
-        if (playingSeconds() < duration * WATCHED_SHARE) return
+    private fun recordWatched(duration: Double): Boolean {
+        val child = childId ?: return false
+        if (recorded || duration <= 0) return false
+        val playing = (playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0L) / 1000.0
+        if (playing < duration * WATCHED_SHARE) return false
         recorded = true
-        Store(this).markWatched(child, videoId)
-    }
-
-    private fun playingSeconds(): Double =
-        (playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0L) / 1000.0
-
-    /** Stars for the learning video played so far, once, when it ends or closes. Returns how many. */
-    private fun earnStars(): Int {
-        if (!earns) return 0
-        earns = false
-        val c = child ?: return 0
-        return Points.earnFromVideo(c, playingSeconds(), videoId)
-    }
-
-    /**
-     * Takes the price of a paid video once it is playing and its length is known. Not enough
-     * stars (the jar emptied since the grid, or it is longer than guessed) stops it.
-     */
-    private fun charge() {
-        if (!paid || charged || done) return
-        val c = child ?: return
-        val duration = PlayerWebView.duration
-        if (duration <= 0) return
-        charged = true
-        val price = c.games.points.price(duration)
-        if (!Points.spend(c.id, price, "video.play", videoId) { put("seconds", duration.toInt()) }) {
-            done = true
-            js("player.pauseVideo();")
-            showCover("⭐", "You need $price ⭐ for this one", "Earn some more in Quizzes, then come back")
+        val store = Store(this)
+        if (!store.markWatched(child, videoId) || !earnsTreat) return false
+        store.addTreat(child)
+        EventLog.log("reward.earn", child, subject = "treat") {
+            put("reason", "video.finish")
+            put("game", "videos")
+            put("video", videoId)
         }
+        return true
     }
 
     /** One video.watch event when the player closes: seconds actually playing, and how far it got. */
@@ -283,7 +252,6 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         val position = PlayerWebView.position + if (stillPlaying) (System.currentTimeMillis() - lastStateAt) / 1000.0 else 0.0
         // Closed with only the credits left: that counts as watched too.
         if (duration > 0 && position >= duration * 0.95) recordWatched(duration)
-        earnStars()
         EventLog.log("video.watch", childId, videoId, value = playedMs / 1000.0) {
             put("title", title)
             put("channel", channel)
@@ -347,10 +315,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private fun finished() {
         done = true
         finishedVideo = true
-        recordWatched(PlayerWebView.duration)
-        val stars = earnStars()
-        if (stars > 0) {
-            showCover("⭐", "All done! +$stars ⭐", "Press OK to choose another")
+        if (recordWatched(PlayerWebView.duration)) {
+            showCover("🏆", "All done! You've won a treat!", "Press OK to pick it")
         } else {
             showCover("⭐", "All done!", "Press OK to choose another")
         }
@@ -365,11 +331,6 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         if (done) return
         when (state) {
             0 -> finished()
-            1 -> {
-                cover.visibility = View.GONE
-                showHint()
-                charge()
-            }
             2 -> showCover("⏸", "Paused", "Press OK to keep watching")
             else -> {
                 cover.visibility = View.GONE
@@ -392,16 +353,14 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
         /** How much of a video has to have actually played for it to count as watched. */
         private const val WATCHED_SHARE = 0.8
-        private const val EXTRA_EARNS = "earns"
-        private const val EXTRA_PAID = "paid"
+        private const val EXTRA_EARNS_TREAT = "earnsTreat"
 
-        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earns: Boolean = false, paid: Boolean = false): Intent =
+        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earnsTreat: Boolean = false): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_VIDEO_ID, videoId)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_CHANNEL, channel)
                 .putExtra(EXTRA_CHILD_ID, childId)
-                .putExtra(EXTRA_EARNS, earns)
-                .putExtra(EXTRA_PAID, paid)
+                .putExtra(EXTRA_EARNS_TREAT, earnsTreat)
     }
 }
