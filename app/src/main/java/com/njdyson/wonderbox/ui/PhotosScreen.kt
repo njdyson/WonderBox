@@ -60,7 +60,7 @@ private const val SLIDE_MS = 6_000L
 /**
  * The family photos, one at a time, filling the screen, starting from [start]. Left and right
  * flip through them (wrapping round at the ends), OK starts or stops the slideshow, Back goes
- * back to the child's screen. The next and previous photos load in the background so flipping
+ * back to the Photos screen. The next and previous photos load in the background so flipping
  * is instant. Only [childId]'s photos are shown.
  */
 @Composable
@@ -223,7 +223,7 @@ fun PhotosRow(
 }
 
 @Composable
-private fun PhotoThumb(app: AppState, photo: Photo, modifier: Modifier = Modifier) {
+internal fun PhotoThumb(app: AppState, photo: Photo, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     AsyncImage(
         model = ImageRequest.Builder(context)
