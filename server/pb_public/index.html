@@ -130,7 +130,7 @@
   .photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .photos button { padding: 0; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--deep); }
   .photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .photo-big { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10px; background: #000; }
+  .photo-big { width: 100%; max-height: 45vh; object-fit: contain; border-radius: 10px; background: #000; }
 
   /* Bottom sheet: a child's details, or who a video is for */
   .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 17; }
@@ -940,28 +940,53 @@ function photoSheet(p) {
   photoUrl(p.thumb).then((url) => { if (!img.src) img.src = url; }).catch(() => {});
   photoUrl(p.image).then((url) => { img.src = url; }).catch(() => {});
   let kids = p.children.filter((id) => child(id));
+  // Opened from this child's photos; removing takes it off their TV screen only.
+  const here = child(selected);
+  const others = kids.filter((id) => id !== (here && here.id)).map(child);
+  const names = (list) => list.map((c) => c.name).join(" and ");
+  const update = async (ids, done) => {
+    try { setPhotos((await api("/api/wonder/photos/update", { id: p.id, children: ids })).photos); closeSheet(); if (done) toast(done); } catch (e) { showError(e); }
+  };
   const who = el("div", { className: "kids" });
   const drawWho = () => who.replaceChildren(...library.children.map((c) => {
     const on = kids.includes(c.id);
     return el("button", { className: "kid" + (on ? " on" : ""), onclick: () => {
       kids = on ? kids.filter((id) => id !== c.id) : [...kids, c.id];
       drawWho();
-      save.textContent = kids.length ? "Save" : "Remove photo";
+      save.textContent = kids.length ? "Save" : "Save (removes it for everyone)";
     } }, face(c), c.name);
   }));
   const save = el("button", { textContent: "Save", onclick: async () => {
-    if (!kids.length && !confirm("Remove this photo? It's only deleted from Wonder Box, not from your phone.")) return;
-    try { setPhotos((await api("/api/wonder/photos/update", { id: p.id, children: kids })).photos); closeSheet(); } catch (e) { showError(e); }
+    if (!kids.length && !confirm("No one is chosen, so this photo will be deleted from Wonder Box for everyone. It stays on your phone.")) return;
+    await update(kids);
   } });
   drawWho();
+  const remove = [];
+  if (here && others.length) {
+    // Shared: take it off this child's screen, or delete it for everyone.
+    remove.push(
+      el("button", { className: "ghost", textContent: `Remove from ${here.name}'s photos`, onclick: () =>
+        update(kids.filter((id) => id !== here.id), `Removed from ${here.name}'s photos. ${names(others)} still ${others.length === 1 ? "has" : "have"} it.`) }),
+      el("button", { className: "ghost", textContent: "Remove for everyone", onclick: async () => {
+        if (!confirm(`Delete this photo for ${names([here, ...others])}? It's only deleted from Wonder Box, not from your phone.`)) return;
+        try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast("Photo deleted"); } catch (e) { showError(e); }
+      } }));
+  } else {
+    // Only this child has it, so removing it deletes it.
+    const label = here ? `Remove from ${here.name}'s photos` : "Remove photo";
+    remove.push(el("button", { className: "ghost", textContent: label, onclick: async () => {
+      if (!confirm(`${here ? `Only ${here.name} has this photo, so it` : "This photo"} will be deleted from Wonder Box. It stays on your phone.`)) return;
+      try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast("Photo deleted"); } catch (e) { showError(e); }
+    } }));
+  }
   openSheet(img,
-    el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
+    el("div", { className: "muted", textContent: others.length
+      ? `On the TV for ${names([...(here ? [here] : []), ...others])}.`
+      : here ? `Only on ${here.name}'s TV screen.` : "" }),
+    ...remove,
+    el("div", { style: "font-weight:700;margin-top:6px", textContent: "Who's it for?" }),
     who,
     save,
-    el("button", { className: "ghost", textContent: "Remove from the TV", onclick: async () => {
-      if (!confirm("Remove this photo? It's only deleted from Wonder Box, not from your phone.")) return;
-      try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); } catch (e) { showError(e); }
-    } }),
     el("button", { className: "ghost", textContent: "Close", onclick: closeSheet }));
 }
 
