@@ -3,7 +3,7 @@
 A Fire TV Stick app for two children, with a phone app for the parent. The parent picks
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
 YouTube can be reached. Whole channels can be added, music gets its own row, and "treat"
-videos are unlocked by finishing a maths or spelling game.
+videos are unlocked by finishing a maths, spelling or clock game.
 Family photos from the phone show on the TV as a slideshow.
 
 | Folder | What it is |
@@ -20,18 +20,26 @@ Family photos from the phone show on the TV as a slideshow.
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
 - **A child's screen:** rows, like a TV app, on a screen of their own colour so they can tell
-  it's theirs. First the games (Maths, Spelling and any quizzes the parent wrote for them),
+  it's theirs. First the games (Maths, Spelling, Clock and any quizzes the parent wrote for them),
   then
   their videos, their music, and a row for each channel. Treats come last, locked: finishing
-  a game (10 right answers by default) unlocks one, and the child picks any treat.
+  a game (10 right answers by default) unlocks one, and the child picks any treat. The
+  parent chooses which games win a treat: maths, spelling, the clock, quizzes and hangman
+  until changed, not jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
   to the 2, 5 and 10 times tables), spelling five (first letter up to spelling the whole
   word). In the phone app each child gets a level, or their own mix: which kinds of question
-  (counting, adding, taking away, missing numbers, biggest number, times tables; first or
-  missing letter, which is spelt right, spell the word), numbers up to 5 to 100, which times
+  (counting, adding, taking away, adding 3 numbers, missing numbers, number bonds, doubles,
+  halves, 1 or 10 more and less, biggest number, times tables; first or missing letter,
+  which is spelt right, spell the word, and picking or spelling a word that's only said
+  aloud), numbers up to 5 to 100, which times
   tables, how many answers to pick from, and their own spelling words (school spellings,
-  names) with pictures. Maths or spelling can be turned off for a child.
+  names) with pictures. A "Hear it again" button repeats the question. Maths or spelling
+  can be turned off for a child.
+- **Clock:** a clock face with both hands; pick the time, said the British way ("quarter
+  past 3", "20 to 5"). Five levels, from o'clock to any minute, or a mix of o'clock, half
+  past, quarter past and to, five minutes and any minute.
 - **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
   with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
   emoji) or both. Each quiz is a tile next to Maths and Spelling for the children it's for;

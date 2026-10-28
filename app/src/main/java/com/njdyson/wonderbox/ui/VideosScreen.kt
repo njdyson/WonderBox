@@ -165,7 +165,8 @@ fun VideosScreen(
                             val key = "games/${game.key}"
                             GameTile(
                                 app,
-                                game,
+                                // A star on the games that win a treat.
+                                if (hasTreats && child.games.earnsTreat(game.key)) game.copy(subtitle = "⭐ ${game.subtitle}") else game,
                                 index = i,
                                 onClick = { onGame(game) },
                                 onFocus = {
@@ -298,7 +299,7 @@ private fun TreatCount(count: Int) {
     )
 }
 
-// Maths, Spelling, then each quiz in the next colour along.
+// Maths, Spelling, Clock, then each quiz in the next colour along.
 private val TILE_COLORS = listOf(
     listOf(Color(0xFF4D96FF), Color(0xFF2B5FD9)),
     listOf(Color(0xFFA259FF), Color(0xFF6A2BD9)),
@@ -312,6 +313,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
     val colors = when (game.game) {
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
+        Game.Clock -> TILE_COLORS[3]
         null -> if (game.key == JIGSAW) TILE_COLORS[2] else TILE_COLORS[index % TILE_COLORS.size]
     }
     Surface(

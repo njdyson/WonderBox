@@ -180,6 +180,35 @@ try:
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "jigsaw": 2}, token)
     assert lib["children"][0]["games"]["jigsaw"] == 2
 
+    # The clock: level 1 until set, a level sets its setup, a setup of its own is checked.
+    g = lib["children"][0]["games"]
+    assert g["clock"] == 1 and g["clockSetup"] == {"on": True, "types": ["oclock"], "choices": 3}, g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 3}, token)
+    g = lib["children"][0]["games"]
+    assert g["clock"] == 3 and g["clockSetup"]["types"] == ["oclock", "half", "quarter"], g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clockSetup": {"types": ["minute", "nope", "half"], "choices": 7, "on": False}}, token)
+    g = lib["children"][0]["games"]
+    assert g["clockSetup"] == {"on": False, "types": ["half", "minute"], "choices": 4} and g["clock"] == 3, g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clockSetup": {"types": ["five"], "choices": 4}}, token)
+    assert lib["children"][0]["games"]["clock"] == 4
+    # Saving something else keeps the clock as it was.
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "roundSize": 12}, token)
+    assert lib["children"][0]["games"]["clockSetup"]["types"] == ["five"]
+    # New kinds of maths and spelling question are kept.
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {"types": ["add3", "bonds", "double", "half", "more"], "max": 20}}, token)
+    assert lib["children"][0]["games"]["mathsSetup"]["types"] == ["add3", "bonds", "double", "half", "more"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spellingSetup": {"types": ["hearbuild", "hear"], "lists": ["short"]}}, token)
+    assert lib["children"][0]["games"]["spellingSetup"]["types"] == ["hear", "hearbuild"]
+
+    # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "quizzes", "hangman"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "videos"]}, token)
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 2}, token)
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": []}, token)
+    assert lib["children"][0]["games"]["treatGames"] == []
+
     # Game sounds: silly until set; anything but off, calm or silly is ignored.
     assert lib["children"][0]["games"]["sounds"] == "silly"
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "sounds": "calm"}, token)
