@@ -41,7 +41,7 @@ about it.
 |---|---|---|---|---|
 | `app.start` | | | | The TV app opens (no child). |
 | `profile.pick` | | | | A child picks their face. |
-| `category.open` | `quizzes`, `games`, `learning` (the free videos), `music`, `photos` or `videos` (the treat videos) | | | A child opens a tile on their home page. |
+| `category.open` | `quizzes`, `games`, `learning` (the free videos), `music`, `exercise`, `photos` or `videos` (the treat videos) | | | A child opens a tile on their home page. |
 | `video.play` | YouTube ID | | `title`, `channel` | A video starts playing. |
 | `video.watch` | YouTube ID | seconds actually playing | `title`, `channel`, `position`, `duration` (seconds), `finished` (true/false), and how smoothly it played: `stalls` (times it stopped to buffer), `frames` and `dropped` (video frames shown and skipped), `quality` (e.g. `1920x1080`), `codec` | The player closes. |
 | `channel.open` | channel id | | `name` | A channel is opened. |

@@ -100,9 +100,10 @@ function tier(value) {
   return value === "treat" ? "treat" : "free"
 }
 
-/** "music" (the TV's Music row) or "videos". */
+/** Where it goes on the TV: "music", "exercise" (kids' yoga, workouts) or "videos". */
+const SECTIONS = ["videos", "music", "exercise"]
 function section(value) {
-  return value === "music" ? "music" : "videos"
+  return SECTIONS.includes(value) ? value : "videos"
 }
 
 const GAME_DEFAULTS = { maths: 1, spelling: 1, roundSize: 10, jigsaw: 3 }

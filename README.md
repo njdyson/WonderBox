@@ -21,12 +21,13 @@ Family photos from the phone show on the TV as a slideshow.
   read aloud.
 - **A child's home page:** big tiles on a screen of their own colour so they can tell it's
   theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws),
-  Learning (the free videos), Music, Photos and Videos (the treat videos), always in that
+  Learning (the free videos), Music, Exercise (kids' yoga and workouts), Photos and Videos
+  (the treat videos), always in that
   order, leaving out any with nothing in them. Each opens its own screen; the video ones
   are rows, like a TV app (their own videos, then a row for each channel). Videos watched
   all the way through (at least 80% actually playing) get a tick and fade back.
 - **Stars:** a jar in the header shows each child's stars. Right answers (1 each), finished
-  jigsaws, hangman or pairs (3), and learning videos (a star per 3 minutes actually played,
+  jigsaws, hangman or pairs (3), and learning and exercise videos (a star per 3 minutes actually played,
   up to 10 a day) earn them, for the games the parent chose (maths, spelling, the clock,
   flags, quizzes, hangman and learning videos until changed; those have a star on their
   tile). Treat and music videos cost them, a star per minute, shown on each card once its

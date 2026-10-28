@@ -266,6 +266,9 @@ try:
         except urllib.error.HTTPError as err:
             assert err.code == 404, err.code
     call("GET", "/api/wonder/speech?text=hello", None, "", expect=401)
+    check = call("GET", "/api/wonder/voice")
+    assert check["voice"] == bool(lib.get("voice")), check
+    assert bool(check["problem"]) != check["voice"], check
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)
@@ -299,6 +302,11 @@ try:
     lib = call("POST", "/api/wonder/videos/add", {"url": POP, "children": [sam], "section": "music"}, token)
     pop = lib["saved"]
     assert lib["videos"][0]["section"] == "music" and lib["videos"][1]["section"] == "videos"
+    # Exercise is its own section too; anything unknown is an ordinary video.
+    lib = call("POST", "/api/wonder/videos/update", {"id": pop, "section": "exercise"}, token)
+    assert next(v for v in lib["videos"] if v["id"] == pop)["section"] == "exercise"
+    lib = call("POST", "/api/wonder/videos/update", {"id": pop, "section": "dancing"}, token)
+    assert next(v for v in lib["videos"] if v["id"] == pop)["section"] == "videos"
     lib = call("POST", "/api/wonder/videos/remove", {"id": pop}, token)
 
     lib = call("POST", "/api/wonder/videos/move", {"id": zoo, "delta": -1, "child": sam}, token)

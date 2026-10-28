@@ -49,7 +49,7 @@ private sealed interface Screen {
     data class Home(val childId: String) : Screen
     /** Quizzes or Games. */
     data class Games(val childId: String, val category: Category) : Screen
-    /** Learning videos, Music or Treats. */
+    /** Learning videos, Music, Exercise or the treat Videos. */
     data class Videos(val childId: String, val category: Category) : Screen
     data class PhotoGrid(val childId: String) : Screen
     data class Photos(val childId: String, val start: Int) : Screen
@@ -164,7 +164,7 @@ class MainActivity : ComponentActivity() {
                                     open(
                                         when (it) {
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
-                                            Category.Learning, Category.Music, Category.Videos -> Screen.Videos(child.id, it)
+                                            Category.Learning, Category.Music, Category.Exercise, Category.Videos -> Screen.Videos(child.id, it)
                                             Category.Photos -> Screen.PhotoGrid(child.id)
                                         },
                                     )
@@ -200,6 +200,7 @@ class MainActivity : ComponentActivity() {
                                 val shelves = when (screen.category) {
                                     Category.Music -> app.library.musicShelvesFor(child.id)
                                     Category.Videos -> app.library.treatShelvesFor(child.id)
+                                    Category.Exercise -> app.library.exerciseShelvesFor(child.id)
                                     else -> app.library.videoShelvesFor(child.id)
                                 }
                                 VideosScreen(
@@ -208,7 +209,7 @@ class MainActivity : ComponentActivity() {
                                     screen.category.title,
                                     shelves,
                                     watched = app.watchedFor(child.id),
-                                    prices = screen.category != Category.Learning,
+                                    prices = screen.category == Category.Videos || screen.category == Category.Music,
                                     message = notice,
                                     onPlay = { play(it, child) },
                                 )

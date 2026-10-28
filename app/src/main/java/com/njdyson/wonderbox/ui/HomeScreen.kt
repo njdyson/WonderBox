@@ -63,6 +63,8 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
     Learning("Learning", "📚", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
     /** Music videos cost stars, like the treat [Videos]. */
     Music("Music", "🎵", listOf(Color(0xFF2EC4B6), Color(0xFF13867C))),
+    /** Kids' yoga and workouts: free, and earn stars like [Learning]. */
+    Exercise("Exercise", "🤸", listOf(Color(0xFFFF9F43), Color(0xFFE0612B))),
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
     /** The treat videos, which cost stars. Last, so learning comes first. */
     Videos("Videos", "📺", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
@@ -79,6 +81,7 @@ fun AppState.categoriesFor(child: Child): List<Category> {
         if (games.any { !it.isQuiz }) add(Category.Games)
         if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Learning)
         if (library.musicShelvesFor(child.id).isNotEmpty()) add(Category.Music)
+        if (library.exerciseShelvesFor(child.id).isNotEmpty()) add(Category.Exercise)
         if (photosFor(child.id).isNotEmpty()) add(Category.Photos)
         if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Videos)
     }

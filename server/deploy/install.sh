@@ -114,14 +114,16 @@ if [ "${VOICE:-1}" != 0 ]; then
     fi
     chmod -R a+rX "$BIN_DIR/piper" "$BIN_DIR/voices"
     # Check it really speaks before telling the server it can.
-    if echo "Hello" | "$BIN_DIR/piper/piper" --model "$BIN_DIR/voices/$VOICE_NAME.onnx" --output_file /tmp/wonderbox-voice-test.wav >/dev/null 2>&1; then
+    if echo "Hello" | "$BIN_DIR/piper/piper" --model "$BIN_DIR/voices/$VOICE_NAME.onnx" --output_file /tmp/wonderbox-voice-test.wav >/tmp/wonderbox-voice-test.log 2>&1 \
+      && [ -s /tmp/wonderbox-voice-test.wav ]; then
       PIPER_ENV="Environment=PIPER_BIN=$BIN_DIR/piper/piper
 Environment=PIPER_VOICE=$BIN_DIR/voices/$VOICE_NAME.onnx"
       echo "The server's voice works."
     else
-      echo "Piper didn't run here, so the TVs will use their own voices."
+      echo "Piper didn't run here, so the TVs will use their own voices. What it said:"
+      tail -n 15 /tmp/wonderbox-voice-test.log || true
     fi
-    rm -f /tmp/wonderbox-voice-test.wav
+    rm -f /tmp/wonderbox-voice-test.wav /tmp/wonderbox-voice-test.log
   fi
 fi
 
