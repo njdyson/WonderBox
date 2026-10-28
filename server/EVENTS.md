@@ -54,7 +54,7 @@ about it.
 | `memory.start` | `memory` | | `pairs`, `pictures` (`clipart`, `photos` or `both`) | A game of memory pairs starts. |
 | `memory.finish` | `memory` | pairs | `pairs`, `flips` (cards turned), `pictures`, `seconds` | Every pair is found. |
 | `reward.earn` | `treat` | | `reason` (`quiz.finish`, `jigsaw.finish`, `hangman.finish` or `memory.finish`), `game` (`jigsaw`, `hangman`, `memory`, or the round's game) | A finished game round, jigsaw, hangman or pairs wins a treat to pick (only the games the parent chose). |
-| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked from the treats screen. |
+| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked and saved in the child's Treats section (watching it later logs `video.play`). |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 
 ## The API
