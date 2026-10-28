@@ -328,14 +328,18 @@ function removeChild(userId, id) {
 }
 
 /** Moves a video within one child's list (what the phone shows), or the whole list without [childId]. */
-function moveVideo(userId, id, delta, childId) {
+/**
+ * Swaps a video with the one next to it in a child's list ([childId]) or the whole list. The phone
+ * shows one kind at a time (videos, music, treats), so it can name the neighbour it sees as [otherId].
+ */
+function moveVideo(userId, id, delta, childId, otherId) {
   const video = own("videos", id, userId)
   const all = videoRecords(userId)
   all.forEach((r, i) => r.set("sort", i))
   const view = childId ? all.filter((r) => r.getStringSlice("children").includes(childId)) : all
   const index = view.findIndex((r) => r.id === video.id)
-  const other = view[index + delta]
-  if (index >= 0 && other) {
+  const other = otherId ? view.find((r) => r.id === otherId) : view[index + delta]
+  if (index >= 0 && other && other.id !== video.id) {
     const a = all.find((r) => r.id === video.id)
     const b = all.find((r) => r.id === other.id)
     const sa = a.getInt("sort")

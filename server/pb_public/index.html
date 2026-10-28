@@ -94,6 +94,14 @@
   .seg button { flex: 1; background: transparent; color: var(--text); font-weight: 600; padding: 8px 6px; }
   .seg button.on { background: var(--text); color: var(--deep); font-weight: 800; }
   label.field { display: grid; gap: 6px; font-weight: 700; }
+
+  /* A child's list, one kind at a time: Videos, Music, Treats, Channels, each with how many */
+  .kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .kinds button { display: grid; justify-items: center; gap: 2px; padding: 8px 2px; font-size: 12px; font-weight: 700;
+    background: rgba(255,255,255,.12); color: var(--text); white-space: nowrap; overflow: hidden; }
+  .kinds button b { font-size: 18px; font-weight: 900; line-height: 1.1; }
+  .kinds button.on { background: var(--text); color: var(--deep); }
+  #find { margin-top: 10px; }
   select { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 0; background: #fff; color: #111; width: 100%; }
 
   .tv { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
@@ -110,7 +118,7 @@
     flex: 1; min-width: 0; display: grid; justify-items: center; gap: 1px; padding: 6px 2px;
     background: transparent; color: var(--muted); font-size: 12px; font-weight: 700;
   }
-  .tabbar button span { font-size: 22px; line-height: 1.1; filter: grayscale(.6); opacity: .8; }
+  .tabbar button span { font-size: 21px; line-height: 1.1; filter: grayscale(.6); opacity: .8; }
   .tabbar button.on { background: rgba(255,255,255,.14); color: var(--text); }
   .tabbar button.on span { filter: none; opacity: 1; }
 
@@ -173,23 +181,35 @@
     <h2>WHOSE VIDEOS</h2>
     <div class="kids kid-pick"></div>
 
-    <h2 id="channelsHeading" hidden>CHANNELS</h2>
-    <div class="card" id="channels" hidden></div>
-
+    <!-- One kind at a time, like the tiles on the TV's home page -->
     <h2 id="videosHeading">VIDEOS</h2>
+    <div class="kinds" id="kinds"></div>
+    <input type="text" id="find" placeholder="Find in this list" autocomplete="off" autocapitalize="off" enterkeyhint="search" hidden>
     <div class="card" id="videos"></div>
+  </section>
+
+  <section class="tab" id="quizzesTab" data-tab="quizzes" hidden>
+    <h2>WHOSE QUIZZES</h2>
+    <div class="kids kid-pick"></div>
+    <div class="card empty games-empty" hidden>Add a child in Family first, then choose their quizzes here.</div>
+
+    <h2 id="gamesHeading">QUIZZES</h2>
+    <div class="card stack" id="games"></div>
+
+    <h2>MY QUIZZES</h2>
+    <div class="card stack" id="quizzes"></div>
   </section>
 
   <section class="tab" id="gamesTab" data-tab="games" hidden>
     <h2>WHOSE GAMES</h2>
     <div class="kids kid-pick"></div>
-    <div class="card empty" id="gamesEmpty" hidden>Add a child in Family first, then choose their games here.</div>
+    <div class="card empty games-empty" hidden>Add a child in Family first, then choose their games here.</div>
 
-    <h2 id="gamesHeading">GAMES</h2>
-    <div class="card stack" id="games"></div>
+    <h2 id="playHeading">GAMES</h2>
+    <div class="card stack" id="playGames"></div>
 
-    <h2>QUIZZES</h2>
-    <div class="card stack" id="quizzes"></div>
+    <h2 id="treatsHeading">TREATS AND SOUNDS</h2>
+    <div class="card stack" id="treatRules"></div>
   </section>
 
   <section class="tab" id="photosTab" data-tab="photos" hidden>
@@ -226,6 +246,7 @@
 
   <nav class="tabbar" id="tabbar">
     <button type="button" data-tab="videos"><span>📺</span>Videos</button>
+    <button type="button" data-tab="quizzes"><span>🧠</span>Quizzes</button>
     <button type="button" data-tab="games"><span>🎮</span>Games</button>
     <button type="button" data-tab="photos"><span>🖼️</span>Photos</button>
     <button type="button" data-tab="stats"><span>📊</span>Stats</button>
@@ -568,44 +589,85 @@ function render() {
     ...(library.children.length ? [] : [el("button", { className: "kid add ghost", textContent: "+ Add a child", onclick: () => childSheet(null) })]));
 
   const c = child(selected);
-  $("videosHeading").textContent = c ? `${c.name.toUpperCase()}'S VIDEOS` : "VIDEOS";
-  const list = c ? library.videos.filter((v) => v.children.includes(c.id)) : [];
-  $("videos").replaceChildren(...(list.length ? list.map((v, i) => el("div", { className: "video" },
-    el("img", { src: v.thumbnail, alt: "", loading: "lazy" }),
-    el("div", { className: "grow", onclick: () => itemSheet(v, "videos") },
-      el("div", { className: "t", textContent: v.title || v.youtubeId }),
-      badges(v)),
-    el("div", { className: "tools" },
-      el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => edit("/api/wonder/videos/move", { id: v.id, delta: -1, child: c.id }) }),
-      el("button", { className: "ghost", textContent: "↓", disabled: i === list.length - 1, onclick: () => edit("/api/wonder/videos/move", { id: v.id, delta: 1, child: c.id }) }),
-      el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(v, "videos") }),
-      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(v, c, "videos") })),
-  )) : [el("div", { className: "empty", textContent: c
-    ? `No videos for ${c.name} yet. Search for some above, or paste a YouTube link.`
-    : "Add a child in Family first, then their videos." })]));
-
-  // Channels and playlists: the TV shows each as its own row of videos.
-  const channels = c ? library.channels.filter((ch) => ch.children.includes(c.id)) : [];
-  $("channelsHeading").hidden = $("channels").hidden = !channels.length;
-  $("channelsHeading").textContent = c ? `${c.name.toUpperCase()}'S CHANNELS AND PLAYLISTS` : "CHANNELS AND PLAYLISTS";
-  $("channels").replaceChildren(...channels.map((ch, i) => el("div", { className: "video" },
-    el("img", { src: ch.thumbnail, alt: "", loading: "lazy", className: ch.kind === "playlist" ? "" : "round" }),
-    el("div", { className: "grow", onclick: () => itemSheet(ch, "channels") },
-      el("div", { className: "t", textContent: ch.title || ch.channelId }),
-      badges(ch, `${ch.kind === "playlist" ? "Playlist · " : ""}${ch.videos.length} videos`)),
-    el("div", { className: "tools" },
-      el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => edit("/api/wonder/channels/move", { id: ch.id, delta: -1 }) }),
-      el("button", { className: "ghost", textContent: "↓", disabled: i === channels.length - 1, onclick: () => edit("/api/wonder/channels/move", { id: ch.id, delta: 1 }) }),
-      el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(ch, "channels") }),
-      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(ch, c, "channels") })),
-  )));
+  renderVideos(c);
 
   renderPhotos();
   // The games and quizzes are in quizzes.js.
   if (typeof renderGames === "function") { renderGames(c); renderQuizzes(); }
-  $("gamesEmpty").hidden = !!c;
+  for (const note of document.querySelectorAll(".games-empty")) note.hidden = !!c;
   renderFamily();
   renderAdding();
+}
+
+// --- A child's list, one kind at a time -------------------------------------
+
+// The TV's home page tiles: what's always there, music, treats (locked until won), and channels.
+const KINDS = [
+  ["videos", "📺 Videos", (i) => i.tier !== "treat" && i.section !== "music"],
+  ["music", "🎵 Music", (i) => i.tier !== "treat" && i.section === "music"],
+  ["treats", "⭐ Treats", (i) => i.tier === "treat"],
+  ["channels", "📡 Channels", null],
+];
+let kind = KINDS.some(([k]) => k === localStorage.getItem("wonderbox_kind")) ? localStorage.getItem("wonderbox_kind") : "videos";
+const FIND_FROM = 8; // the find box shows once a list is longer than this
+
+$("find").addEventListener("input", () => renderVideos(child(selected)));
+
+/** The child's videos of one kind, or their channels and playlists, with a box to find one in a long list. */
+function renderVideos(c) {
+  const videos = c ? library.videos.filter((v) => v.children.includes(c.id)) : [];
+  const channels = c ? library.channels.filter((ch) => ch.children.includes(c.id)) : [];
+  const listOf = (k) => k === "channels" ? channels : videos.filter(KINDS.find(([x]) => x === k)[2]);
+
+  $("videosHeading").textContent = c ? `${c.name.toUpperCase()}'S LIST` : "VIDEOS";
+  $("kinds").hidden = !c;
+  $("kinds").replaceChildren(...KINDS.map(([k, label]) => el("button", {
+    type: "button", className: k === kind ? "on" : "",
+    onclick: () => {
+      kind = k;
+      localStorage.setItem("wonderbox_kind", kind);
+      $("find").value = "";
+      renderVideos(c);
+    },
+  }, label, el("b", { textContent: String(listOf(k).length) }))));
+
+  const all = listOf(kind);
+  $("find").hidden = all.length <= FIND_FROM;
+  const q = $("find").hidden ? "" : $("find").value.trim().toLowerCase();
+  const list = q ? all.filter((i) => (i.title || "").toLowerCase().includes(q) || (i.channel || "").toLowerCase().includes(q)) : all;
+  const isChannels = kind === "channels";
+
+  $("videos").replaceChildren(...(list.length ? list.map((item, i) => el("div", { className: "video" },
+    el("img", { src: item.thumbnail, alt: "", loading: "lazy", className: isChannels && item.kind !== "playlist" ? "round" : "" }),
+    el("div", { className: "grow", onclick: () => itemSheet(item, isChannels ? "channels" : "videos") },
+      el("div", { className: "t", textContent: item.title || item.youtubeId || item.channelId }),
+      isChannels ? badges(item, `${item.kind === "playlist" ? "Playlist · " : ""}${item.videos.length} videos`) : badges(item)),
+    el("div", { className: "tools" },
+      // Swaps with the neighbour shown here, so the order within each kind is what's changed.
+      el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => moveItem(item, list[i - 1], -1, c) }),
+      el("button", { className: "ghost", textContent: "↓", disabled: i === list.length - 1, onclick: () => moveItem(item, list[i + 1], 1, c) }),
+      el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(item, isChannels ? "channels" : "videos") }),
+      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(item, c, isChannels ? "channels" : "videos") })),
+  )) : [el("div", { className: "empty", textContent: !c
+    ? "Add a child in Family first, then their videos."
+    : q ? `Nothing called "${$("find").value.trim()}" here.`
+    : {
+      videos: `No videos for ${c.name} yet. Search for some above, or paste a YouTube link.`,
+      music: `No music for ${c.name} yet. Add a song and choose 🎵 Music.`,
+      treats: `No treats for ${c.name} yet. Add a video and choose ⭐ Treat; it stays locked on the TV until a game is won.`,
+      channels: `No channels or playlists for ${c.name} yet. Search for one above; the TV shows each as its own row.`,
+    }[kind] })]));
+}
+
+/** Moves [item] past [other], its neighbour in the list as shown. */
+function moveItem(item, other, delta, c) {
+  if (kind === "channels") {
+    // Channels are in one order for everyone; step past any that aren't this child's.
+    const order = library.channels.map((ch) => ch.id);
+    const steps = Math.abs(order.indexOf(other.id) - order.indexOf(item.id));
+    return (async () => { for (let n = 0; n < steps; n++) if (!await edit("/api/wonder/channels/move", { id: item.id, delta })) return; })();
+  }
+  return edit("/api/wonder/videos/move", { id: item.id, delta, child: c.id, other: other.id });
 }
 
 /** The Family tab's list of children, each with a button to change them. */
@@ -632,7 +694,7 @@ function familyNote(c) {
 
 // --- Tabs -------------------------------------------------------------------
 
-const TABS = ["videos", "games", "photos", "stats", "family"];
+const TABS = ["videos", "quizzes", "games", "photos", "stats", "family"];
 let tab = TABS.includes(localStorage.getItem("wonderbox_tab")) ? localStorage.getItem("wonderbox_tab") : "videos";
 
 function showTab(name) {
