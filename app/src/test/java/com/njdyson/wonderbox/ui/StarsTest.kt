@@ -65,6 +65,16 @@ class StarsTest {
         assertEquals(2, rates.earned(6 * 60.0 + 30))
     }
 
+    @Test fun theServersLengthComesFirst() {
+        app()
+        val video = com.njdyson.wonderbox.data.Video("v1", "yt1", duration = 200)
+        assertEquals(200, Points.lengthOf(video))
+        // Learnt on this TV: used only while the server has no length.
+        Points.learnDuration("yt2", 90.0)
+        assertEquals(90, Points.lengthOf(video.copy(youtubeId = "yt2", duration = 0)))
+        assertEquals(null, Points.lengthOf(video.copy(youtubeId = "yt3", duration = 0)))
+    }
+
     @Test fun learningVideosEarnUpToTheDailyCap() {
         app()
         // 12 minutes at one star per 3: 4 stars.

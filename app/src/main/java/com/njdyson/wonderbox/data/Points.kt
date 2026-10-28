@@ -32,7 +32,7 @@ object Points {
     private var server by mutableStateOf<Map<String, Int>>(emptyMap())
     private var changes by mutableStateOf<List<PointsChange>>(emptyList())
 
-    /** How long videos are (seconds), learnt as they load, for prices before they're played. */
+    /** How long videos are (seconds), learnt as they load: for prices of videos the server has no length for yet. */
     var durations by mutableStateOf<Map<String, Int>>(emptyMap())
         private set
 
@@ -80,6 +80,9 @@ object Points {
         earn(child.id, stars, "video.watch", youtubeId) { put("seconds", seconds.toInt()) }
         return stars
     }
+
+    /** How long [video] is in seconds: the server's length, else one learnt on this TV, else null. */
+    fun lengthOf(video: Video): Int? = video.duration.takeIf { it > 0 } ?: durations[video.youtubeId]
 
     /** Remembers how long a video is, for its price or stars badge. */
     fun learnDuration(youtubeId: String, seconds: Double) {

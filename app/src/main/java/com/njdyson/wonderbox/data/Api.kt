@@ -95,6 +95,8 @@ data class Video(
     val tier: String = "free",
     /** "music" or "exercise" for those screens, otherwise "videos". */
     val section: String = "videos",
+    /** Seconds, from the server; 0 if it doesn't know yet. */
+    val duration: Int = 0,
 ) {
     val isTreat get() = tier == TREAT
     val isMusic get() = section == MUSIC
@@ -114,7 +116,7 @@ data class Channel(
 )
 
 @Serializable
-data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "")
+data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "", val duration: Int = 0)
 
 /** A row of videos on a child's screen: their own videos, or one channel's. [section] says which screen: Videos, Music or Exercise. */
 data class Shelf(val key: String, val title: String, val treat: Boolean, val videos: List<Video>, val picture: String = "", val section: String = "videos") {
@@ -151,7 +153,7 @@ data class Library(
                     ch.title.ifBlank { "Channel" },
                     treat,
                     ch.videos.map { v ->
-                        Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section)
+                        Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section, v.duration)
                     },
                     ch.thumbnail,
                     section = if (ch.section == MUSIC || ch.section == EXERCISE) ch.section else "videos",

@@ -95,7 +95,7 @@ class ScreenshotsTest {
         if (withPhotos) fakePhotos(context)
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo")
         val videos = titles.mapIndexed { i, title ->
-            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos")
+            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos", duration = listOf(0, 0, 0, 150, 200, 540)[i])
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
@@ -128,13 +128,6 @@ class ScreenshotsTest {
         shoot("home-summer")
     }
 
-    /** Lengths learnt as the videos loaded, so the treat and music ones show their prices. */
-    private fun knowLengths() {
-        Points.learnDuration("yt3", 150.0)
-        Points.learnDuration("yt4", 200.0)
-        Points.learnDuration("yt5", 540.0)
-    }
-
     @Test fun quizzes() {
         val app = app(withPhotos = true)
         val games = app.library.gamesFor(summer, photos = true).filter { it.isQuiz }
@@ -159,7 +152,6 @@ class ScreenshotsTest {
 
     @Test fun music() {
         val app = app()
-        knowLengths()
         compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Music", app.library.musicShelvesFor(summer.id), {}, prices = true) } }
         shoot("music-summer")
     }
@@ -167,7 +159,6 @@ class ScreenshotsTest {
     // The treat videos, priced by length; not enough stars for the long one.
     @Test fun treatVideos() {
         val app = app()
-        knowLengths()
         compose.setContent {
             WonderBoxTheme {
                 VideosScreen(
