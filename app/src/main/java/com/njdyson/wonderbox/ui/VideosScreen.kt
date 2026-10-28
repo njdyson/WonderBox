@@ -241,7 +241,7 @@ private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () ->
     val colors = if (game == Game.Maths) listOf(Sky, Color(0xFF2C7DA0)) else listOf(Bubblegum, Color(0xFFC2185B))
     Surface(
         onClick = onClick,
-        modifier = modifier.width(300.dp).height(128.dp).onFocusChanged { if (it.isFocused) onFocus() },
+        modifier = modifier.width(280.dp).height(104.dp).onFocusChanged { if (it.isFocused) onFocus() },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
@@ -252,7 +252,7 @@ private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () ->
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(game.icon, fontSize = 56.sp)
+            Text(game.icon, fontSize = 48.sp)
             Column {
                 Text(game.title, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Black)
                 Text("Level $level", color = Color.White.copy(alpha = 0.85f), fontSize = 18.sp)
@@ -264,7 +264,7 @@ private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () ->
 @Composable
 private fun VideoCard(video: Video, locked: Boolean, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
-    Column(Modifier.width(272.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.width(256.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
             onClick = onClick,
             modifier = modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged {

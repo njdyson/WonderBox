@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity() {
                                 child,
                                 screen.game,
                                 hasTreats = hasTreats,
+                                // TODO log reward.unlock once the activity log (PR #2) is in.
                                 onFinished = { if (hasTreats) app.earnTreat(child.id) },
                                 onPickTreat = {
                                     pickingTreat = true

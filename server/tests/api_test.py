@@ -125,12 +125,14 @@ try:
     channel = lib["saved"]
     [ch] = lib["channels"]
     assert ch["channelId"] == NUMBERBLOCKS_ID and ch["tier"] == "treat" and ch["children"] == [jo] and ch["videos"], ch
+    assert 0 < len(ch["videos"]) <= 50 and all(len(v["youtubeId"]) == 11 and v["title"] for v in ch["videos"]), ch["videos"]
     # Adding it again by ID adds the child, and doesn't make a second one.
     lib = call("POST", "/api/wonder/channels/add", {"url": f"https://www.youtube.com/channel/{NUMBERBLOCKS_ID}", "children": [sam]}, token)
     assert len(lib["channels"]) == 1 and sorted(lib["channels"][0]["children"]) == sorted([sam, jo])
     assert lib["channels"][0]["tier"] == "treat"
+    before = [v["youtubeId"] for v in ch["videos"]]
     lib = call("POST", "/api/wonder/channels/refresh", {"id": channel}, token)
-    assert lib["channels"][0]["videos"]
+    assert [v["youtubeId"] for v in lib["channels"][0]["videos"]] == before
     lib = call("POST", "/api/wonder/channels/update", {"id": channel, "tier": "free", "section": "music", "children": [jo]}, token)
     ch = lib["channels"][0]
     assert ch["tier"] == "free" and ch["section"] == "music" and ch["children"] == [jo], ch

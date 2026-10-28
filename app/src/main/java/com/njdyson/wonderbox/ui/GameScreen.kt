@@ -99,6 +99,7 @@ fun GameScreen(
                         Asking(app, question, onRight = {
                             right++
                             if (right >= goal) {
+                                // TODO log quiz.finish (score, level) once the activity log (PR #2) is in.
                                 finished = true
                                 onFinished()
                             } else {
@@ -197,6 +198,7 @@ private fun Asking(app: AppState, q: Question, onRight: () -> Unit) {
                                 if (used.size == q.answer.length) yes()
                             } else oops(i)
                         } else if (choice == q.answer) yes() else oops(i)
+                        // TODO log quiz.answer (value 1 right, 0 wrong) once the activity log (PR #2) is in.
                     },
                 )
             }

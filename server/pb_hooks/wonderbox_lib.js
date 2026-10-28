@@ -129,10 +129,10 @@ const SPELLING_LEVELS = 5
 
 /** The stored video list of a channel, as plain objects. */
 function channelVideos(channel) {
-  const raw = channel.get("videos")
+  // A JSON field comes back as raw bytes.
   let list = []
   try {
-    list = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw)) || []
+    list = JSON.parse(toString(channel.get("videos")) || "[]")
   } catch (_) {}
   return Array.isArray(list) ? list : []
 }
