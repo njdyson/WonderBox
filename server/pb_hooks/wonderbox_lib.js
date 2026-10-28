@@ -113,6 +113,7 @@ function games(child) {
   const maths = child.getInt("maths_level") || GAME_DEFAULTS.maths
   const spelling = child.getInt("spelling_level") || GAME_DEFAULTS.spelling
   const stored = quiz.jsonField(child, "game_setup") || {}
+  const clockLevel = Math.min(quiz.CLOCK_PRESETS.length, Math.max(1, Math.round(Number(stored.clockLevel)) || 1))
   return {
     maths,
     spelling,
@@ -120,6 +121,11 @@ function games(child) {
     // What each game asks; a child set up before these existed gets their level's.
     mathsSetup: quiz.mathsSetup(stored.maths, maths),
     spellingSetup: quiz.spellingSetup(stored.spelling, spelling),
+    // Telling the time: its level and setup live in game_setup, like the games below.
+    clock: clockLevel,
+    clockSetup: quiz.clockSetup(stored.clock, clockLevel),
+    // Which games win a treat: maths, spelling, clock, quizzes, hangman, memory, jigsaw.
+    treatGames: quiz.treatGames(stored.treats),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
     hangman: extra.hangmanSetup(stored.hangman),
@@ -140,9 +146,10 @@ function jigsawSize(stored) {
 }
 
 /**
- * {id, maths, spelling, roundSize, mathsSetup, spellingSetup, jigsaw, sounds, hangman, memory}:
- * how hard a child's games are (jigsaw 0 is off), and their sound effects. hangman and memory
- * are whole setups (pb_hooks/games_lib.js).
+ * {id, maths, spelling, clock, roundSize, mathsSetup, spellingSetup, clockSetup, treatGames,
+ * jigsaw, sounds, hangman, memory}: how hard a child's games are (jigsaw 0 is off), which of
+ * them win a treat, and their sound effects. hangman and memory are whole setups
+ * (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -156,7 +163,13 @@ function saveGames(userId, body) {
   }
   const current = games(child)
   // Keep whatever else is stored with the setups.
-  const setup = Object.assign({}, quiz.jsonField(child, "game_setup") || {}, { maths: current.mathsSetup, spelling: current.spellingSetup })
+  const setup = Object.assign({}, quiz.jsonField(child, "game_setup") || {}, {
+    maths: current.mathsSetup,
+    spelling: current.spellingSetup,
+    clock: current.clockSetup,
+    clockLevel: current.clock,
+    treats: current.treatGames,
+  })
   setup.hangman = body.hangman ? extra.hangmanSetup(body.hangman) : current.hangman
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
@@ -173,6 +186,15 @@ function saveGames(userId, body) {
   } else if (spelling !== current.spelling) {
     setup.spelling = quiz.spellingPreset(spelling, current.spellingSetup)
   }
+  let clock = clamp(body.clock, 1, quiz.CLOCK_PRESETS.length, current.clock)
+  if (body.clockSetup) {
+    setup.clock = quiz.clockSetup(body.clockSetup, clock)
+    clock = quiz.clockLevelOf(setup.clock) || clock
+  } else if (clock !== current.clock) {
+    setup.clock = quiz.clockPreset(clock)
+  }
+  setup.clockLevel = clock
+  if (Array.isArray(body.treatGames)) setup.treats = quiz.treatGames(body.treatGames)
   child.set("maths_level", maths)
   child.set("spelling_level", spelling)
   child.set("round_size", clamp(body.roundSize, 3, 30, current.roundSize))

@@ -174,6 +174,8 @@ class ScreenshotsTest {
 
     @Test fun game() = game(jesse, "maths", "game-maths")
 
+    @Test fun gameClock() = game(jesse, "clock", "game-clock")
+
     @Test fun gameOwnMix() = game(summer, "maths", "game-maths-own-mix")
 
     @Test fun gameOwnWords() = game(summer, "spelling", "game-spelling-own-words")
