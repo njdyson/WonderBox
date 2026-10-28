@@ -18,10 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,8 +69,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
 /**
- * Rows of one child's videos under a [title]: their Videos, their Music, or their treats
- * (with [stars] on). The focused video's title is
+ * One child's videos under a [title], four across in a grid that scrolls up and down: their
+ * Learning, Music, Exercise or Stories videos, or their treats (with [stars] on). The focused video's title is
  * read aloud, and after a moment its player starts loading in the background so it starts
  * quickly when chosen.
  */
@@ -99,45 +100,45 @@ fun VideosScreen(
     val restore = remember { FocusRequester() }
 
     ChildScreen(app, child, title) {
-        LazyColumn(
-            contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        // A grid that scrolls up and down, a heading over each shelf (their own videos, then
+        // each channel), rather than one long row per shelf.
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(COLUMNS),
+            contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 40.dp),
+            horizontalArrangement = Arrangement.spacedBy(26.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             shelves.forEach { shelf ->
-                item(key = shelf.key) {
-                    Column {
+                // Only worth a heading when there's more than one shelf.
+                if (shelves.size > 1) {
+                    item(key = "title-${shelf.key}", span = { GridItemSpan(maxLineSpan) }) {
                         RowTitle(shelf.title, ink, shelf.picture)
-                        LazyRow(
-                            contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 10.dp, bottom = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(26.dp),
-                        ) {
-                            itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
-                                VideoCard(
-                                    video,
-                                    star = stars,
-                                    watched = video.youtubeId in watched,
-                                    ink = ink,
-                                    tilt = if (i % 2 == 0) -2f else 2f,
-                                    onClick = { onPlay(video) },
-                                    onFocus = {
-                                        focusedKey = video.id
-                                        focusedVideo = video
-                                    },
-                                    modifier = if (video.id == restoreKey) Modifier.focusRequester(restore) else Modifier,
-                                )
-                            }
-                        }
                     }
+                }
+                itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
+                    VideoCard(
+                        video,
+                        star = stars,
+                        watched = video.youtubeId in watched,
+                        ink = ink,
+                        tilt = if (i % 2 == 0) -2f else 2f,
+                        onClick = { onPlay(video) },
+                        onFocus = {
+                            focusedKey = video.id
+                            focusedVideo = video
+                        },
+                        modifier = if (video.id == restoreKey) Modifier.focusRequester(restore) else Modifier,
+                    )
                 }
             }
             if (shelves.isEmpty()) {
-                item(key = "empty") {
+                item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         empty,
                         color = ink,
                         fontSize = 24.sp,
-                        modifier = Modifier.padding(start = 48.dp, top = 30.dp),
+                        modifier = Modifier.padding(top = 30.dp),
                     )
                 }
             }
@@ -167,7 +168,7 @@ fun VideosScreen(
 @Composable
 private fun RowTitle(text: String, ink: Color, picture: String = "") {
     Row(
-        Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp),
+        Modifier.padding(top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -196,7 +197,7 @@ private fun VideoCard(
         spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "tilt",
     )
-    Column(Modifier.width(256.dp).graphicsLayer { rotationZ = rotation }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().graphicsLayer { rotationZ = rotation }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
             onClick = onClick,
             modifier = modifier.fillMaxWidth().aspectRatio(16f / 9f).onFocusChanged {
@@ -251,3 +252,6 @@ private fun VideoCard(
         )
     }
 }
+
+/** Videos across the screen: about two and a half rows show at once. */
+private const val COLUMNS = 4

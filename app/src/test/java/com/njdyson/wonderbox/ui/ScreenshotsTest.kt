@@ -39,6 +39,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.Library
 import com.njdyson.wonderbox.data.MUSIC
+import com.njdyson.wonderbox.data.STORIES
 import com.njdyson.wonderbox.data.TREAT
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.json
@@ -92,9 +93,9 @@ class ScreenshotsTest {
     private fun app(withPhotos: Boolean = false): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (withPhotos) fakePhotos(context)
-        val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo")
+        val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo", "Room on the Broom, read aloud", "Maddie Moate: How Do Bees Make Honey?", "Numberblocks: Make Ten", "Octonauts and the Whale Shark", "Blippi Visits a Farm")
         val videos = titles.mapIndexed { i, title ->
-            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos")
+            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i in 4..5) TREAT else "free", section = when (i) { 3 -> MUSIC; 6 -> STORIES; else -> "videos" })
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
