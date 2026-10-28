@@ -14,7 +14,7 @@ const val HANGMAN = "hangman"
 @Serializable
 data class HangmanSetup(
     val on: Boolean = true,
-    /** Which words: "short" (3 letters), "long" (4 and 5), "mine" (the spelling game's own words). */
+    /** Which words: "short" (3 letters), "long" (4 and 5), "big" (6 to 8), "mine" (the spelling game's own words). */
     val lists: List<String> = listOf("short"),
     /** Letters to pick from, the word's own among them; 26 is the whole alphabet. */
     val letters: Int = 8,
@@ -58,6 +58,7 @@ class Hangman(val word: String, val picture: String, val letters: List<Char>, va
         fun words(setup: HangmanSetup, myWords: List<MyWord>): List<Pair<String, String>> = buildList {
             if ("short" in setup.lists) addAll(SpellingQuestions.SHORT)
             if ("long" in setup.lists) addAll(SpellingQuestions.LONG)
+            if ("big" in setup.lists) addAll(SpellingQuestions.BIG)
             if ("mine" in setup.lists) myWords.forEach { add(it.word.lowercase() to it.picture) }
         }.filter { (word, _) -> word.length in 2..12 && word.all { it in 'a'..'z' } }.ifEmpty { SpellingQuestions.SHORT }
 

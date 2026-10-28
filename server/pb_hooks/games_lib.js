@@ -4,7 +4,7 @@
 // WordGame.kt and Memory.kt), loaded with require(). Each child's are kept in
 // children.game_setup next to maths and spelling; anything missing or odd gets the default.
 
-const WORD_LISTS = ["short", "long", "mine"]
+const WORD_LISTS = ["short", "long", "big", "mine"]
 const HANGMAN_LETTERS = [8, 12, 26]
 const HANGMAN_BALLOONS = [4, 6, 8]
 const MEMORY_PAIRS = [3, 4, 6, 8, 10]
@@ -13,7 +13,7 @@ const MEMORY_PICTURES = ["clipart", "photos", "both"]
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true }
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" }
 // The word game: levels 1 and 2 unjumble a word (from these lists), 3 to 5 make words from 5, 6 or 7 letters.
-const SCRAMBLE_LISTS = ["phase2", "short", "long", "mine"]
+const SCRAMBLE_LISTS = ["phase2", "short", "long", "big", "mine"]
 const SCRAMBLE_LEVELS = 5
 const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true }
 

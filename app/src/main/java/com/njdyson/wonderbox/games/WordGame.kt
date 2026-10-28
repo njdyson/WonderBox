@@ -18,7 +18,7 @@ const val SCRAMBLE = "scramble"
 data class ScrambleSetup(
     val on: Boolean = true,
     val level: Int = 1,
-    /** For levels 1 and 2: "phase2" (phonics), "short" (3 letters), "long" (4 and 5), "mine" (the spelling game's own words). */
+    /** For levels 1 and 2: "phase2" (phonics), "short" (3 letters), "long" (4 and 5), "big" (6 to 8), "mine" (the spelling game's own words). */
     val lists: List<String> = listOf("phase2"),
     /** Jumbled words to put right to finish a game (levels 1 and 2). */
     val words: Int = 3,
@@ -124,6 +124,7 @@ class Unjumble(val word: String, val picture: String, val tiles: List<Char>, val
             if ("phase2" in setup.lists) addAll(Phonics.PHASE2)
             if ("short" in setup.lists) addAll(SpellingQuestions.SHORT)
             if ("long" in setup.lists) addAll(SpellingQuestions.LONG)
+            if ("big" in setup.lists) addAll(SpellingQuestions.BIG)
             if ("mine" in setup.lists) myWords.forEach { add(it.word.lowercase() to it.picture) }
         }.filter { (word, _) -> word.length in 3..8 && word.all { it in 'a'..'z' } && word.toSet().size > 1 }
             .distinctBy { it.first }
