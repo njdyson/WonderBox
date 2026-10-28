@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: build-apk-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
-  # Never cancel mid-publish: the release is deleted and recreated in the last step.
+  # Never cancel mid-publish, and publish one build at a time.
   cancel-in-progress: false
 
 jobs:
@@ -54,10 +54,19 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+        # Updates the release in place rather than deleting and recreating it, so the
+        # download links never 404 while a build publishes (the TV's Check for update
+        # used to fail in that gap). The APK goes up before version.json, so the TV is
+        # never told about a build it can't download yet.
         run: |
-          gh release delete apk-latest --cleanup-tag --yes || true
-          gh release create apk-latest WonderBox.apk version.json \
-            --title "Latest APK" \
-            --notes "Build ${GITHUB_RUN_NUMBER}, from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}." \
-            --target "$GITHUB_SHA" \
-            --latest
+          notes="Build ${GITHUB_RUN_NUMBER}, from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}."
+          if gh release view apk-latest >/dev/null 2>&1; then
+            git tag -f apk-latest "$GITHUB_SHA"
+            git push -f origin refs/tags/apk-latest
+            gh release upload apk-latest WonderBox.apk --clobber
+            gh release upload apk-latest version.json --clobber
+            gh release edit apk-latest --notes "$notes" --latest
+          else
+            gh release create apk-latest WonderBox.apk version.json \
+              --title "Latest APK" --notes "$notes" --target "$GITHUB_SHA" --latest
+          fi

@@ -81,6 +81,15 @@ object Updater {
             connectTimeout = 15_000
             readTimeout = 30_000
             setRequestProperty("Cache-Control", "no-cache")
+            // A 404 means the release has no files for a moment, e.g. while a new build publishes.
+            if (responseCode == 404) throw PublishingException()
             if (responseCode !in 200..299) throw IllegalStateException("HTTP $responseCode for $url")
         }
+}
+
+/** The release is briefly missing its files, usually because a new build is being published. */
+class PublishingException : Exception(MESSAGE) {
+    companion object {
+        const val MESSAGE = "A new build is on its way. Try again in a few minutes."
+    }
 }

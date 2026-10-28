@@ -26,12 +26,13 @@ data class GameEntry(
     fun newRound(child: Child, random: Random = Random): Round {
         quiz?.let { return quizRound(it, random) }
         val roundSize = child.games.roundSize.coerceIn(1, 50)
+        val recent = RecentTopics.forGame("${child.id}/$key")
         return if (game == Game.Spelling) {
             val setup = child.games.spelling()
-            Round(roundSize, setup.level()) { SpellingQuestions.question(setup, random) }
+            Round(roundSize, setup.level()) { recent.fresh { SpellingQuestions.question(setup, random) } }
         } else {
             val setup = child.games.maths()
-            Round(roundSize, setup.level()) { MathsQuestions.question(setup, random) }
+            Round(roundSize, setup.level()) { recent.fresh { MathsQuestions.question(setup, random) } }
         }
     }
 
@@ -42,6 +43,50 @@ data class GameEntry(
         return Round(order.size.coerceAtLeast(1), 0) {
             order[next++ % order.size].toQuestion(random)
         }
+    }
+}
+
+/**
+ * The last few things a child was asked in a game, kept while the app runs, so a word or sum
+ * doesn't come up again in the same round or the next one.
+ */
+class RecentTopics(private val window: Int = WINDOW) {
+    // A plain list: ArrayDeque.lastIndexOf gives wrong answers once its buffer wraps around.
+    private val topics = mutableListOf<String>()
+
+    /**
+     * A question from [make] whose topic hasn't come up recently. When everything has (counting
+     * to 5, three of the parent's own words), the one asked longest ago.
+     */
+    fun fresh(make: () -> Question): Question {
+        var best = make()
+        var bestAge = age(best.topic)
+        var tries = 0
+        while (bestAge < Int.MAX_VALUE && tries++ < 80) {
+            val q = make()
+            val a = age(q.topic)
+            if (a > bestAge) {
+                best = q
+                bestAge = a
+            }
+        }
+        topics.add(best.topic)
+        while (topics.size > window) topics.removeAt(0)
+        return best
+    }
+
+    /** How many questions ago [topic] was asked: 1 for the last one, MAX_VALUE if not lately. */
+    private fun age(topic: String): Int {
+        val i = topics.lastIndexOf(topic)
+        return if (i < 0) Int.MAX_VALUE else topics.size - i
+    }
+
+    companion object {
+        const val WINDOW = 20
+        private val games = mutableMapOf<String, RecentTopics>()
+
+        /** The one for a child's game ("<child>/<game>"), shared by its rounds. */
+        fun forGame(key: String) = synchronized(games) { games.getOrPut(key) { RecentTopics() } }
     }
 }
 

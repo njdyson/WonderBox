@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.webkit)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

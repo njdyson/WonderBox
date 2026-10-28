@@ -6,11 +6,14 @@ import android.content.Context
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 
 /**
  * The WebView holding YouTube's embedded player, made ahead of time so a video starts
@@ -20,6 +23,11 @@ import android.webkit.WebViewClient
  * until it starts, then pauses at the start, which has YouTube buffer the opening seconds.
  * [PlayerActivity] then [take]s it and plays from there. A video that isn't watched costs
  * only those few seconds of video.
+ *
+ * Two things for smooth playback on a Fire TV Stick: YouTube is steered to H.264 video,
+ * which every stick decodes in hardware (VP9 and AV1 may be decoded in software, which can't
+ * keep up with high quality video), and a preloaded player is given the screen's size, so
+ * YouTube picks the right quality while preloading instead of switching up once it's shown.
  */
 @SuppressLint("StaticFieldLeak") // Made with the application context, never an activity.
 object PlayerWebView {
@@ -28,7 +36,19 @@ object PlayerWebView {
     interface Listener {
         fun onState(state: Int)
         fun onError(code: Int)
+        fun onStats(stats: Stats) {}
     }
+
+    /** How the video is playing, from the page's video element every couple of seconds. */
+    data class Stats(
+        val width: Int,
+        val height: Int,
+        val codec: String,
+        val dropped: Int,
+        val frames: Int,
+        // Seconds of video downloaded ahead of where it's playing.
+        val ahead: Double,
+    )
 
     private val main = Handler(Looper.getMainLooper())
     private var view: WebView? = null
@@ -75,7 +95,19 @@ object PlayerWebView {
         error = null
         position = 0.0
         duration = 0.0
+        stats = null
     }
+
+    /** The latest [Stats] for the current video, if the page has sent any. */
+    var stats: Stats? = null
+        private set
+
+    /** Whether the H.264 and no-suggestions tweaks are on (they need a WebView that can run scripts in its frames). */
+    val playerTweaks get() = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+
+    /** The system WebView's version, which is what really plays the video. */
+    fun webViewVersion(context: Context): String =
+        WebViewCompat.getCurrentWebViewPackage(context)?.versionName ?: "unknown"
 
     /** Where the video was and how long it is (seconds), as of the last state change. */
     var position = 0.0
@@ -100,6 +132,14 @@ object PlayerWebView {
             webViewClient = WebViewClient()
             webChromeClient = WebChromeClient()
             addJavascriptInterface(Events(), "Android")
+            if (playerTweaks) WebViewCompat.addDocumentStartJavaScript(this, FRAME_SCRIPT, YOUTUBE_ORIGINS)
+            // Full screen size even before it's on screen (preloading), so YouTube picks the quality it will play at.
+            val screen = context.resources.displayMetrics
+            measure(
+                View.MeasureSpec.makeMeasureSpec(screen.widthPixels, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(screen.heightPixels, View.MeasureSpec.EXACTLY),
+            )
+            layout(0, 0, screen.widthPixels, screen.heightPixels)
             // YouTube refuses embeds with no referrer, so the page gets our server's address.
             loadDataWithBaseURL("$ORIGIN/", playerPage(id), "text/html", "utf-8", null)
         }
@@ -128,6 +168,16 @@ object PlayerWebView {
             }
         }
 
+        // Called from inside YouTube's frame, by FRAME_SCRIPT.
+        @JavascriptInterface
+        fun onStats(width: Int, height: Int, codec: String, dropped: Int, frames: Int, ahead: Double) {
+            main.post {
+                val latest = Stats(width, height, codec, dropped, frames, ahead)
+                stats = latest
+                listener?.onStats(latest)
+            }
+        }
+
         @JavascriptInterface
         fun onError(code: Int) {
             main.post {
@@ -138,6 +188,70 @@ object PlayerWebView {
     }
 
     private val ORIGIN = BuildConfig.SERVER_URL.trimEnd('/')
+
+    private val YOUTUBE_ORIGINS = setOf("https://www.youtube.com", "https://www.youtube-nocookie.com")
+
+    /**
+     * Runs at the start of YouTube's own player frame (our page can't reach into it). It says
+     * VP9, AV1 and VP8 video can't be played, so YouTube sends H.264, and every two seconds
+     * reports the video's size, codec, dropped frames and buffer to [Events.onStats]. It also
+     * hides everything YouTube puts over the picture, suggested videos included.
+     */
+    private val FRAME_SCRIPT = """
+(function () {
+  var blocked = /av01|vp0?9|vp8/i;
+  var hide = document.createElement('style');
+  // Everything YouTube draws over the picture (title, logo, "More videos", pause icon,
+  // subtitles, suggestions, its own error screen) except the video itself and ads, whose
+  // skip button must stay. The app shows its own title, hints and screens.
+  hide.textContent = '.html5-video-player > :not(.html5-video-container):not(.video-ads):not(.ytp-ad-module),' +
+    ' .ytp-ce-element, .ytp-cards-teaser, .ytp-endscreen-content, .ytp-pause-overlay, .ytp-watermark, .iv-branding' +
+    ' { display: none !important; }';
+  // There may be no document to add it to yet, this early.
+  if (document.documentElement) document.documentElement.appendChild(hide);
+  else document.addEventListener('DOMContentLoaded', function () { document.head.appendChild(hide); });
+  var codec = '';
+  var MS = window.MediaSource;
+  if (MS) {
+    var supported = MS.isTypeSupported.bind(MS);
+    MS.isTypeSupported = function (type) { return blocked.test(type) ? false : supported(type); };
+    var add = MS.prototype.addSourceBuffer;
+    MS.prototype.addSourceBuffer = function (type) {
+      if (/^video/i.test(type)) codec = type;
+      return add.call(this, type);
+    };
+  }
+  if (window.SourceBuffer && SourceBuffer.prototype.changeType) {
+    var change = SourceBuffer.prototype.changeType;
+    SourceBuffer.prototype.changeType = function (type) {
+      if (/^video/i.test(type)) codec = type;
+      return change.call(this, type);
+    };
+  }
+  var canPlay = HTMLMediaElement.prototype.canPlayType;
+  HTMLMediaElement.prototype.canPlayType = function (type) { return blocked.test(type) ? '' : canPlay.call(this, type); };
+  var caps = navigator.mediaCapabilities;
+  if (caps && caps.decodingInfo) {
+    var info = caps.decodingInfo.bind(caps);
+    caps.decodingInfo = function (config) {
+      var type = config && config.video && config.video.contentType;
+      if (type && blocked.test(type)) return Promise.resolve({ supported: false, smooth: false, powerEfficient: false });
+      return info(config);
+    };
+  }
+  setInterval(function () {
+    var video = document.querySelector('video');
+    if (!video || !window.Android || !Android.onStats) return;
+    var quality = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
+    var ahead = 0;
+    for (var i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= video.currentTime && video.currentTime <= video.buffered.end(i)) ahead = video.buffered.end(i) - video.currentTime;
+    }
+    Android.onStats(video.videoWidth, video.videoHeight, codec.replace(/^video\/[^;]*;\s*codecs=/i, '').replace(/"/g, ''),
+      quality ? quality.droppedVideoFrames : 0, quality ? quality.totalVideoFrames : 0, ahead);
+  }, 2000);
+})();
+""".trimIndent()
 
     private fun playerPage(videoId: String) = """
 <!doctype html>

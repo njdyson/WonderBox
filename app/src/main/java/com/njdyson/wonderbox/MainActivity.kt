@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.gamesFor
@@ -61,7 +62,8 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(app.linked) {
                 while (app.linked) {
                     delay(60_000)
-                    app.sync()
+                    // Not while a video plays on top: the player gets the stick to itself.
+                    if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) app.sync()
                 }
             }
 
