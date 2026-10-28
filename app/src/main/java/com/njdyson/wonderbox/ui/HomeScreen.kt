@@ -83,7 +83,8 @@ fun AppState.categoriesFor(child: Child): List<Category> {
 fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     val color = parseColor(child.color)
     val ink = color.onColor()
-    val treats = app.treatsFor(child.id)
+    // Treats saved up, the same number as on the Treats tile.
+    val treats = app.savedTreatsFor(child.id).size
     PlayBackground(color) {
         Column(Modifier.fillMaxSize()) {
             Row(
@@ -96,7 +97,7 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
                 }
                 Text(child.name, color = ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 if (title != null) Text("·  $title", color = ink.copy(alpha = 0.85f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                // Treats left to pick; nothing at all when there are none, so they stay a surprise.
+                // Nothing at all when there are none.
                 if (treats > 0) {
                     Text(
                         "⭐ $treats",

@@ -43,6 +43,24 @@ class AppState(context: Context) {
 
     fun treatsFor(childId: String) = treats[childId] ?: 0
 
+    /** Videos each child has watched all the way through (YouTube IDs), recorded by the player. */
+    var watched by mutableStateOf(store.watched.mapValues { it.value.toSet() })
+        private set
+
+    fun watchedFor(childId: String): Set<String> = watched[childId].orEmpty()
+
+    /**
+     * Picks up what the player recorded while it was on top: videos watched, and treats won by
+     * watching them. Returns the children who won a treat since.
+     */
+    fun reloadFromPlayer(): Set<String> {
+        watched = store.watched.mapValues { it.value.toSet() }
+        val fresh = store.treats
+        val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
+        treats = fresh
+        return won
+    }
+
     fun earnTreat(childId: String) {
         treats = treats + (childId to treatsFor(childId) + 1)
         store.treats = treats
@@ -62,14 +80,9 @@ class AppState(context: Context) {
         return savedTreats[childId].orEmpty().mapIndexedNotNull { i, id -> all[id]?.copy(id = "saved/$i/$id") }
     }
 
-    /** The Treats section's rows: their saved treats, then all the treats while they've one to pick. */
-    fun treatsSectionFor(childId: String): List<Shelf> = buildList {
-        val mine = savedTreatsFor(childId)
-        if (mine.isNotEmpty()) add(Shelf("saved", "My treats", true, mine))
-        if (treatsFor(childId) > 0) {
-            addAll(library.treatShelvesFor(childId).map { it.copy(title = if (it.key == "treats") "Pick one to save" else "Pick one to save: ${it.title}") })
-        }
-    }
+    /** The Treats section's row: only the treats they've won and picked, never the rest. */
+    fun treatsSectionFor(childId: String): List<Shelf> =
+        savedTreatsFor(childId).let { mine -> if (mine.isEmpty()) emptyList() else listOf(Shelf("saved", "My treats", true, mine)) }
 
     /** Uses up one of the child's treats to save [video] in their Treats section; false if they have none. */
     fun saveTreat(childId: String, video: Video): Boolean {

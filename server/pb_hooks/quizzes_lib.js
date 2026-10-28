@@ -17,8 +17,8 @@ const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"
 const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
 // The games that can win a treat on the TV ("quizzes" is all the parent's quizzes), and the
 // ones that do until the parent changes it: the learning ones, not the jigsaw or memory pairs.
-const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw"]
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman"]
+const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
 const FLAG_REGIONS = ["uk", "famous", "europe", "asia", "africa", "americas", "oceania"]
 const FLAG_TYPES = ["name", "flag"]
 const WORD_LISTS = ["short", "long", "phase2", "mine"]

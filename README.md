@@ -24,9 +24,13 @@ Family photos from the phone show on the TV as a slideshow.
   and Photos, always in that order, leaving out any with nothing in them, then Treats. Each
   opens its own screen; Videos and Music are rows, like a TV app (their own videos, then a
   row for each channel). Treat videos never show there: finishing a game (10 right answers
-  by default) wins a treat, and the child picks one to save (or saves the pick for later)
-  and carries on learning. Saved treats wait in the Treats section (its tile counts them)
-  and watching one uses it up; a won treat not picked yet can be picked there too. The parent chooses which
+  by default) wins a treat, and the child picks one to save and carries on learning. The
+  Treats section holds only the treats they've picked (its tile counts them), and watching
+  one uses it up; a won treat left unpicked (Back from the picker) is picked when they next
+  open Treats. Videos watched all the way through get a tick and fade back; the first
+  time a free video (not music) is watched through without skipping (at least 80% of it
+  actually playing), it wins a treat too, unless the parent turned "Watching a whole video"
+  off in the phone app. The parent chooses which
   games win a treat: maths, spelling, the clock, flags, quizzes and hangman until changed, not
   jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read

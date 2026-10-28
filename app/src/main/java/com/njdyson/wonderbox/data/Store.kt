@@ -11,6 +11,10 @@ import kotlinx.serialization.builtins.serializer
  * Thumbnails are cached on disk by Coil.
  */
 class Store(context: Context) {
+    private companion object {
+        const val MAX_WATCHED = 2000
+    }
+
     private val prefs = context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE)
 
     var deviceKey: String?
@@ -41,6 +45,30 @@ class Store(context: Context) {
             runCatching { json.decodeFromString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), it) }.getOrNull()
         } ?: emptyMap()
         set(value) = prefs.edit().putString("saved_treats", json.encodeToString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), value)).apply()
+
+    /** YouTube IDs each child has watched all the way through, by child ID, oldest first. */
+    var watched: Map<String, List<String>>
+        get() = prefs.getString("watched", null)?.let {
+            runCatching { json.decodeFromString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), it) }.getOrNull()
+        } ?: emptyMap()
+        set(value) = prefs.edit().putString("watched", json.encodeToString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), value)).commit().let {}
+
+    /**
+     * Marks [youtubeId] watched all the way through by [childId]; true if it's the first time.
+     * Called from the player, so it writes straight away for the main screen to read on its return.
+     */
+    fun markWatched(childId: String, youtubeId: String): Boolean {
+        val mine = watched[childId].orEmpty()
+        if (youtubeId in mine) return false
+        watched = watched + (childId to (mine + youtubeId).takeLast(MAX_WATCHED))
+        return true
+    }
+
+    /** One more won treat for [childId], from the player (the main screen's [treats] are reloaded on its return). */
+    fun addTreat(childId: String) {
+        val now = treats
+        prefs.edit().putString("treats", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), now + (childId to (now[childId] ?: 0) + 1))).commit()
+    }
 
     /** Read video titles aloud when they're focused. */
     var speakTitles: Boolean
