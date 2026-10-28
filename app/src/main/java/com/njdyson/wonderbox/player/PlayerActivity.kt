@@ -17,6 +17,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.njdyson.wonderbox.data.EventLog
+import kotlinx.serialization.json.put
 
 /**
  * Plays a YouTube video full screen, using the embedded player in [PlayerWebView]
@@ -44,6 +46,17 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     // Once it has finished or failed, the cover stays and any key closes the player.
     private var done = false
 
+    // For the stats: who's watching, and how long it has actually been playing.
+    private var childId: String? = null
+    private var videoId = ""
+    private var title = ""
+    private var channel = ""
+    private var started = false
+    private var playedMs = 0L
+    private var playingSince = 0L
+    private var lastStateAt = 0L
+    private var finishedVideo = false
+
     private val hideHint = Runnable { if (state == 1) hintBar.visibility = View.GONE }
 
     // A video that hasn't started within 20 seconds isn't going to.
@@ -51,8 +64,10 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val videoId = intent.getStringExtra(EXTRA_VIDEO_ID) ?: return finish()
-        val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+        videoId = intent.getStringExtra(EXTRA_VIDEO_ID) ?: return finish()
+        title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
+        channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
+        childId = intent.getStringExtra(EXTRA_CHILD_ID)
         val dp = resources.displayMetrics.density
 
         val webView = PlayerWebView.take(this, videoId, this)
@@ -141,11 +156,43 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     override fun onDestroy() {
         main.removeCallbacksAndMessages(null)
+        logWatched()
         PlayerWebView.release()
         super.onDestroy()
     }
 
     private fun js(code: String) = PlayerWebView.js(code)
+
+    /** Counts playing time between state changes, and logs the first play. */
+    private fun trackPlaying(newState: Int) {
+        val now = System.currentTimeMillis()
+        if (playingSince > 0) playedMs += now - playingSince
+        playingSince = if (newState == 1) now else 0L
+        if (newState == 1 && !started) {
+            started = true
+            EventLog.log("video.play", childId, videoId) {
+                put("title", title)
+                put("channel", channel)
+            }
+        }
+    }
+
+    /** One video.watch event when the player closes: seconds actually playing, and how far it got. */
+    private fun logWatched() {
+        if (!started) return
+        val stillPlaying = playingSince > 0
+        trackPlaying(-1)
+        val duration = PlayerWebView.duration
+        // The position is from the last state change; add the playing since then.
+        val position = PlayerWebView.position + if (stillPlaying) (System.currentTimeMillis() - lastStateAt) / 1000.0 else 0.0
+        EventLog.log("video.watch", childId, videoId, value = playedMs / 1000.0) {
+            put("title", title)
+            put("channel", channel)
+            put("position", if (duration > 0) minOf(position, duration) else position)
+            put("duration", duration)
+            put("finished", finishedVideo)
+        }
+    }
 
     private fun showHint() {
         hint.text = when (state) {
@@ -175,12 +222,15 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     private fun finished() {
         done = true
+        finishedVideo = true
         showCover("⭐", "All done!", "Press OK to choose another")
         // Back to the videos by itself if nobody presses anything.
         main.postDelayed({ finish() }, 8_000)
     }
 
     override fun onState(state: Int) {
+        trackPlaying(state)
+        lastStateAt = System.currentTimeMillis()
         this.state = state
         if (done) return
         when (state) {
@@ -198,12 +248,16 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     companion object {
         private const val EXTRA_VIDEO_ID = "videoId"
         private const val EXTRA_TITLE = "title"
+        private const val EXTRA_CHANNEL = "channel"
+        private const val EXTRA_CHILD_ID = "childId"
         private val SUNSHINE = Color.rgb(0xFF, 0xD2, 0x3F)
         private val OK_KEYS = setOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)
 
-        fun intent(context: Context, videoId: String, title: String): Intent =
+        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_VIDEO_ID, videoId)
                 .putExtra(EXTRA_TITLE, title)
+                .putExtra(EXTRA_CHANNEL, channel)
+                .putExtra(EXTRA_CHILD_ID, childId)
     }
 }

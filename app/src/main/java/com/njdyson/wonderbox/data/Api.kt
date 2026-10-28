@@ -1,6 +1,7 @@
 package com.njdyson.wonderbox.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -62,6 +63,12 @@ private fun request(baseUrl: String, path: String, body: JsonElement? = null, de
 /** This TV's view of its parent's account. */
 class Server(private val baseUrl: String, private val deviceKey: String) {
     fun library(): Library = json.decodeFromString(request(baseUrl, "/api/wonder/library", deviceKey = deviceKey))
+
+    /** Sends events from [EventLog]; the server skips any it already has. */
+    fun sendEvents(events: List<LoggedEvent>) {
+        val body = buildJsonObject { put("events", json.encodeToJsonElement(ListSerializer(LoggedEvent.serializer()), events)) }
+        request(baseUrl, "/api/wonder/events", body, deviceKey)
+    }
 
     fun forget() {
         request(baseUrl, "/api/wonder/devices/forget", JsonObject(emptyMap()), deviceKey)
