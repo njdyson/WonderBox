@@ -116,6 +116,8 @@
     background: var(--deep); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     box-shadow: 0 -4px 16px rgba(0,0,0,.25);
   }
+  /* Its colour carries on below it, so if the phone ever leaves a gap under the bar it isn't seen. */
+  .tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--deep); }
   .tabbar button {
     flex: 1; min-width: 0; display: grid; justify-items: center; gap: 1px; padding: 6px 2px;
     background: transparent; color: var(--muted); font-size: 12px; font-weight: 700;
@@ -1084,7 +1086,9 @@ async function loadTvs() {
 
 // --- Start ------------------------------------------------------------------
 
-(async () => {
+// Waits for stats.js and quizzes.js too: the library can arrive before they've loaded, and
+// then the Quizzes, Games and Stats tabs would stay empty until a child was tapped.
+document.addEventListener("DOMContentLoaded", async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   if (!token) return signedOut();
   try {
@@ -1097,7 +1101,14 @@ async function loadTvs() {
     if (e instanceof AuthError) signedOut();
     else { $("status").textContent = "Offline"; showError(e); }
   }
-})();
+});
+
+// iPhones sometimes leave the page short after the keyboard closes (or after rotating), so the
+// tab bar floats above the bottom of the screen. Nudging the scroll makes Safari measure again.
+const remeasure = () => setTimeout(() => window.scrollTo(window.scrollX, window.scrollY), 60);
+document.addEventListener("focusout", remeasure);
+window.addEventListener("orientationchange", remeasure);
+if (window.visualViewport) window.visualViewport.addEventListener("resize", remeasure);
 </script>
 <script src="/stats.js"></script>
 <script src="/quizzes.js"></script>
