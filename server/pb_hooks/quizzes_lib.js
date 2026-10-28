@@ -15,8 +15,9 @@
 const MATHS_TYPES = ["count", "add", "sub", "add3", "missing", "bonds", "double", "half", "more", "bigger", "times"]
 const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"]
 const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
-// The games that can win a treat on the TV ("quizzes" is all the parent's quizzes), and the
-// ones that do until the parent changes it: the learning ones, not the jigsaw or memory pairs.
+
+// The games that can earn stars on the TV ("quizzes" is all the parent's quizzes, "videos" the
+// learning videos), and the ones that do until the parent changes it: not the jigsaw or pairs.
 const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
 const FLAG_REGIONS = ["uk", "famous", "europe", "asia", "africa", "americas", "oceania"]
@@ -174,7 +175,7 @@ function clockSetup(input, level) {
   }
 }
 
-/** The games that win a treat, checked; the default ones if it's never been set. */
+/** The games that earn stars, checked; the default ones if it's never been set. */
 function treatGames(input) {
   return Array.isArray(input) ? pick(input, TREAT_GAMES) : [...TREAT_DEFAULT]
 }

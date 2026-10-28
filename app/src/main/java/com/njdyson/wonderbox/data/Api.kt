@@ -30,6 +30,8 @@ data class Child(
     val color: String = "#FFD23F",
     val picture: String = "",
     val games: GameSettings = GameSettings(),
+    /** Stars in their jar, as the server last counted them (this TV's newer changes are in [Points]). */
+    val points: Int = 0,
 )
 
 /**
@@ -57,6 +59,7 @@ data class GameSettings(
     val treatGames: List<String> = TREAT_DEFAULT,
     val flags: Int = 1,
     val flagSetup: FlagSetup? = null,
+    val points: PointsSetup = PointsSetup(),
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
@@ -249,4 +252,26 @@ object Pairing {
 
     /** The address the TV's QR code opens: the phone app, ready to approve this code. */
     fun approveUrl(baseUrl: String, code: String) = "${baseUrl.trimEnd('/')}/#pair=$code"
+}
+
+/**
+ * A child's star rates, set in the phone app. Stars are earned: [answer] for each question
+ * answered in a quiz that earns, [game] for finishing a game that earns (hangman, pairs, a
+ * jigsaw), and one for each [videoMinutes] minutes of a learning video actually played, up
+ * to [videoCap] a day (0 for no limit). Treat and music videos cost one star for each
+ * [treatMinutes] minutes they last, rounded up.
+ */
+@Serializable
+data class PointsSetup(
+    val answer: Int = 1,
+    val game: Int = 3,
+    val videoMinutes: Int = 3,
+    val videoCap: Int = 10,
+    val treatMinutes: Int = 1,
+) {
+    /** What a treat or music video [seconds] long costs: at least one star. */
+    fun price(seconds: Double): Int = maxOf(1, kotlin.math.ceil(seconds / 60.0 / treatMinutes.coerceAtLeast(1)).toInt())
+
+    /** Stars for [seconds] of a learning video played, before the daily cap. */
+    fun earned(seconds: Double): Int = (seconds / 60.0 / videoMinutes.coerceAtLeast(1)).toInt()
 }

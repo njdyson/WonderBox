@@ -86,7 +86,6 @@ const MATHS_TYPES = [["count", "Counting"], ["add", "Adding"], ["sub", "Taking a
 const SPELLING_TYPES = [["first", "First letter"], ["missing", "Missing letter"], ["pick", "Which is spelt right?"], ["build", "Spell the whole word"],
   ["hear", "Hear it, pick the spelling"], ["hearbuild", "Hear it, spell it"]];
 const CLOCK_TYPES = [["oclock", "O'clock"], ["half", "Half past"], ["quarter", "Quarter past and to"], ["five", "Five minutes"], ["minute", "Any minute"]];
-// The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
 const FLAG_LEVELS = [
   ["UK and Ireland", { regions: ["uk"], types: ["name"], choices: 3 }],
   ["Well-known flags", { regions: ["uk", "famous"], types: ["name"], choices: 3 }],
@@ -96,7 +95,17 @@ const FLAG_LEVELS = [
 ];
 const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
 const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Watching a whole video"]];
+// The games that can earn stars (pb_hooks/quizzes_lib.js), and the ones that do until changed.
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Learning and exercise videos"]];
+// Star rates (pb_hooks/games_lib.js pointsSetup) and the choices for each.
+const POINTS_DEFAULT = { answer: 1, game: 3, videoMinutes: 3, videoCap: 10, treatMinutes: 1 };
+const POINTS_CHOICES = {
+  answer: [0, 1, 2, 3, 5],
+  game: [0, 1, 2, 3, 5, 10],
+  videoMinutes: [1, 2, 3, 5, 10],
+  videoCap: [0, 5, 10, 20, 30],
+  treatMinutes: [1, 2, 3, 5],
+};
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
@@ -156,7 +165,7 @@ const toggle = (on, onChange, title) =>
 
 /** A child's games, saved as soon as anything changes. */
 function renderGames(c) {
-  // The learning games are in the Quizzes tab; the rest, and the treat rules, in the Games tab.
+  // The learning games are in the Quizzes tab; the rest, and the stars, in the Games tab.
   for (const id of ["gamesHeading", "games", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
   if (!c) return;
   $("gamesHeading").textContent = `${c.name.toUpperCase()}'S QUIZZES`;
@@ -175,7 +184,7 @@ function renderGames(c) {
     const s = el("select", { onchange: () => onChange(Number(s.value)) }, ...options.map(([v, label]) => el("option", { value: v, textContent: label, selected: v === value })));
     return s;
   };
-  const hasTreats = library.videos.concat(library.channels).some((i) => i.tier === "treat" && i.children.includes(c.id));
+  const hasTreats = library.videos.concat(library.channels).some((i) => (i.tier === "treat" || i.section === "music") && i.children.includes(c.id));
 
   // Maths
   const mathsLevel = mathsLevelOf(maths);
@@ -382,14 +391,31 @@ function renderGames(c) {
       silly: "Boings, squeaks and farts for right answers, and a silly noise to try again. Wrong answers never get a fart.",
     }[sounds] }));
 
-  // Which games win a treat: the learning ones by default, so it isn't all jigsaws.
+  // Stars: what earns them (the learning ones by default, so it isn't all jigsaws), how many,
+  // and what treat and music videos cost. The balance can be topped up or taken from here.
   const treatGames = g.treatGames || TREAT_DEFAULT;
-  const treatsPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "⭐ What wins a treat" })),
+  const points = { ...POINTS_DEFAULT, ...(g.points || {}) };
+  const savePoints = (change) => save({ points: { ...points, ...change } });
+  const rate = (label, key, show) => el("label", { className: "field" }, label,
+    select(POINTS_CHOICES[key].map((n) => [n, show(n)]), points[key], (v) => savePoints({ [key]: v })));
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const giveTake = (delta) => el("button", { type: "button", className: "ghost", textContent: delta > 0 ? `+${delta}` : `−${-delta}`,
+    onclick: () => adjustStars(c, delta) });
+  const starsPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: `⭐ ${c.name} has ${plural(c.points || 0, "star", "stars")}` })),
+    el("div", { className: "row" }, giveTake(-5), giveTake(-1), giveTake(1), giveTake(5)),
+    el("div", { className: "muted", textContent: "Give or take stars, say for jobs done or a deal. The TV catches up within a minute." }),
+    el("div", { className: "sub-h", textContent: "What earns stars" }),
     chips(TREAT_GAMES, treatGames, (list) => save({ treatGames: list })),
+    rate("Stars for each right answer", "answer", (n) => `${n}`),
+    rate("Stars for finishing a jigsaw, hangman or pairs", "game", (n) => `${n}`),
+    rate("Learning videos earn a star every", "videoMinutes", (n) => plural(n, "minute", "minutes")),
+    rate("Most stars from learning videos a day", "videoCap", (n) => n ? `${n}` : "No limit"),
+    el("div", { className: "sub-h", textContent: "What stars buy" }),
+    rate("Treat and music videos cost a star for every", "treatMinutes", (n) => plural(n, "minute", "minutes")),
     el("div", { className: "muted", textContent: treatGames.length
-      ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV. A whole video (not music or a treat) wins one the first time it's watched all the way through, without skipping."
-      : "No game wins a treat, so treats stay locked." }));
+      ? "Games that earn stars have a ⭐ on the TV; the others are just for fun. Learning videos only count the time actually played, not skipped."
+      : "Nothing earns stars, so treat and music videos can only be bought with stars you give here." }));
 
   $("games").replaceChildren(
     mathsPart,
@@ -401,13 +427,22 @@ function renderGames(c) {
     jigsawPart,
     memoryPart);
   $("treatRules").replaceChildren(
-    treatsPart,
-    el("label", { className: "field" }, "Right answers to win a treat",
+    starsPart,
+    el("label", { className: "field" }, "Right answers in a round of Maths, Spelling, Clock or Flags",
       select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize || 10, (v) => save({ roundSize: v }))),
-    el("div", { className: "muted", textContent: hasTreats
-      ? TIER_HELP + " A quiz is won by answering all its questions."
-      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }),
+    hasTreats ? "" : el("div", { className: "muted", textContent: `Nothing of ${c.name}'s is a treat yet. Mark a video or channel as a ⭐ Treat (or 🎵 Music) for stars to buy.` }),
     soundsPart);
+}
+
+/** Gives (or takes, when [delta] is negative) stars, as a points.adjust event; the server keeps the balance. */
+async function adjustStars(c, delta) {
+  try {
+    await api("/api/wonder/events", { events: [{ type: "points.adjust", child: c.id, value: delta, data: { reason: "parent" } }] });
+    await load();
+    toast(delta > 0 ? `Gave ${c.name} ${delta} ⭐` : `Took ${-delta} ⭐`);
+  } catch (e) {
+    showError(e);
+  }
 }
 
 // --- Quizzes -----------------------------------------------------------------

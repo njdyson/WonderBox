@@ -1,6 +1,7 @@
 package com.njdyson.wonderbox.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -33,8 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,12 +59,15 @@ import com.njdyson.wonderbox.games.gamesFor
 enum class Category(val title: String, val icon: String, val colors: List<Color>) {
     Quizzes("Quizzes", "❓", listOf(Color(0xFF4D96FF), Color(0xFF2B5FD9))),
     Games("Games", "🎮", listOf(Color(0xFFA259FF), Color(0xFF6A2BD9))),
-    Videos("Videos", "📺", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
+    /** The free videos, which earn stars as they're watched. */
+    Learning("Learning", "📚", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
+    /** Music videos cost stars, like the treat [Videos]. */
     Music("Music", "🎵", listOf(Color(0xFF2EC4B6), Color(0xFF13867C))),
+    /** Kids' yoga and workouts: free, and earn stars like [Learning]. */
     Exercise("Exercise", "🤸", listOf(Color(0xFFFF9F43), Color(0xFFE0612B))),
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
-    /** The treats they've saved up, and any won but not picked yet. Last, so learning comes first. */
-    Treats("Treats", "⭐", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
+    /** The treat videos, which cost stars. Last, so learning comes first. */
+    Videos("Videos", "📺", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
 }
 
 /**
@@ -71,12 +79,11 @@ fun AppState.categoriesFor(child: Child): List<Category> {
     return buildList {
         if (games.any { it.isQuiz }) add(Category.Quizzes)
         if (games.any { !it.isQuiz }) add(Category.Games)
-        if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Videos)
+        if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Learning)
         if (library.musicShelvesFor(child.id).isNotEmpty()) add(Category.Music)
         if (library.exerciseShelvesFor(child.id).isNotEmpty()) add(Category.Exercise)
         if (photosFor(child.id).isNotEmpty()) add(Category.Photos)
-        // Always there once the parent has added treats, empty or not: it's where treats are saved up.
-        if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Treats)
+        if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Videos)
     }
 }
 
@@ -85,8 +92,7 @@ fun AppState.categoriesFor(child: Child): List<Category> {
 fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     val color = parseColor(child.color)
     val ink = color.onColor()
-    // Treats saved up, the same number as on the Treats tile.
-    val treats = app.savedTreatsFor(child.id).size
+    val stars = app.starsFor(child.id)
     PlayBackground(color) {
         Column(Modifier.fillMaxSize()) {
             Row(
@@ -99,16 +105,7 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
                 }
                 Text(child.name, color = ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 if (title != null) Text("·  $title", color = ink.copy(alpha = 0.85f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                // Nothing at all when there are none.
-                if (treats > 0) {
-                    Text(
-                        "⭐ $treats",
-                        color = Ink,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.background(Color.White, RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 4.dp),
-                    )
-                }
+                StarJar(stars)
                 Box(Modifier.weight(1f))
                 Logo(boxColor = if (ink == Ink) Ink else Color.White)
             }
@@ -120,7 +117,6 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
 /**
  * A child's home page: a big tile for each [Category] they have something in, three to a row.
  * The tiles are always in the same places, and focus comes back to the one last opened.
- * The Treats tile shows how many treats are saved up there.
  */
 @Composable
 fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
@@ -128,7 +124,6 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
     val categories = app.categoriesFor(child)
     var focused by rememberSaveable { mutableStateOf<String?>(null) }
     val target = categories.firstOrNull { it.name == focused } ?: categories.firstOrNull()
-    val saved = app.savedTreatsFor(child.id).size
     val restore = remember { FocusRequester() }
 
     ChildScreen(app, child) {
@@ -151,7 +146,6 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
                     row.forEach { category ->
                         CategoryTile(
                             category,
-                            count = if (category == Category.Treats) saved else 0,
                             onClick = { onOpen(category) },
                             onFocus = {
                                 focused = category.name
@@ -169,7 +163,7 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
 }
 
 @Composable
-private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+private fun CategoryTile(category: Category, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
         modifier = modifier.width(264.dp).height(176.dp).onFocusChanged { if (it.isFocused) onFocus() },
@@ -189,17 +183,47 @@ private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, on
             Text(category.icon, fontSize = 64.sp)
             Text(category.title, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
         }
-        if (count > 0) {
+        // Paid for with stars: a star in the corner.
+        if (category == Category.Videos || category == Category.Music) {
             Text(
-                "$count",
-                color = Ink,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color.White, CircleShape).padding(horizontal = 14.dp, vertical = 2.dp),
+                "⭐",
+                fontSize = 26.sp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color.White, CircleShape).padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
     }
 }
+
+/**
+ * A child's stars, in a jar that fills up as they save them (full at [JAR_FULL]), with the
+ * number beside it. Earned with quizzes, games and learning videos; spent on treat and music videos.
+ */
+@Composable
+fun StarJar(stars: Int, modifier: Modifier = Modifier) {
+    val fill = (stars.toFloat() / JAR_FULL).coerceIn(0f, 1f)
+    Row(
+        modifier.background(Color.White, RoundedCornerShape(50)).padding(start = 10.dp, end = 18.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Canvas(Modifier.width(30.dp).height(40.dp)) {
+            val lid = size.height * 0.18f
+            val body = Size(size.width, size.height - lid)
+            val corner = CornerRadius(size.width * 0.28f)
+            // The stars inside, from the bottom up.
+            if (fill > 0f) {
+                val level = body.height * fill
+                drawRoundRect(Color(0xFFFFC93C), topLeft = Offset(0f, size.height - level), size = Size(size.width, level), cornerRadius = corner)
+            }
+            drawRoundRect(Ink, topLeft = Offset(0f, lid), size = body, cornerRadius = corner, style = Stroke(width = 3.dp.toPx()))
+            drawRoundRect(Tangerine, topLeft = Offset(size.width * 0.12f, 0f), size = Size(size.width * 0.76f, lid), cornerRadius = CornerRadius(4.dp.toPx()))
+        }
+        Text("⭐ $stars", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+/** How many stars fill the jar to the top. */
+private const val JAR_FULL = 30
 
 /** The Quizzes or Games screen: a tile for each of [games], three to a row. */
 @Composable
@@ -207,7 +231,6 @@ fun GamesScreen(app: AppState, child: Child, title: String, games: List<GameEntr
     var focused by rememberSaveable { mutableStateOf<String?>(null) }
     val target = games.firstOrNull { it.key == focused } ?: games.firstOrNull()
     val restore = remember { FocusRequester() }
-    val hasTreats = app.library.treatShelvesFor(child.id).isNotEmpty()
     ChildScreen(app, child, title) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -219,8 +242,8 @@ fun GamesScreen(app: AppState, child: Child, title: String, games: List<GameEntr
             itemsIndexed(games, key = { _, g -> g.key }) { i, game ->
                 GameTile(
                     app,
-                    // A star on the games that win a treat.
-                    if (hasTreats && child.games.earnsTreat(game.key)) game.copy(subtitle = "⭐ ${game.subtitle}") else game,
+                    // A star on the games that earn stars.
+                    if (child.games.earnsTreat(game.key)) game.copy(subtitle = "⭐ ${game.subtitle}") else game,
                     index = i,
                     onClick = { onGame(game) },
                     onFocus = {

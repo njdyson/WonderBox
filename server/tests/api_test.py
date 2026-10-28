@@ -215,7 +215,14 @@ try:
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 1}, token)
     assert lib["children"][0]["games"]["flagSetup"]["regions"] == ["uk", "asia"]
 
-    # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
+    # Star rates: defaults until set; each kept in range; left out, left as they were.
+    assert lib["children"][0]["games"]["points"] == {"answer": 1, "game": 3, "videoMinutes": 3, "videoCap": 10, "treatMinutes": 1}
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "points": {"answer": 2, "game": 99, "videoMinutes": 0, "treatMinutes": "x"}}, token)
+    assert lib["children"][0]["games"]["points"] == {"answer": 2, "game": 20, "videoMinutes": 1, "videoCap": 10, "treatMinutes": 1}
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 2}, token)
+    assert lib["children"][0]["games"]["points"]["answer"] == 2
+
+    # Which games earn stars: the learning ones until set; unknown ones dropped; none is allowed.
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "bogus"]}, token)
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
@@ -485,6 +492,28 @@ try:
     assert len(s["daily"]) == 7 and s["daily"][-1]["plays"] == 1
     assert stats["other"]["byType"]["app.start"]["count"] == 2
     call("GET", "/api/wonder/stats", device_key=key, expect=401)
+
+    # Stars: the server adds up earn and spend from the TV and adjust from the phone app.
+    def stars():
+        return next(c for c in call("GET", "/api/wonder/library", device_key=key)["children"] if c["id"] == sam)["points"]
+    assert stars() == 0
+    earned = {"events": [
+        {"id": "bbbbbbbbbbbbbb1", "type": "points.earn", "child": sam, "subject": "maths", "value": 5, "data": {"reason": "quiz.answer"}},
+        {"id": "bbbbbbbbbbbbbb2", "type": "points.spend", "child": sam, "subject": "jNQXAC9IVRw", "value": 2, "data": {"reason": "video.play"}},
+        {"type": "points.earn", "child": sam, "value": 1.5},
+        {"type": "points.earn", "child": sam, "value": -3},
+        {"type": "points.earn", "value": 3},
+        {"type": "points.adjust", "child": sam, "value": 50},
+    ]}
+    assert call("POST", "/api/wonder/events", earned, device_key=key) == {"saved": 2, "skipped": 4}
+    assert stars() == 3
+    # A retry isn't counted twice.
+    call("POST", "/api/wonder/events", earned, device_key=key)
+    assert stars() == 3
+    assert call("POST", "/api/wonder/events", {"type": "points.adjust", "child": sam, "value": 10}, token)["saved"] == 1
+    assert stars() == 13
+    call("POST", "/api/wonder/events", {"type": "points.adjust", "child": sam, "value": -20}, token)
+    assert stars() == 0
 
     tvs = call("GET", "/api/wonder/devices", token=token)
     assert [t["name"] for t in tvs] == ["Living room"]
