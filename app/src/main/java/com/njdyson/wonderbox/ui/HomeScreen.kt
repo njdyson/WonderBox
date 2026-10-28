@@ -180,7 +180,7 @@ private fun CategoryTile(category: Category, onClick: () -> Unit, onFocus: () ->
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(category.icon, fontSize = 64.sp)
+            EmojiPicture(category.icon, 88.dp)
             Text(category.title, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
         }
         // Paid for with stars: a star in the corner.

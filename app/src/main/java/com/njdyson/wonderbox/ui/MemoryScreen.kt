@@ -290,7 +290,7 @@ internal fun PlayHeader(child: Child, icon: String, title: String, right: String
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(Modifier.size(52.dp).background(parseColor(child.color), CircleShape), contentAlignment = Alignment.Center) {
-            Text(icon, fontSize = 28.sp)
+            EmojiPicture(icon, 38.dp)
         }
         Text(title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
         Box(Modifier.weight(1f))

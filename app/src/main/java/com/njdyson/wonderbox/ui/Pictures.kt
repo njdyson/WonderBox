@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.njdyson.wonderbox.data.Avatars
 
 /** True for a quiz image on the server, false for an emoji. */
 fun isImagePath(picture: String) = picture.startsWith("/")
@@ -34,8 +35,22 @@ fun QuizPicture(app: AppState, picture: String, size: Dp, modifier: Modifier = M
             modifier = modifier.size(size),
         )
     } else {
+        EmojiPicture(picture, size, modifier)
+    }
+}
+
+/**
+ * An emoji, [size] square: from the bundled Fluent pictures (assets/avatars) when there's one,
+ * since older Fire TVs draw newer emoji (🧩, 🤸) as blanks, otherwise in the TV's own font.
+ */
+@Composable
+fun EmojiPicture(emoji: String, size: Dp, modifier: Modifier = Modifier) {
+    val bundled = Avatars.uri(LocalContext.current, emoji)
+    if (bundled != null) {
+        AsyncImage(model = bundled, contentDescription = null, contentScale = ContentScale.Fit, modifier = modifier.size(size))
+    } else {
         Box(modifier.size(size), contentAlignment = Alignment.Center) {
-            Text(picture, fontSize = (size.value * 0.72f).sp, textAlign = TextAlign.Center)
+            Text(emoji, fontSize = (size.value * 0.72f).sp, textAlign = TextAlign.Center)
         }
     }
 }
