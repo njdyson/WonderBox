@@ -15,6 +15,9 @@
 # Optionally set YOUTUBE_API_KEY: the phone app then also refuses age-restricted and
 # region-blocked videos when they're added (it's kept in <data>/wonderbox.env, not in Git).
 #
+# It also installs Piper and a British voice (about 90 MB) so the server can read questions
+# aloud for TVs whose own text-to-speech is missing or poor. Set VOICE=0 to skip that.
+#
 # Re-running is safe: the database is never touched except to apply new migrations.
 set -euo pipefail
 # Scheduled tasks start with a minimal PATH.
@@ -80,6 +83,48 @@ if ! "$BIN_DIR/pocketbase" --version 2>/dev/null | grep -q "$PB_VERSION"; then
   rm -rf "$tmp"
 fi
 
+# The server's voice: Piper and one British English voice (Jenny), read by speech.pb.js.
+PIPER_VERSION="2023.11.14-2"
+VOICE_NAME="en_GB-jenny_dioco-medium"
+VOICE_URL="https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/jenny_dioco/medium/$VOICE_NAME.onnx"
+PIPER_ENV=""
+if [ "${VOICE:-1}" != 0 ]; then
+  case "$(uname -m)" in
+    x86_64) PIPER_ARCH=x86_64 ;;
+    aarch64|arm64) PIPER_ARCH=aarch64 ;;
+    *) PIPER_ARCH="" ;;
+  esac
+  if [ -z "$PIPER_ARCH" ]; then
+    echo "No Piper build for $(uname -m): the TVs will use their own voices."
+  else
+    if [ ! -x "$BIN_DIR/piper/piper" ] || [ "$(cat "$BIN_DIR/piper/VERSION" 2>/dev/null)" != "$PIPER_VERSION" ]; then
+      echo "Downloading Piper $PIPER_VERSION…"
+      tmp=$(mktemp -d)
+      curl -fsSL -o "$tmp/piper.tgz" "https://github.com/rhasspy/piper/releases/download/$PIPER_VERSION/piper_linux_$PIPER_ARCH.tar.gz"
+      rm -rf "$BIN_DIR/piper"
+      tar -xzf "$tmp/piper.tgz" -C "$BIN_DIR"
+      echo "$PIPER_VERSION" > "$BIN_DIR/piper/VERSION"
+      rm -rf "$tmp"
+    fi
+    mkdir -p "$BIN_DIR/voices"
+    if [ ! -s "$BIN_DIR/voices/$VOICE_NAME.onnx" ] || [ ! -s "$BIN_DIR/voices/$VOICE_NAME.onnx.json" ]; then
+      echo "Downloading the voice ($VOICE_NAME)…"
+      curl -fsSL -o "$BIN_DIR/voices/$VOICE_NAME.onnx.json" "$VOICE_URL.json"
+      curl -fsSL -o "$BIN_DIR/voices/$VOICE_NAME.onnx" "$VOICE_URL"
+    fi
+    chmod -R a+rX "$BIN_DIR/piper" "$BIN_DIR/voices"
+    # Check it really speaks before telling the server it can.
+    if echo "Hello" | "$BIN_DIR/piper/piper" --model "$BIN_DIR/voices/$VOICE_NAME.onnx" --output_file /tmp/wonderbox-voice-test.wav >/dev/null 2>&1; then
+      PIPER_ENV="Environment=PIPER_BIN=$BIN_DIR/piper/piper
+Environment=PIPER_VOICE=$BIN_DIR/voices/$VOICE_NAME.onnx"
+      echo "The server's voice works."
+    else
+      echo "Piper didn't run here, so the TVs will use their own voices."
+    fi
+    rm -f /tmp/wonderbox-voice-test.wav
+  fi
+fi
+
 PB_ARGS="--dir=$DATA --hooksDir=$SRC/pb_hooks --migrationsDir=$SRC/pb_migrations --publicDir=$SRC/pb_public"
 
 cat > "/etc/systemd/system/$SERVICE.service" <<UNIT
@@ -91,6 +136,7 @@ After=network.target
 User=$RUN_AS
 WorkingDirectory=$DATA
 EnvironmentFile=-$ENV_FILE
+$PIPER_ENV
 ExecStart=$BIN_DIR/pocketbase serve --http=127.0.0.1:$PORT $PB_ARGS
 Restart=always
 RestartSec=5

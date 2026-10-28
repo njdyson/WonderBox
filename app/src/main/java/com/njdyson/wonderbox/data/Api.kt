@@ -118,6 +118,8 @@ data class Library(
     val quizzes: List<Quiz> = emptyList(),
     val videos: List<Video> = emptyList(),
     val channels: List<Channel> = emptyList(),
+    /** The server can read things aloud in its own voice (GET /api/wonder/speech). */
+    val voice: Boolean = false,
 ) {
     fun videosFor(childId: String) = videos.filter { childId in it.children }
 

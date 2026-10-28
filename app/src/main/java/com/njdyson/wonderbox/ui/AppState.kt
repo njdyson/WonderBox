@@ -1,7 +1,6 @@
 package com.njdyson.wonderbox.ui
 
 import android.content.Context
-import android.speech.tts.TextToSpeech
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,7 +13,6 @@ import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 /** The TV app's state: whether it's linked, the children and videos, treats earned, and the grown-ups' settings. */
 class AppState(context: Context) {
@@ -96,18 +94,8 @@ class AppState(context: Context) {
     /** The games' sound effects. */
     val sounds = Sounds(context.applicationContext)
 
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-
-    init {
-        tts = TextToSpeech(context.applicationContext) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) {
-                tts?.language = Locale.UK
-                tts?.setSpeechRate(0.9f)
-            }
-        }
-    }
+    /** Reads questions and titles aloud: the server's voice, or this TV's. */
+    val voice = Voice(context) { deviceKey?.let { serverUrl to it } }.also { it.serverHasVoice = library.voice }
 
     /** Fetches the latest children and videos. Keeps the cached ones if the network is down. */
     suspend fun sync() {
@@ -117,6 +105,7 @@ class AppState(context: Context) {
             val fresh = withContext(Dispatchers.IO) { server.library() }
             library = fresh
             store.library = fresh
+            voice.serverHasVoice = fresh.voice
             syncError = null
             // Photos are extra: if they fail (say, a server without them yet) the videos still work.
             runCatching { withContext(Dispatchers.IO) { server.photos() } }.onSuccess {
@@ -160,7 +149,7 @@ class AppState(context: Context) {
     fun chooseSpeakTitles(on: Boolean) {
         speakTitles = on
         store.speakTitles = on
-        if (!on) tts?.stop()
+        if (!on) voice.stop()
     }
 
     /** Reads [text] aloud (a 4-year-old can't read the titles), replacing anything still being said. */
@@ -170,16 +159,15 @@ class AppState(context: Context) {
 
     /** Reads [text] aloud even when titles aren't read: the games' questions need it. */
     fun say(text: String) {
-        if (ttsReady && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "focus")
+        voice.say(text)
     }
 
     fun stopSpeaking() {
-        tts?.stop()
+        voice.stop()
     }
 
     fun close() {
-        tts?.shutdown()
-        tts = null
+        voice.close()
         sounds.close()
     }
 }
