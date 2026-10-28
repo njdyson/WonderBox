@@ -45,7 +45,9 @@ import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.games.GameEntry
+import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
+import com.njdyson.wonderbox.games.MEMORY
 import com.njdyson.wonderbox.games.gamesFor
 
 /** What a child can pick on their home page. [Treats] only shows when they've won one to pick. */
@@ -233,7 +235,12 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
         Game.Clock -> TILE_COLORS[3]
-        null -> if (game.key == JIGSAW) TILE_COLORS[2] else TILE_COLORS[index % TILE_COLORS.size]
+        null -> when (game.key) {
+            JIGSAW -> TILE_COLORS[2]
+            HANGMAN -> TILE_COLORS[4]
+            MEMORY -> TILE_COLORS[0]
+            else -> TILE_COLORS[index % TILE_COLORS.size]
+        }
     }
     Surface(
         onClick = onClick,
@@ -253,7 +260,11 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         ) {
             QuizPicture(app, game.icon, 72.dp)
             Column {
-                Text(game.title, color = Color.White, fontSize = if (game.title.length > 10) 24.sp else 32.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                Text(game.title, color = Color.White, fontSize = when {
+                    game.title.length > 10 -> 24.sp
+                    game.title.length > 6 -> 28.sp
+                    else -> 32.sp
+                }, fontWeight = FontWeight.Black, maxLines = 2)
                 Text(game.subtitle, color = Color.White.copy(alpha = 0.85f), fontSize = 18.sp)
             }
         }

@@ -1,7 +1,9 @@
 package com.njdyson.wonderbox.data
 
+import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.ClockSetup
 import com.njdyson.wonderbox.games.MathsSetup
+import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.Quiz
 import com.njdyson.wonderbox.games.SpellingSetup
 import kotlinx.serialization.Serializable
@@ -35,6 +37,7 @@ data class Child(
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
  * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
  * "spelling", "clock", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw".
+ * [hangman] and [memory] are those games' setups.
  */
 @Serializable
 data class GameSettings(
@@ -45,6 +48,8 @@ data class GameSettings(
     val spellingSetup: SpellingSetup? = null,
     val jigsaw: Int = 3,
     val sounds: String = "silly",
+    val hangman: HangmanSetup = HangmanSetup(),
+    val memory: MemorySetup = MemorySetup(),
     val clock: Int = 1,
     val clockSetup: ClockSetup? = null,
     val treatGames: List<String> = TREAT_DEFAULT,

@@ -109,6 +109,7 @@ const JIGSAW_MAX = 5
 /** A child's game settings, with defaults for anything not set yet. */
 function games(child) {
   const quiz = require(`${__hooks}/quizzes_lib.js`)
+  const extra = require(`${__hooks}/games_lib.js`)
   const maths = child.getInt("maths_level") || GAME_DEFAULTS.maths
   const spelling = child.getInt("spelling_level") || GAME_DEFAULTS.spelling
   const stored = quiz.jsonField(child, "game_setup") || {}
@@ -127,6 +128,8 @@ function games(child) {
     treatGames: quiz.treatGames(stored.treats),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
+    hangman: extra.hangmanSetup(stored.hangman),
+    memory: extra.memorySetup(stored.memory),
   }
 }
 
@@ -144,26 +147,31 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, roundSize, mathsSetup, spellingSetup, clockSetup, treatGames,
- * jigsaw, sounds}: how hard a child's games are (jigsaw 0 is off), which of them win a treat,
- * and their sound effects.
+ * jigsaw, sounds, hangman, memory}: how hard a child's games are (jigsaw 0 is off), which of
+ * them win a treat, and their sound effects. hangman and memory are whole setups
+ * (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
 function saveGames(userId, body) {
   const quiz = require(`${__hooks}/quizzes_lib.js`)
+  const extra = require(`${__hooks}/games_lib.js`)
   const child = own("children", body.id, userId)
   const clamp = (value, min, max, fallback) => {
     const n = Math.round(Number(value))
     return value !== undefined && value !== null && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
   }
   const current = games(child)
-  const setup = {
+  // Keep whatever else is stored with the setups.
+  const setup = Object.assign({}, quiz.jsonField(child, "game_setup") || {}, {
     maths: current.mathsSetup,
     spelling: current.spellingSetup,
     clock: current.clockSetup,
     clockLevel: current.clock,
     treats: current.treatGames,
-  }
+  })
+  setup.hangman = body.hangman ? extra.hangmanSetup(body.hangman) : current.hangman
+  setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
   let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
   if (body.mathsSetup) {

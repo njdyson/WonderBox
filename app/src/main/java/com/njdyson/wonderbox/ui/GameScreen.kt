@@ -156,7 +156,7 @@ fun GameScreen(
 
 /** One star per right answer still to get, filled in as they're won. */
 @Composable
-private fun Progress(right: Int, goal: Int) {
+internal fun Progress(right: Int, goal: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (goal <= 15) {
             repeat(goal) { i -> Text("★", fontSize = 26.sp, color = if (i < right) Tangerine else Color.White.copy(alpha = 0.18f)) }
@@ -419,8 +419,9 @@ private fun AnswerButton(
     }
 }
 
+/** "You did it!", then a treat to pick (when [hasTreats]), play again or back. Hangman and pairs end with it too. */
 @Composable
-private fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit, onPlayAgain: () -> Unit, onBack: () -> Unit, app: AppState) {
+internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit, onPlayAgain: () -> Unit, onBack: () -> Unit, app: AppState) {
     val first = remember { FocusRequester() }
     val pop = remember { Animatable(0.3f) }
     LaunchedEffect(Unit) {

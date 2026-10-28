@@ -45,7 +45,7 @@ routerAdd("POST", "/api/wonder/children/move", (e) => {
   return e.json(200, lib.library(user.id))
 })
 
-// {id, maths, spelling, roundSize, jigsaw}: how hard a child's games are on the TV.
+// {id, maths, spelling, roundSize, jigsaw, sounds, hangman, memory, ...}: a child's games on the TV.
 routerAdd("POST", "/api/wonder/children/games", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const user = lib.requireUser(e)
