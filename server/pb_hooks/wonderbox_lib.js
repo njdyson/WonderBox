@@ -98,8 +98,8 @@ function tier(value) {
   return value === "treat" ? "treat" : "free"
 }
 
-/** Where it goes on the TV: "music", "exercise" (kids' yoga, workouts) or "videos". */
-const SECTIONS = ["videos", "music", "exercise"]
+/** Where it goes on the TV: "music", "exercise" (kids' yoga, workouts), "stories" or "videos" (Learning). */
+const SECTIONS = ["videos", "music", "exercise", "stories"]
 function section(value) {
   return SECTIONS.includes(value) ? value : "videos"
 }

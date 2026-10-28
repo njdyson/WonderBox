@@ -81,6 +81,7 @@ data class GameSettings(
 const val TREAT = "treat"
 const val MUSIC = "music"
 const val EXERCISE = "exercise"
+const val STORIES = "stories"
 
 /** A YouTube video the parent chose, for one or more children. */
 @Serializable
@@ -92,7 +93,7 @@ data class Video(
     val thumbnail: String = "",
     val children: List<String> = emptyList(),
     val tier: String = "free",
-    /** "music" or "exercise" for those screens, otherwise "videos". */
+    /** "music", "exercise" or "stories" for those screens, otherwise "videos". */
     val section: String = "videos",
 ) {
     val isTreat get() = tier == TREAT
@@ -115,7 +116,7 @@ data class Channel(
 @Serializable
 data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "")
 
-/** A row of videos on a child's screen: their own videos, or one channel's. [section] says which screen: Videos, Music or Exercise. */
+/** A row of videos on a child's screen: their own videos, or one channel's. [section] says which screen: Learning, Music, Exercise or Stories. */
 data class Shelf(val key: String, val title: String, val treat: Boolean, val videos: List<Video>, val picture: String = "", val section: String = "videos") {
     val music get() = section == MUSIC
 }
@@ -141,9 +142,10 @@ data class Library(
         val channels = channels.filter { childId in it.children }
         fun shelves(treat: Boolean): List<Shelf> {
             val own = mine.filter { it.isTreat == treat }
-            val ownShelf = Shelf(if (treat) "treats" else "videos", if (treat) "Treats" else "My videos", treat, own.filter { it.section != MUSIC && it.section != EXERCISE })
+            val ownShelf = Shelf(if (treat) "treats" else "videos", if (treat) "Treats" else "My videos", treat, own.filter { it.section != MUSIC && it.section != EXERCISE && it.section != STORIES })
             val musicShelf = Shelf(if (treat) "treat-music" else "music", if (treat) "Music treats" else "Music", treat, own.filter { it.isMusic }, section = MUSIC)
             val exerciseShelf = Shelf(if (treat) "treat-exercise" else "exercise", if (treat) "Exercise treats" else "Exercise", treat, own.filter { it.section == EXERCISE }, section = EXERCISE)
+            val storiesShelf = Shelf(if (treat) "treat-stories" else "stories", if (treat) "Story treats" else "Stories", treat, own.filter { it.section == STORIES }, section = STORIES)
             val channelShelves = channels.filter { (it.tier == TREAT) == treat }.map { ch ->
                 Shelf(
                     "channel/${ch.id}",
@@ -153,22 +155,25 @@ data class Library(
                         Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section)
                     },
                     ch.thumbnail,
-                    section = if (ch.section == MUSIC || ch.section == EXERCISE) ch.section else "videos",
+                    section = if (ch.section in listOf(MUSIC, EXERCISE, STORIES)) ch.section else "videos",
                 )
             }
-            return (listOf(ownShelf, musicShelf, exerciseShelf) + channelShelves).filter { it.videos.isNotEmpty() }
+            return (listOf(ownShelf, musicShelf, exerciseShelf, storiesShelf) + channelShelves).filter { it.videos.isNotEmpty() }
         }
         return shelves(treat = false) + shelves(treat = true)
     }
 
-    /** The Videos screen's rows: no music or exercise, no treats. */
-    fun videoShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.section != MUSIC && it.section != EXERCISE }
+    /** The Learning screen's rows: no music, exercise or stories, no treats. */
+    fun videoShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.section != MUSIC && it.section != EXERCISE && it.section != STORIES }
 
     /** The Music screen's rows (no treats). */
     fun musicShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.section == MUSIC }
 
     /** The Exercise screen's rows: kids' yoga and workouts (no treats). */
     fun exerciseShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.section == EXERCISE }
+
+    /** The Stories screen's rows (no treats). */
+    fun storyShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.section == STORIES }
 
     /** The treats, videos and music, only shown once a treat has been won. */
     fun treatShelvesFor(childId: String) = shelvesFor(childId).filter { it.treat }

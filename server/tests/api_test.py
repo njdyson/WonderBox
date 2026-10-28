@@ -302,7 +302,9 @@ try:
     lib = call("POST", "/api/wonder/videos/add", {"url": POP, "children": [sam], "section": "music"}, token)
     pop = lib["saved"]
     assert lib["videos"][0]["section"] == "music" and lib["videos"][1]["section"] == "videos"
-    # Exercise is its own section too; anything unknown is an ordinary video.
+    # Exercise and stories are their own sections too; anything unknown is an ordinary video.
+    lib = call("POST", "/api/wonder/videos/update", {"id": pop, "section": "stories"}, token)
+    assert next(v for v in lib["videos"] if v["id"] == pop)["section"] == "stories"
     lib = call("POST", "/api/wonder/videos/update", {"id": pop, "section": "exercise"}, token)
     assert next(v for v in lib["videos"] if v["id"] == pop)["section"] == "exercise"
     lib = call("POST", "/api/wonder/videos/update", {"id": pop, "section": "dancing"}, token)

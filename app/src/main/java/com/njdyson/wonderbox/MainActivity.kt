@@ -176,7 +176,7 @@ class MainActivity : ComponentActivity() {
                                         when (it) {
                                             Category.Treats -> if (app.treatsFor(child.id) > 0) Screen.PickTreat(child.id) else Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
-                                            Category.Learning, Category.Music, Category.Exercise -> Screen.Videos(child.id, it)
+                                            Category.Learning, Category.Music, Category.Exercise, Category.Stories -> Screen.Videos(child.id, it)
                                             Category.Photos -> Screen.PhotoGrid(child.id)
                                         },
                                     )
@@ -213,6 +213,7 @@ class MainActivity : ComponentActivity() {
                                 val shelves = when (screen.category) {
                                     Category.Music -> app.library.musicShelvesFor(child.id)
                                     Category.Exercise -> app.library.exerciseShelvesFor(child.id)
+                                    Category.Stories -> app.library.storyShelvesFor(child.id)
                                     else -> app.library.videoShelvesFor(child.id)
                                 }
                                 VideosScreen(app, child, screen.category.title, shelves, watched = app.watchedFor(child.id), onPlay = { play(it, child.id) })

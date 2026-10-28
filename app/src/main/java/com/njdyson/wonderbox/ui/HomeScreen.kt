@@ -59,6 +59,8 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
     Learning("Learning", "📚", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
     Music("Music", "🎵", listOf(Color(0xFF2EC4B6), Color(0xFF13867C))),
     Exercise("Exercise", "🤸", listOf(Color(0xFFFF9F43), Color(0xFFE0612B))),
+    /** Stories read aloud or acted out: free videos, like [Learning]. */
+    Stories("Stories", "📖", listOf(Color(0xFF7C6CF2), Color(0xFF4B3BC4))),
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
     /** The treats they've saved up, and any won but not picked yet. Last, so learning comes first. */
     Treats("Treats", "⭐", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
@@ -76,6 +78,7 @@ fun AppState.categoriesFor(child: Child): List<Category> {
         if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Learning)
         if (library.musicShelvesFor(child.id).isNotEmpty()) add(Category.Music)
         if (library.exerciseShelvesFor(child.id).isNotEmpty()) add(Category.Exercise)
+        if (library.storyShelvesFor(child.id).isNotEmpty()) add(Category.Stories)
         if (photosFor(child.id).isNotEmpty()) add(Category.Photos)
         // Always there once the parent has added treats, empty or not: it's where treats are saved up.
         if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Treats)
@@ -120,8 +123,9 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
 }
 
 /**
- * A child's home page: a big tile for each [Category] they have something in, three to a row.
- * The tiles are always in the same places, and focus comes back to the one last opened.
+ * A child's home page: a tile for each [Category] they have something in, four to a row, so
+ * all eight fit in two rows with room around them (a focused tile grows, and TVs crop the
+ * edges). The tiles are always in the same places, and focus comes back to the one last opened.
  * The Treats tile shows how many treats are saved up there.
  */
 @Composable
@@ -144,12 +148,12 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
             return@ChildScreen
         }
         Column(
-            Modifier.fillMaxSize().padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterVertically),
+            Modifier.fillMaxSize().padding(top = 8.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            categories.chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+            categories.chunked(TILES_PER_ROW).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                     row.forEach { category ->
                         CategoryTile(
                             category,
@@ -174,13 +178,13 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
 private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
-        modifier = modifier.width(264.dp).height(176.dp).onFocusChanged { if (it.isFocused) onFocus() },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(28.dp)),
+        modifier = modifier.width(192.dp).height(150.dp).onFocusChanged { if (it.isFocused) onFocus() },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(3.dp, Color.White.copy(alpha = 0.7f)), shape = RoundedCornerShape(28.dp)),
-            focusedBorder = Border(BorderStroke(8.dp, Color.White), shape = RoundedCornerShape(28.dp)),
+            border = Border(BorderStroke(3.dp, Color.White.copy(alpha = 0.7f)), shape = RoundedCornerShape(24.dp)),
+            focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = RoundedCornerShape(24.dp)),
         ),
     ) {
         Column(
@@ -188,20 +192,22 @@ private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, on
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            EmojiPicture(category.icon, 88.dp)
-            Text(category.title, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
+            EmojiPicture(category.icon, 68.dp)
+            Text(category.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
         }
         if (count > 0) {
             Text(
                 "$count",
                 color = Ink,
-                fontSize = 28.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
-                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color.White, CircleShape).padding(horizontal = 14.dp, vertical = 2.dp),
+                modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).background(Color.White, CircleShape).padding(horizontal = 14.dp, vertical = 2.dp),
             )
         }
     }
 }
+
+private const val TILES_PER_ROW = 4
 
 /** The Quizzes or Games screen: a tile for each of [games], three to a row. */
 @Composable

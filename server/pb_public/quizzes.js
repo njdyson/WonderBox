@@ -109,7 +109,7 @@ const FLAG_LEVELS = [
 const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
 const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
 // The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Watching a whole learning or exercise video"]];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Watching a whole learning, exercise or story video"]];
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
@@ -442,7 +442,7 @@ function renderGames(c) {
     el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "⭐ What wins a treat" })),
     chips(TREAT_GAMES, treatGames, (list) => save({ treatGames: list })),
     el("div", { className: "muted", textContent: treatGames.length
-      ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV. A whole learning or exercise video wins one the first time it's watched all the way through, without skipping."
+      ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV. A whole learning, exercise or story video wins one the first time it's watched all the way through, without skipping."
       : "No game wins a treat, so treats stay locked." }));
 
   $("games").replaceChildren(

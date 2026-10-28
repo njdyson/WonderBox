@@ -19,18 +19,18 @@ Family photos from the phone show on the TV as a slideshow.
 - **Who's watching?** one big, bobbing face per child: their own picture (uploaded in the
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
-- **A child's home page:** big tiles on a screen of their own colour so they can tell it's
+- **A child's home page:** tiles, four to a row, on a screen of their own colour so they can tell it's
   theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (hangman, the word
   jumble, jigsaws, pairs), Learning,
-  Music, Exercise and Photos, always in that order, leaving out any with nothing in them, then Treats. Each
-  opens its own screen; Learning, Music and Exercise are rows, like a TV app (their own videos, then a
+  Music, Exercise, Stories and Photos, always in that order, leaving out any with nothing in them, then Treats. Each
+  opens its own screen; Learning, Music, Exercise and Stories are rows, like a TV app (their own videos, then a
   row for each channel). Treat videos never show there: finishing a game (10 right answers
   by default) wins a treat, and the child picks one to save and carries on learning. The
   Treats section holds only the treats they've picked (its tile counts them), and watching
   one uses it up; a won treat left unpicked (Back from the picker) is picked when they next
   open Treats. Videos watched all the way through get a tick and fade back; the first
-  time a learning or exercise video is watched through without skipping (at least 80% of it
-  actually playing), it wins a treat too, unless the parent turned "Watching a whole learning or exercise video"
+  time a learning, exercise or story video is watched through without skipping (at least 80% of it
+  actually playing), it wins a treat too, unless the parent turned "Watching a whole learning, exercise or story video"
   off in the phone app. The parent chooses which
   games win a treat: maths, spelling, the clock, flags, quizzes, hangman and the word jumble
   until changed, not
