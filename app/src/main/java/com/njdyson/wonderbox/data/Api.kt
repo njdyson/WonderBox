@@ -42,6 +42,7 @@ data class GameSettings(
     val mathsSetup: MathsSetup? = null,
     val spellingSetup: SpellingSetup? = null,
     val jigsaw: Int = 3,
+    val sounds: String = "silly",
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)

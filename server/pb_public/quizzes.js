@@ -233,10 +233,22 @@ function renderGames(c) {
       el("div", { className: "muted", textContent: `${jigsaw * jigsaw} pieces. ${c.name} picks a photo, then swaps pieces with the arrows and OK. Shows once you've added photos.` }));
   }
 
+  // Sound effects (app/.../ui/Sounds.kt)
+  const sounds = g.sounds || "silly";
+  const soundsPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔊 Game sounds" })),
+    seg([["off", "Off"], ["calm", "Calm"], ["silly", "Silly"]], sounds, (v) => save({ sounds: v })),
+    el("div", { className: "muted", textContent: {
+      off: "No sound effects, just the voice.",
+      calm: "Soft blips and chimes for moving, right answers and finishing.",
+      silly: "Boings, squeaks and farts for right answers, and a silly noise to try again. Wrong answers never get a fart.",
+    }[sounds] }));
+
   $("games").replaceChildren(
     mathsPart,
     spellingPart,
     jigsawPart,
+    soundsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
       select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize || 10, (v) => save({ roundSize: v }))),
     el("div", { className: "muted", textContent: hasTreats
@@ -396,8 +408,17 @@ let clipart = null; // the catalogue, loaded the first time the picker opens
 const GROUP_NAMES = ["Animals", "Food", "Places", "Activities", "Things", "Faces", "People", "Symbols", "Flags"];
 
 async function loadClipart() {
-  if (!clipart) clipart = fetch("/clipart/fluent.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch((e) => { clipart = null; throw e; });
+  const get = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  // Country flags are drawn by tools/make_flags.js and live on the server itself.
+  if (!clipart) clipart = Promise.all([get("/clipart/fluent.json"), get("/clipart/flags.json").catch(() => ({ emoji: [] }))])
+    .then(([fluent, flags]) => ({ ...fluent, emoji: fluent.emoji.concat(flags.emoji) }))
+    .catch((e) => { clipart = null; throw e; });
   return clipart;
+}
+
+/** Where a catalogue picture is: on the server ("/clipart/...") or on the Fluent Emoji CDN. */
+function clipUrl(catalogue, path) {
+  return path.startsWith("/") ? path : catalogue.base + path.split("/").map(encodeURIComponent).join("/");
 }
 
 /**
@@ -430,7 +451,7 @@ function pickPicture(what, onPick, current) {
     if (terms.length) found.sort((a, b) => (b[0].toLowerCase() === q) - (a[0].toLowerCase() === q) || a[0].length - b[0].length);
     groupsRow.hidden = terms.length > 0;
     grid.replaceChildren(...found.slice(0, 150).map(([name, , path]) => el("button", { type: "button", title: name, onclick: () => chooseClip(name, path) },
-      el("img", { src: catalogue.base + path.split("/").map(encodeURIComponent).join("/"), alt: name, loading: "lazy" }))));
+      el("img", { src: clipUrl(catalogue, path), alt: name, loading: "lazy" }))));
     status.textContent = found.length ? (found.length > 150 ? `First 150 of ${found.length}. Search to narrow it down.` : "") : "Nothing found. Try another word, or upload a picture.";
   };
 
@@ -443,11 +464,11 @@ function pickPicture(what, onPick, current) {
   async function chooseClip(name, path) {
     busy(`Adding ${name}…`);
     try {
-      const source = "fluent:" + path;
+      const source = path.startsWith("/clipart/flags/") ? "flag:" + path.slice(15, -4) : "fluent:" + path;
       // Already copied before? Then nothing needs sending.
       const known = await sendImage(null, source).catch(() => null);
       if (known && known.path) return done(known.path);
-      const res = await fetch(catalogue.base + path.split("/").map(encodeURIComponent).join("/"));
+      const res = await fetch(clipUrl(catalogue, path));
       if (!res.ok) throw new Error("Couldn't get that picture. Try another.");
       const blob = await shrinkPicture(await res.blob(), 256);
       done((await sendImage(blob, source)).path);
@@ -483,7 +504,7 @@ function pickPicture(what, onPick, current) {
       el("button", { type: "button", className: "grow", textContent: "📷 Upload a picture", onclick: () => file.click() }), file),
     el("div", { className: "row" }, emoji,
       el("button", { type: "button", className: "ghost", textContent: "Use emoji", onclick: () => emoji.value.trim() && done(emoji.value.trim()) })),
-    el("div", { className: "muted", textContent: "Clipart: Fluent Emoji by Microsoft (MIT licence). Emoji typed in may not show on older Fire TV sticks; clipart and uploads always do." }),
+    el("div", { className: "muted", textContent: "Clipart: Fluent Emoji by Microsoft and flag-icons by Panayiotis Lipiridis (both MIT licence). Emoji typed in may not show on older Fire TV sticks; clipart and uploads always do." }),
     ...(current ? [el("button", { type: "button", className: "ghost", textContent: "No picture", onclick: () => done("") })] : []),
     el("button", { type: "button", className: "ghost", textContent: "Cancel", onclick: close })));
   host.hidden = false;

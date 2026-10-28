@@ -107,7 +107,7 @@ fun GameScreen(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     // A new question each time, so each one's state (greyed-out answers) starts fresh.
                     androidx.compose.runtime.key(question) {
-                        Asking(app, question, onAnswer = { choice, ok ->
+                        Asking(app, child, question, onAnswer = { choice, ok ->
                             if (!ok) wrongAnswers++
                             EventLog.log("quiz.answer", child.id, subject = subject, value = if (ok) 1.0 else 0.0) {
                                 put("question", question.prompt.ifBlank { question.spoken })
@@ -128,6 +128,7 @@ fun GameScreen(
                                     if (entry.quiz != null) put("title", entry.title)
                                 }
                                 finished = true
+                                app.sounds.play(Sounds.Effect.Finish, child)
                                 onFinished()
                             } else {
                                 question = round.next()
@@ -153,7 +154,7 @@ private fun Progress(right: Int, goal: Int) {
 }
 
 @Composable
-private fun Asking(app: AppState, q: Question, onAnswer: (choice: String, right: Boolean) -> Unit, onRight: () -> Unit) {
+private fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: String, right: Boolean) -> Unit, onRight: () -> Unit) {
     val scope = rememberCoroutineScope()
     val wrong = remember { mutableStateListOf<Int>() }
     // For spelling the whole word: the letters (by button) picked so far.
@@ -172,6 +173,7 @@ private fun Asking(app: AppState, q: Question, onAnswer: (choice: String, right:
         // A wrong letter when spelling the whole word may be right later, so it isn't greyed out.
         if (!q.build) wrong += index
         app.say("Try again!")
+        app.sounds.play(Sounds.Effect.Wrong, child)
         scope.launch {
             for (x in listOf(18f, -14f, 10f, -6f, 0f)) shake.animateTo(x, spring(stiffness = Spring.StiffnessHigh))
         }
@@ -179,6 +181,7 @@ private fun Asking(app: AppState, q: Question, onAnswer: (choice: String, right:
 
     fun yes() {
         correct = true
+        app.sounds.play(Sounds.Effect.Right, child)
         app.say(listOf("Yes!", "Well done!", "Brilliant!", "Super!", "That's right!").random())
         scope.launch {
             delay(1_100)
@@ -231,6 +234,7 @@ private fun Asking(app: AppState, q: Question, onAnswer: (choice: String, right:
                     onFocus = {
                         // A quiz's answers are read out as they're picked, for children who can't read yet.
                         if (moved && q.kind == "quiz" && !correct) app.say(choice)
+                        if (moved) app.sounds.play(Sounds.Effect.Move, child)
                         moved = true
                     },
                     onClick = {
