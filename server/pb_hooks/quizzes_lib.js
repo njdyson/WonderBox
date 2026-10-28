@@ -24,7 +24,7 @@ const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangma
 const TREAT_GAMES_BEFORE_SCRAMBLE = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]
 const FLAG_REGIONS = ["uk", "famous", "europe", "asia", "africa", "americas", "oceania"]
 const FLAG_TYPES = ["name", "flag"]
-const WORD_LISTS = ["short", "long", "phase2", "mine"]
+const WORD_LISTS = ["short", "long", "big", "phase2", "mine"]
 const MATHS_MAX = [5, 10, 20, 50, 100]
 
 // The TV's levels (app/.../games/Questions.kt and the phone app keep the same list).

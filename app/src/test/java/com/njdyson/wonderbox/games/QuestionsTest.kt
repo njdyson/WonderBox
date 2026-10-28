@@ -3,7 +3,9 @@ package com.njdyson.wonderbox.games
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import com.njdyson.wonderbox.data.Avatars
 import org.junit.Test
+import java.io.File
 import kotlin.random.Random
 
 class QuestionsTest {
@@ -187,10 +189,20 @@ class QuestionsTest {
 
     @Test
     fun misspellingsAreNeverTheWord() {
-        for ((word, _) in SpellingQuestions.SHORT + SpellingQuestions.LONG) {
+        for ((word, _) in SpellingQuestions.SHORT + SpellingQuestions.LONG + SpellingQuestions.BIG) {
             val wrong = SpellingQuestions.misspellings(word, random)
             assertTrue(word, wrong.size >= 2)
             assertFalse(word, word in wrong)
+        }
+    }
+
+    @Test
+    fun everyPictureWordHasItsPictureBundled() {
+        val words = PictureWords.SHORT + PictureWords.LONG + PictureWords.BIG
+        assertTrue(words.size > 200)
+        assertEquals(words.size, words.map { it.first }.toSet().size)
+        for ((word, picture) in words) {
+            assertTrue(word, File("src/main/assets/avatars/${Avatars.fileName(picture)}").exists())
         }
     }
 

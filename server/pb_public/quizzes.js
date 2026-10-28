@@ -254,7 +254,7 @@ function renderGames(c) {
         el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
         chips(SPELLING_TYPES, spelling.types, (types) => types.length && saveSpelling({ types })),
         el("div", { className: "sub-h", textContent: "Which words" }),
-        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["phase2", "Phonics Phase 2 (sock, bucket)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
+        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["big", "Big words (rabbit, penguin)"], ["phase2", "Phonics Phase 2 (sock, bucket)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
           spelling.lists, (lists) => lists.length && saveSpelling({ lists })),
         ...(spelling.types.some((t) => t !== "build") ? [
           el("div", { className: "sub-h", textContent: "Answers to pick from" }),
@@ -353,7 +353,7 @@ function renderGames(c) {
         ? `${c.name} hears the word and finds its letters: spelling from the sound.`
         : `${c.name} guesses the word from its letters. Harder!` }),
       el("div", { className: "sub-h", textContent: "Which words" }),
-      chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ...(myWordCount ? [["mine", `My words (${myWordCount})`]] : [])],
+      chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["big", "Big words (rabbit, penguin)"], ...(myWordCount ? [["mine", `My words (${myWordCount})`]] : [])],
         hangman.lists, (lists) => lists.length && saveHangman({ lists })),
       el("div", { className: "sub-h", textContent: "Letters to pick from" }),
       seg([[8, "8"], [12, "12"], [26, "All 26"]], hangman.letters, (letters) => saveHangman({ letters })),
@@ -380,7 +380,7 @@ function renderGames(c) {
         el("div", { className: "row" }, el("span", { className: "grow", textContent: "Say the word and show its picture" }),
           toggle(scramble.say, (say) => saveScramble({ say }))),
         el("div", { className: "sub-h", textContent: "Which words" }),
-        chips([["phase2", "Phonics Phase 2 (sat, pin)"], ["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"],
+        chips([["phase2", "Phonics Phase 2 (sat, pin)"], ["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["big", "Big words (rabbit, penguin)"],
           ...(myWordCount ? [["mine", `My words (${myWordCount})`]] : [])],
         scramble.lists, (lists) => lists.length && saveScramble({ lists })),
         el("div", { className: "sub-h", textContent: "Words to unjumble in a game" }),

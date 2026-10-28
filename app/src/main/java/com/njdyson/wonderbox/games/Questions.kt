@@ -194,21 +194,14 @@ internal object MathsQuestions {
 }
 
 internal object SpellingQuestions {
-    /** Three-letter words, consonant-vowel-consonant, with a picture each. */
-    val SHORT = listOf(
-        "cat" to "🐱", "dog" to "🐶", "pig" to "🐷", "hen" to "🐔", "bus" to "🚌", "box" to "📦",
-        "bat" to "🦇", "bed" to "🛏", "hat" to "🎩", "sun" to "🌞", "van" to "🚐", "web" to "🕸",
-        "pen" to "🖊", "map" to "🗺", "fox" to "🦊", "bag" to "👜", "jam" to "🍯", "mug" to "☕",
-    )
+    /** Three-letter words with a picture each (games/PictureWords.kt). */
+    val SHORT = PictureWords.SHORT
 
     /** Four- and five-letter words with a picture each. */
-    val LONG = listOf(
-        "fish" to "🐟", "frog" to "🐸", "duck" to "🦆", "star" to "⭐", "moon" to "🌙", "cake" to "🎂",
-        "tree" to "🌳", "ship" to "🚢", "bell" to "🔔", "ball" to "⚽", "bird" to "🐦", "boat" to "⛵",
-        "book" to "📖", "lion" to "🦁", "bear" to "🐻", "crab" to "🦀", "snail" to "🐌", "snake" to "🐍",
-        "horse" to "🐴", "sheep" to "🐑", "mouse" to "🐭", "apple" to "🍎", "house" to "🏠", "train" to "🚂",
-        "clock" to "🕐", "bread" to "🍞", "shell" to "🐚", "whale" to "🐳", "tiger" to "🐯", "pizza" to "🍕",
-    )
+    val LONG = PictureWords.LONG
+
+    /** Six- to eight-letter words with a picture each. */
+    val BIG = PictureWords.BIG
 
     private const val VOWELS = "aeiou"
     private const val CONSONANTS = "bcdfghjklmnprstvwz"
@@ -220,6 +213,7 @@ internal object SpellingQuestions {
         val words = buildList {
             if ("short" in setup.lists) addAll(SHORT)
             if ("long" in setup.lists) addAll(LONG)
+            if ("big" in setup.lists) addAll(BIG)
             if ("phase2" in setup.lists) addAll(Phonics.PHASE2)
             if ("mine" in setup.lists) setup.myWords.forEach { add(it.word.lowercase() to it.picture) }
         }.filter { (word, _) -> word.length >= 2 && word.all { it in 'a'..'z' } }.ifEmpty { SHORT }
