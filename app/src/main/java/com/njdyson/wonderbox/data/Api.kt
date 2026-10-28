@@ -1,5 +1,6 @@
 package com.njdyson.wonderbox.data
 
+import com.njdyson.wonderbox.games.ClockSetup
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.Quiz
 import com.njdyson.wonderbox.games.SpellingSetup
@@ -32,7 +33,8 @@ data class Child(
  * How hard a child's games are (set in the phone app), and how many right answers earn a treat.
  * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
- * 3 x 3), or 0 for no jigsaws.
+ * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
+ * "spelling", "clock", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw".
  */
 @Serializable
 data class GameSettings(
@@ -43,9 +45,21 @@ data class GameSettings(
     val spellingSetup: SpellingSetup? = null,
     val jigsaw: Int = 3,
     val sounds: String = "silly",
+    val clock: Int = 1,
+    val clockSetup: ClockSetup? = null,
+    val treatGames: List<String> = TREAT_DEFAULT,
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
+    fun clock() = clockSetup ?: ClockSetup.preset(clock)
+
+    /** Whether finishing the game with this [GameEntry.key] wins a treat ("quiz/<id>" is "quizzes"). */
+    fun earnsTreat(key: String) = (if (key.startsWith("quiz/")) "quizzes" else key) in treatGames
+
+    companion object {
+        // The same as the server's, for an older server that doesn't send them.
+        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "quizzes", "hangman")
+    }
 }
 
 /** "free" videos are always there; "treat" ones are unlocked by finishing a game. */

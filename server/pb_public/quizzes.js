@@ -70,8 +70,21 @@ const SPELLING_LEVELS = [
   ["Which is spelt right?", { types: ["pick"], lists: ["short", "long"], choices: 3 }],
   ["Spell the whole word", { types: ["build"], lists: ["long"], choices: 4 }],
 ];
-const MATHS_TYPES = [["count", "Counting"], ["add", "Adding"], ["sub", "Taking away"], ["missing", "Missing number (3 + _ = 5)"], ["bigger", "Biggest number"], ["times", "Times tables"]];
-const SPELLING_TYPES = [["first", "First letter"], ["missing", "Missing letter"], ["pick", "Which is spelt right?"], ["build", "Spell the whole word"]];
+const CLOCK_LEVELS = [
+  ["O'clock", { types: ["oclock"], choices: 3 }],
+  ["O'clock and half past", { types: ["oclock", "half"], choices: 3 }],
+  ["Quarter past and quarter to", { types: ["oclock", "half", "quarter"], choices: 4 }],
+  ["Five minutes (20 past 3)", { types: ["five"], choices: 4 }],
+  ["Any minute", { types: ["minute"], choices: 4 }],
+];
+const MATHS_TYPES = [["count", "Counting"], ["add", "Adding"], ["sub", "Taking away"], ["add3", "Adding 3 numbers"], ["missing", "Missing number (3 + _ = 5)"],
+  ["bonds", "Number bonds (7 + _ = 10)"], ["double", "Doubles"], ["half", "Halves"], ["more", "1 or 10 more and less"], ["bigger", "Biggest number"], ["times", "Times tables"]];
+const SPELLING_TYPES = [["first", "First letter"], ["missing", "Missing letter"], ["pick", "Which is spelt right?"], ["build", "Spell the whole word"],
+  ["hear", "Hear it, pick the spelling"], ["hearbuild", "Hear it, spell it"]];
+const CLOCK_TYPES = [["oclock", "O'clock"], ["half", "Half past"], ["quarter", "Quarter past and to"], ["five", "Five minutes"], ["minute", "Any minute"]];
+// The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"]];
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman"];
 const MAXES = [5, 10, 20, 50, 100];
 
 const sameList = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -85,6 +98,11 @@ function spellingLevelOf(s) {
   if (s.lists.includes("mine")) return 0;
   const key = (x) => JSON.stringify([x.types, x.lists, x.types.every((t) => t === "build") ? 0 : x.choices]);
   return SPELLING_LEVELS.findIndex(([, p]) => key(p) === key(s)) + 1;
+}
+
+function clockLevelOf(s) {
+  const key = (x) => JSON.stringify([x.types, x.choices]);
+  return CLOCK_LEVELS.findIndex(([, p]) => key(p) === key(s)) + 1;
 }
 
 // Which children's "change what it asks" parts are open, by "<child>/<game>".
@@ -126,9 +144,11 @@ function renderGames(c) {
   const g = c.games || {};
   const maths = g.mathsSetup || { on: true, ...MATHS_LEVELS[(g.maths || 1) - 1][1], tables: [2, 5, 10] };
   const spelling = g.spellingSetup || { on: true, ...SPELLING_LEVELS[(g.spelling || 1) - 1][1], myWords: [] };
+  const clock = g.clockSetup || { on: true, ...CLOCK_LEVELS[(g.clock || 1) - 1][1] };
   const save = (change) => edit("/api/wonder/children/games", { id: c.id, ...change }).then((d) => d && toast("Saved"));
   const saveMaths = (change) => save({ mathsSetup: { ...maths, ...change } });
   const saveSpelling = (change) => save({ spellingSetup: { ...spelling, ...change } });
+  const saveClock = (change) => save({ clockSetup: { ...clock, ...change } });
   const select = (options, value, onChange) => {
     const s = el("select", { onchange: () => onChange(Number(s.value)) }, ...options.map(([v, label]) => el("option", { value: v, textContent: label, selected: v === value })));
     return s;
@@ -221,6 +241,31 @@ function renderGames(c) {
     }
   }
 
+  // Telling the time
+  const clockLevel = clockLevelOf(clock);
+  const clockKey = `${c.id}/clock`;
+  const clockOpen = openSetups.has(clockKey) || !clockLevel;
+  const clockPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🕒 Clock" }),
+      toggle(clock.on, (on) => saveClock({ on }), "Show the clock game on the TV")));
+  if (clock.on) {
+    clockPart.append(
+      select([...(clockLevel ? [] : [[0, "Your own mix"]]), ...CLOCK_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], clockLevel,
+        (v) => v && saveClock({ ...CLOCK_LEVELS[v - 1][1] })),
+      el("button", { type: "button", className: "more", textContent: clockOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
+        openSetups[clockOpen ? "delete" : "add"](clockKey);
+        renderGames(c);
+      } }));
+    if (clockOpen) {
+      clockPart.append(
+        el("div", { className: "sub-h", textContent: "Which times (mixed together)" }),
+        chips(CLOCK_TYPES, clock.types, (types) => types.length && saveClock({ types })),
+        el("div", { className: "sub-h", textContent: "Answers to pick from" }),
+        seg([2, 3, 4].map((n) => [n, String(n)]), clock.choices, (choices) => saveClock({ choices })),
+        el("div", { className: "muted", textContent: "A clock face with both hands; the answers are said the British way: quarter past 3, 20 to 5." }));
+    }
+  }
+
   // Photo jigsaws
   const jigsaw = g.jigsaw ?? 3;
   const jigsawPart = el("div", { className: "game" },
@@ -244,11 +289,22 @@ function renderGames(c) {
       silly: "Boings, squeaks and farts for right answers, and a silly noise to try again. Wrong answers never get a fart.",
     }[sounds] }));
 
+  // Which games win a treat: the learning ones by default, so it isn't all jigsaws.
+  const treatGames = g.treatGames || TREAT_DEFAULT;
+  const treatsPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "⭐ Games that win a treat" })),
+    chips(TREAT_GAMES, treatGames, (list) => save({ treatGames: list })),
+    el("div", { className: "muted", textContent: treatGames.length
+      ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV."
+      : "No game wins a treat, so treats stay locked." }));
+
   $("games").replaceChildren(
     mathsPart,
     spellingPart,
+    clockPart,
     jigsawPart,
     soundsPart,
+    treatsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
       select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize || 10, (v) => save({ roundSize: v }))),
     el("div", { className: "muted", textContent: hasTreats

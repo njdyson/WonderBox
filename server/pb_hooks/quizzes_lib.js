@@ -12,8 +12,13 @@
 // /api/wonder/quiz-images/<id>. The phone copies Fluent Emoji clipart up as quiz images too,
 // so the TV only ever talks to this server.
 
-const MATHS_TYPES = ["count", "add", "sub", "missing", "bigger", "times"]
-const SPELLING_TYPES = ["first", "missing", "pick", "build"]
+const MATHS_TYPES = ["count", "add", "sub", "add3", "missing", "bonds", "double", "half", "more", "bigger", "times"]
+const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"]
+const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
+// The games that can win a treat on the TV ("quizzes" is all the parent's quizzes), and the
+// ones that do until the parent changes it: the learning ones, not the jigsaw or memory pairs.
+const TREAT_GAMES = ["maths", "spelling", "clock", "quizzes", "hangman", "memory", "jigsaw"]
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman"]
 const WORD_LISTS = ["short", "long", "mine"]
 const MATHS_MAX = [5, 10, 20, 50, 100]
 
@@ -32,6 +37,13 @@ const SPELLING_PRESETS = [
   { types: ["missing"], lists: ["long"], choices: 4 },
   { types: ["pick"], lists: ["short", "long"], choices: 3 },
   { types: ["build"], lists: ["long"], choices: 4 },
+]
+const CLOCK_PRESETS = [
+  { types: ["oclock"], choices: 3 },
+  { types: ["oclock", "half"], choices: 3 },
+  { types: ["oclock", "half", "quarter"], choices: 4 },
+  { types: ["five"], choices: 4 },
+  { types: ["minute"], choices: 4 },
 ]
 
 const IMAGE_PATH = /^\/api\/wonder\/quiz-images\/[a-z0-9]{15}$/
@@ -116,6 +128,28 @@ function spellingSetup(input, level) {
   }
 }
 
+function clockPreset(level) {
+  const p = CLOCK_PRESETS[int(level, 1, CLOCK_PRESETS.length, 1) - 1]
+  return { on: true, types: [...p.types], choices: p.choices }
+}
+
+/** A clock setup: which times to read (o'clock, half past...) and how many answers. */
+function clockSetup(input, level) {
+  const base = clockPreset(level)
+  if (!input || typeof input !== "object") return base
+  const types = pick(input.types, CLOCK_TYPES)
+  return {
+    on: input.on !== false,
+    types: types.length ? types : base.types,
+    choices: int(input.choices, 2, 4, base.choices),
+  }
+}
+
+/** The games that win a treat, checked; the default ones if it's never been set. */
+function treatGames(input) {
+  return Array.isArray(input) ? pick(input, TREAT_GAMES) : [...TREAT_DEFAULT]
+}
+
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 
 /** The level whose setup this is (ignoring on/off), or 0 if it's been changed. */
@@ -129,6 +163,12 @@ function spellingLevelOf(setup) {
   const strip = (s) => ({ types: s.types, lists: s.lists.filter((l) => l !== "mine"), choices: s.types.every((t) => t === "build") ? 0 : s.choices })
   if (setup.lists.includes("mine")) return 0
   return SPELLING_PRESETS.findIndex((_, i) => same(strip(spellingPreset(i + 1)), strip(setup))) + 1
+}
+
+/** The level whose setup this is (ignoring on/off), or 0. */
+function clockLevelOf(setup) {
+  const strip = (s) => ({ types: s.types, choices: s.choices })
+  return CLOCK_PRESETS.findIndex((_, i) => same(strip(clockPreset(i + 1)), strip(setup))) + 1
 }
 
 // --- The parent's own quizzes ----------------------------------------------------
@@ -222,5 +262,6 @@ function cleanupImages(userId) {
 
 module.exports = {
   jsonField, mathsSetup, spellingSetup, mathsPreset, spellingPreset, mathsLevelOf, spellingLevelOf,
+  clockSetup, clockPreset, clockLevelOf, treatGames, CLOCK_PRESETS,
   quizRecords, quizList, cleanQuiz, cleanupImages, IMAGE_PATH,
 }

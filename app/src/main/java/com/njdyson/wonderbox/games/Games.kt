@@ -8,9 +8,9 @@ import kotlin.random.Random
 const val JIGSAW = "jigsaw"
 
 /**
- * A game on a child's screen: maths, spelling (unless the parent turned it off), a photo
- * jigsaw or one of the parent's quizzes for them. [key] is also the activity log's subject:
- * "maths", "spelling" or "quiz/<id>" ([JIGSAW] logs its own events).
+ * A game on a child's screen: maths, spelling, the clock (unless the parent turned them off),
+ * a photo jigsaw or one of the parent's quizzes for them. [key] is also the activity log's
+ * subject: "maths", "spelling", "clock" or "quiz/<id>" ([JIGSAW] logs its own events).
  */
 data class GameEntry(
     val key: String,
@@ -30,12 +30,19 @@ data class GameEntry(
         quiz?.let { return quizRound(it, random) }
         val roundSize = child.games.roundSize.coerceIn(1, 50)
         val recent = RecentTopics.forGame("${child.id}/$key")
-        return if (game == Game.Spelling) {
-            val setup = child.games.spelling()
-            Round(roundSize, setup.level()) { recent.fresh { SpellingQuestions.question(setup, random) } }
-        } else {
-            val setup = child.games.maths()
-            Round(roundSize, setup.level()) { recent.fresh { MathsQuestions.question(setup, random) } }
+        return when (game) {
+            Game.Spelling -> {
+                val setup = child.games.spelling()
+                Round(roundSize, setup.level()) { recent.fresh { SpellingQuestions.question(setup, random) } }
+            }
+            Game.Clock -> {
+                val setup = child.games.clock()
+                Round(roundSize, setup.level()) { recent.fresh { ClockQuestions.question(setup, random) } }
+            }
+            else -> {
+                val setup = child.games.maths()
+                Round(roundSize, setup.level()) { recent.fresh { MathsQuestions.question(setup, random) } }
+            }
         }
     }
 
@@ -114,7 +121,7 @@ fun QuizQuestion.toQuestion(random: Random = Random): Question {
 }
 
 /**
- * The games on [child]'s screen, in order: maths, spelling, a jigsaw (when there are
+ * The games on [child]'s screen, in order: maths, spelling, the clock, a jigsaw (when there are
  * [photos] and the child has jigsaws on), then the parent's quizzes.
  */
 fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = buildList {
@@ -122,6 +129,8 @@ fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = b
     if (maths.on) add(GameEntry("maths", Game.Maths.title, Game.Maths.icon, subtitle(maths.level()), Game.Maths))
     val spelling = child.games.spelling()
     if (spelling.on) add(GameEntry("spelling", Game.Spelling.title, Game.Spelling.icon, subtitle(spelling.level()), Game.Spelling))
+    val clock = child.games.clock()
+    if (clock.on) add(GameEntry("clock", Game.Clock.title, Game.Clock.icon, subtitle(clock.level()), Game.Clock))
     if (photos && child.games.jigsaw > 0) {
         val size = child.games.jigsaw.coerceIn(JIGSAW_SIZES.first, JIGSAW_SIZES.last)
         add(GameEntry(JIGSAW, "Jigsaw", "🧩", "$size × $size pieces"))

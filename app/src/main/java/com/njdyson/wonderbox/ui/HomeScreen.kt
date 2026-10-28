@@ -190,6 +190,7 @@ fun GamesScreen(app: AppState, child: Child, title: String, games: List<GameEntr
     var focused by rememberSaveable { mutableStateOf<String?>(null) }
     val target = games.firstOrNull { it.key == focused } ?: games.firstOrNull()
     val restore = remember { FocusRequester() }
+    val hasTreats = app.library.treatShelvesFor(child.id).isNotEmpty()
     ChildScreen(app, child, title) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -201,7 +202,8 @@ fun GamesScreen(app: AppState, child: Child, title: String, games: List<GameEntr
             itemsIndexed(games, key = { _, g -> g.key }) { i, game ->
                 GameTile(
                     app,
-                    game,
+                    // A star on the games that win a treat.
+                    if (hasTreats && child.games.earnsTreat(game.key)) game.copy(subtitle = "⭐ ${game.subtitle}") else game,
                     index = i,
                     onClick = { onGame(game) },
                     onFocus = {
@@ -230,6 +232,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
     val colors = when (game.game) {
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
+        Game.Clock -> TILE_COLORS[3]
         null -> if (game.key == JIGSAW) TILE_COLORS[2] else TILE_COLORS[index % TILE_COLORS.size]
     }
     Surface(

@@ -182,7 +182,8 @@ class MainActivity : ComponentActivity() {
                             if (child == null || entry == null) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val hasTreats = app.library.shelvesFor(child.id).any { it.treat }
+                                // Only the games the parent chose win a treat (maths and spelling, not jigsaws, by default).
+                                val hasTreats = app.library.shelvesFor(child.id).any { it.treat } && child.games.earnsTreat(entry.key)
                                 GameScreen(
                                     app,
                                     child,
@@ -208,7 +209,7 @@ class MainActivity : ComponentActivity() {
                             if (child == null) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val hasTreats = app.library.shelvesFor(child.id).any { it.treat }
+                                val hasTreats = app.library.shelvesFor(child.id).any { it.treat } && child.games.earnsTreat(JIGSAW)
                                 JigsawScreen(
                                     app,
                                     child,

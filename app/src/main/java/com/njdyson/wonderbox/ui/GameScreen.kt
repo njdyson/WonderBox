@@ -3,6 +3,7 @@ package com.njdyson.wonderbox.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -34,10 +36,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -46,11 +52,14 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.ClockQuestions
 import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.Question
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
+import kotlin.math.cos
+import kotlin.math.sin
 
 val Leaf = Color(0xFF7BD389)
 
@@ -102,6 +111,8 @@ fun GameScreen(
                     }
                     Text(entry.title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
                     Box(Modifier.weight(1f))
+                    // Up from the answers: the question again, for spelling a word from its sound.
+                    if (question.spoken.isNotBlank()) BigButton("🔊 Hear it again", Modifier) { app.say(question.spoken) }
                     Progress(right, goal)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -197,7 +208,10 @@ private fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: 
     var moved by remember { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (pictureAnswers) 14.dp else 20.dp)) {
-        if (isImagePath(q.picture)) {
+        val clock = ClockQuestions.parse(q.picture)
+        if (clock != null) {
+            ClockFace(clock.first, clock.second, 250.dp)
+        } else if (isImagePath(q.picture)) {
             QuizPicture(app, q.picture, if (pictureAnswers) 150.dp else 220.dp)
         } else if (q.picture.isNotEmpty()) {
             Text(q.picture, fontSize = if (q.picture.length > 8) 54.sp else 84.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 820.dp))
@@ -258,6 +272,52 @@ private fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: 
                     },
                 )
             }
+        }
+    }
+}
+
+/** A clock face showing [hour]:[minute], with all twelve numbers and both hands. */
+@Composable
+fun ClockFace(hour: Int, minute: Int, size: Dp) {
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val r = this.size.minDimension / 2
+            drawCircle(Color.White, r)
+            drawCircle(Tangerine, r, style = Stroke(width = r * 0.07f))
+            for (i in 0 until 60) {
+                val a = Math.toRadians(i * 6.0 - 90)
+                val inner = if (i % 5 == 0) r * 0.84f else r * 0.89f
+                val outer = r * 0.93f
+                drawLine(
+                    Ink.copy(alpha = if (i % 5 == 0) 0.9f else 0.4f),
+                    center + Offset(cos(a).toFloat() * inner, sin(a).toFloat() * inner),
+                    center + Offset(cos(a).toFloat() * outer, sin(a).toFloat() * outer),
+                    strokeWidth = if (i % 5 == 0) r * 0.025f else r * 0.012f,
+                )
+            }
+        }
+        val radius = size / 2 * 0.66f
+        for (n in 1..12) {
+            val a = Math.toRadians(n * 30.0 - 90)
+            Text(
+                "$n",
+                color = Ink,
+                fontSize = (size.value * 0.1f).sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.offset(x = radius * cos(a).toFloat(), y = radius * sin(a).toFloat()),
+            )
+        }
+        // The hands over the numbers, as on a real clock.
+        Canvas(Modifier.fillMaxSize()) {
+            val r = this.size.minDimension / 2
+            fun hand(degrees: Double, length: Float, width: Float, color: Color) {
+                val a = Math.toRadians(degrees - 90)
+                drawLine(color, center, center + Offset(cos(a).toFloat() * length, sin(a).toFloat() * length), strokeWidth = width, cap = StrokeCap.Round)
+            }
+            // The hour hand moves on between the hours, as on a real clock.
+            hand((hour % 12 + minute / 60.0) * 30, r * 0.48f, r * 0.09f, Ink)
+            hand(minute * 6.0, r * 0.76f, r * 0.05f, Reef)
+            drawCircle(Ink, r * 0.07f)
         }
     }
 }

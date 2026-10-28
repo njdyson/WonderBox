@@ -22,10 +22,25 @@ class GamesTest {
         val sam = Child("sam", "Sam", games = GameSettings(maths = 2, spellingSetup = SpellingSetup(on = false)))
         val jo = Child("jo", "Jo")
         val library = Library(children = listOf(sam, jo), quizzes = listOf(quiz, quiz.copy(id = "q2", children = listOf("jo"))))
-        assertEquals(listOf("maths", "quiz/q1"), library.gamesFor(sam).map { it.key })
+        assertEquals(listOf("maths", "clock", "quiz/q1"), library.gamesFor(sam).map { it.key })
         assertEquals("Level 2", library.gamesFor(sam)[0].subtitle)
-        assertEquals("3 questions", library.gamesFor(sam)[1].subtitle)
-        assertEquals(listOf("maths", "spelling", "quiz/q2"), library.gamesFor(jo).map { it.key })
+        assertEquals("3 questions", library.gamesFor(sam)[2].subtitle)
+        assertEquals(listOf("maths", "spelling", "clock", "quiz/q2"), library.gamesFor(jo).map { it.key })
+        val noClock = Child("al", "Al", games = GameSettings(clockSetup = ClockSetup(on = false)))
+        assertEquals(listOf("maths", "spelling"), Library(children = listOf(noClock)).gamesFor(noClock).map { it.key })
+    }
+
+    @Test
+    fun onlyTheChosenGamesWinATreat() {
+        val defaults = GameSettings()
+        assertEquals(true, defaults.earnsTreat("maths"))
+        assertEquals(true, defaults.earnsTreat("quiz/abc"))
+        assertEquals(false, defaults.earnsTreat(JIGSAW))
+        assertEquals(false, defaults.earnsTreat("memory"))
+        val jigsawOnly = GameSettings(treatGames = listOf("jigsaw"))
+        assertEquals(true, jigsawOnly.earnsTreat(JIGSAW))
+        assertEquals(false, jigsawOnly.earnsTreat("spelling"))
+        assertEquals(false, GameSettings(treatGames = emptyList()).earnsTreat("maths"))
     }
 
     @Test
