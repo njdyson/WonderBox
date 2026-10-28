@@ -60,7 +60,9 @@ import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.games.GameEntry
+import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
+import com.njdyson.wonderbox.games.MEMORY
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerWebView
 import kotlinx.coroutines.delay
@@ -310,7 +312,12 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
     val colors = when (game.game) {
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
-        null -> if (game.key == JIGSAW) TILE_COLORS[2] else TILE_COLORS[index % TILE_COLORS.size]
+        null -> when (game.key) {
+            JIGSAW -> TILE_COLORS[2]
+            HANGMAN -> TILE_COLORS[3]
+            MEMORY -> TILE_COLORS[4]
+            else -> TILE_COLORS[index % TILE_COLORS.size]
+        }
     }
     Surface(
         onClick = onClick,

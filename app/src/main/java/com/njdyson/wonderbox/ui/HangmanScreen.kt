@@ -194,7 +194,7 @@ private fun Word(app: AppState, child: Child, game: Hangman, say: Boolean, start
                 verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
             ) {
                 if ((say || game.over) && game.picture.isNotBlank()) QuizPicture(app, game.picture, 100.dp)
-                Gaps(game, solved, lost)
+                Gaps(game.word, game.shown(), solved, lost)
                 Text(
                     when {
                         solved -> "You found it!"
@@ -213,12 +213,12 @@ private fun Word(app: AppState, child: Child, game: Hangman, say: Boolean, start
         val big = game.letters.size <= 8
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             game.letters.chunked(perRow).forEachIndexed { r, row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(if (big) 12.dp else 8.dp)) {
                     row.forEachIndexed { c, letter ->
                         val tried = game.tried(letter)
                         LetterButton(
                             letter,
-                            size = if (big) 84 else 60,
+                            size = if (big) 84 else 56,
                             faded = tried,
                             good = tried && letter in game.word,
                             modifier = (if (r == 0 && c == 0) Modifier.focusRequester(first) else Modifier)
@@ -239,10 +239,9 @@ private fun Word(app: AppState, child: Child, game: Hangman, say: Boolean, start
 
 /** The word's letters, found ones filled in. Once it's over, missing ones show in coral. */
 @Composable
-private fun Gaps(game: Hangman, solved: Boolean, lost: Boolean) {
-    val shown = game.shown()
+private fun Gaps(word: String, shown: String, solved: Boolean, lost: Boolean) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        game.word.forEachIndexed { i, letter ->
+        word.forEachIndexed { i, letter ->
             val known = shown[i] != '_'
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -252,12 +251,12 @@ private fun Gaps(game: Hangman, solved: Boolean, lost: Boolean) {
                         !known -> Coral
                         else -> Color.White
                     },
-                    fontSize = if (game.word.length > 7) 52.sp else 64.sp,
+                    fontSize = if (word.length > 7) 52.sp else 64.sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.width(if (game.word.length > 7) 46.dp else 58.dp),
+                    modifier = Modifier.width(if (word.length > 7) 46.dp else 58.dp),
                 )
-                Box(Modifier.width(if (game.word.length > 7) 46.dp else 58.dp).height(6.dp).background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(3.dp)))
+                Box(Modifier.width(if (word.length > 7) 46.dp else 58.dp).height(6.dp).background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(3.dp)))
             }
         }
     }
