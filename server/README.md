@@ -77,7 +77,7 @@ quiz or spelling word uses are deleted a day later.
 
 The TV reads questions aloud. Some Fire TV sticks have no text-to-speech that apps can use,
 so the server has a voice of its own: [Piper](https://github.com/rhasspy/piper) with a
-British English voice (Jenny), which `deploy/install.sh` downloads (about 90 MB) and checks.
+British English voice (Cori, a southern English accent), which `deploy/install.sh` downloads (about 90 MB) and checks.
 `GET /api/wonder/speech?text=…` (a linked TV or the parent) returns the text read aloud as a
 WAV file, made once and kept in `<data>/speech`. The library says `voice: true` when the
 server has one; the TV then uses it, and falls back to its own text-to-speech if a clip
