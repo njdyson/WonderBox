@@ -74,6 +74,9 @@
   .video img { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; flex: none; }
   .video .t { font-weight: 700; font-size: 15px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
   .face-mini { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; }
+  .face-mini { overflow: hidden; }
+  .video .face-mini img { width: 84%; height: 84%; aspect-ratio: auto; object-fit: contain; border-radius: 0; background: none; }
+  .video .face-mini img.pic { width: 100%; height: 100%; object-fit: cover; }
   .video .tools { display: grid; grid-template-columns: repeat(2, 36px); gap: 4px; flex: none; }
   .video .tools button { padding: 6px 0; font-size: 14px; }
   .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
