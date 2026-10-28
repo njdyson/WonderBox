@@ -251,9 +251,11 @@ private fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: 
                     modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
                     picture = if (pictureAnswers) q.choicePictures.getOrElse(i) { "" } else null,
                     app = app,
+                    // Four picture buttons only fit across the screen a little smaller.
+                    compact = q.choices.size > 3,
                     onFocus = {
                         // A quiz's answers are read out as they're picked, for children who can't read yet.
-                        if (moved && q.kind == "quiz" && !correct) app.say(choice)
+                        if (moved && (q.kind == "quiz" || q.kind == "flagname") && !correct) app.say(choice)
                         if (moved) app.sounds.play(Sounds.Effect.Move, child)
                         moved = true
                     },
@@ -370,12 +372,13 @@ private fun AnswerButton(
     /** Not null for a quiz with pictures: a big square button, the picture over its words. */
     picture: String? = null,
     app: AppState? = null,
+    compact: Boolean = false,
 ) {
     val focusModifier = modifier.onFocusChanged { if (it.isFocused) onFocus() }
     if (picture != null && app != null) {
         Surface(
             onClick = onClick,
-            modifier = focusModifier.size(width = 230.dp, height = if (text.isBlank()) 200.dp else 250.dp).alpha(if (faded) 0.3f else 1f),
+            modifier = focusModifier.size(width = if (compact) 190.dp else 230.dp, height = if (text.isBlank()) 200.dp else 250.dp).alpha(if (faded) 0.3f else 1f),
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(28.dp)),
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = if (highlight) Leaf else Reef,
@@ -387,7 +390,7 @@ private fun AnswerButton(
             border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(5.dp, Color.White), shape = RoundedCornerShape(28.dp))),
         ) {
             Column(Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                if (picture.isNotBlank()) QuizPicture(app, picture, 150.dp)
+                if (picture.isNotBlank()) QuizPicture(app, picture, if (compact) 140.dp else 150.dp)
                 if (text.isNotBlank()) {
                     Text(text, fontSize = if (text.length > 12) 22.sp else 30.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, maxLines = 2)
                 }

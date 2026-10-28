@@ -2,6 +2,7 @@ package com.njdyson.wonderbox.data
 
 import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.ClockSetup
+import com.njdyson.wonderbox.games.FlagSetup
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.Quiz
@@ -36,7 +37,7 @@ data class Child(
  * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
  * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
- * "spelling", "clock", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw",
+ * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw",
  * and "videos" (watching a whole free video, not music, for the first time).
  * [hangman] and [memory] are those games' setups.
  */
@@ -54,17 +55,20 @@ data class GameSettings(
     val clock: Int = 1,
     val clockSetup: ClockSetup? = null,
     val treatGames: List<String> = TREAT_DEFAULT,
+    val flags: Int = 1,
+    val flagSetup: FlagSetup? = null,
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
     fun clock() = clockSetup ?: ClockSetup.preset(clock)
+    fun flags() = flagSetup ?: FlagSetup.preset(flags)
 
     /** Whether finishing the game with this [GameEntry.key] wins a treat ("quiz/<id>" is "quizzes"). */
     fun earnsTreat(key: String) = (if (key.startsWith("quiz/")) "quizzes" else key) in treatGames
 
     companion object {
         // The same as the server's, for an older server that doesn't send them.
-        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "quizzes", "hangman", VIDEOS)
+        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "quizzes", "hangman", VIDEOS)
 
         /** The [treatGames] key for watching whole videos. */
         const val VIDEOS = "videos"

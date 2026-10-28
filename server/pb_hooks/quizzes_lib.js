@@ -17,8 +17,10 @@ const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"
 const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
 // The games that can win a treat on the TV ("quizzes" is all the parent's quizzes), and the
 // ones that do until the parent changes it: the learning ones, not the jigsaw or memory pairs.
-const TREAT_GAMES = ["maths", "spelling", "clock", "quizzes", "hangman", "memory", "jigsaw", "videos"]
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman", "videos"]
+const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
+const FLAG_REGIONS = ["uk", "famous", "europe", "asia", "africa", "americas", "oceania"]
+const FLAG_TYPES = ["name", "flag"]
 const WORD_LISTS = ["short", "long", "phase2", "mine"]
 const MATHS_MAX = [5, 10, 20, 50, 100]
 
@@ -128,6 +130,33 @@ function spellingSetup(input, level) {
   }
 }
 
+const FLAG_PRESETS = [
+  { regions: ["uk"], types: ["name"], choices: 3 },
+  { regions: ["uk", "famous"], types: ["name"], choices: 3 },
+  { regions: ["uk", "famous"], types: ["name", "flag"], choices: 4 },
+  { regions: ["europe"], types: ["name", "flag"], choices: 4 },
+  { regions: ["europe", "asia", "africa", "americas", "oceania"], types: ["name", "flag"], choices: 4 },
+]
+
+function flagPreset(level) {
+  const p = FLAG_PRESETS[int(level, 1, FLAG_PRESETS.length, 1) - 1]
+  return { on: true, regions: [...p.regions], types: [...p.types], choices: p.choices }
+}
+
+/** A flag game setup: which flags ("uk", "famous" or a region), which way round, how many answers. */
+function flagSetup(input, level) {
+  const base = flagPreset(level)
+  if (!input || typeof input !== "object") return base
+  const regions = pick(input.regions, FLAG_REGIONS)
+  const types = pick(input.types, FLAG_TYPES)
+  return {
+    on: input.on !== false,
+    regions: regions.length ? regions : base.regions,
+    types: types.length ? types : base.types,
+    choices: int(input.choices, 2, 4, base.choices),
+  }
+}
+
 function clockPreset(level) {
   const p = CLOCK_PRESETS[int(level, 1, CLOCK_PRESETS.length, 1) - 1]
   return { on: true, types: [...p.types], choices: p.choices }
@@ -169,6 +198,11 @@ function spellingLevelOf(setup) {
 function clockLevelOf(setup) {
   const strip = (s) => ({ types: s.types, choices: s.choices })
   return CLOCK_PRESETS.findIndex((_, i) => same(strip(clockPreset(i + 1)), strip(setup))) + 1
+}
+
+function flagLevelOf(setup) {
+  const strip = (s) => ({ regions: s.regions, types: s.types, choices: s.choices })
+  return FLAG_PRESETS.findIndex((_, i) => same(strip(flagPreset(i + 1)), strip(setup))) + 1
 }
 
 // --- The parent's own quizzes ----------------------------------------------------
@@ -263,5 +297,6 @@ function cleanupImages(userId) {
 module.exports = {
   jsonField, mathsSetup, spellingSetup, mathsPreset, spellingPreset, mathsLevelOf, spellingLevelOf,
   clockSetup, clockPreset, clockLevelOf, treatGames, CLOCK_PRESETS,
+  flagSetup, flagPreset, flagLevelOf, FLAG_PRESETS,
   quizRecords, quizList, cleanQuiz, cleanupImages, IMAGE_PATH,
 }

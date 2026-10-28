@@ -201,8 +201,19 @@ try:
     assert lib["children"][0]["games"]["spellingSetup"]["types"] == ["hear", "hearbuild"]
     assert lib["children"][0]["games"]["spellingSetup"]["lists"] == ["short", "phase2"]
 
+    # Flags: level 1 (UK and Ireland) until set; a setup of its own is checked.
+    g = lib["children"][0]["games"]
+    assert g["flags"] == 1 and g["flagSetup"] == {"on": True, "regions": ["uk"], "types": ["name"], "choices": 3}, g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "flags": 4}, token)
+    assert lib["children"][0]["games"]["flagSetup"]["regions"] == ["europe"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "flagSetup": {"regions": ["asia", "mars", "uk"], "types": ["flag"], "choices": 1}}, token)
+    g = lib["children"][0]["games"]
+    assert g["flagSetup"] == {"on": True, "regions": ["uk", "asia"], "types": ["flag"], "choices": 2} and g["flags"] == 4, g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 1}, token)
+    assert lib["children"][0]["games"]["flagSetup"]["regions"] == ["uk", "asia"]
+
     # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
-    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "quizzes", "hangman", "videos"]
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "bogus"]}, token)
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 2}, token)
