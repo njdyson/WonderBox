@@ -81,7 +81,7 @@ fun UpdateButton(resumeCount: Int) {
         is UpdateState.UpToDate -> "Up to date: build ${Updater.currentVersion} (checked ${s.checkedAt})"
         is UpdateState.Available -> "Install update: build ${s.version}"
         is UpdateState.Downloading -> "Downloading… ${(s.progress * 100).toInt()}%"
-        is UpdateState.Failed -> "Update check failed: ${s.message.take(40)}"
+        is UpdateState.Failed -> if (s.message == PublishingException.MESSAGE) s.message else "Update check failed: ${s.message.take(40)}"
     }
     val available = state as? UpdateState.Available
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
