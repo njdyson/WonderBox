@@ -56,7 +56,7 @@ const JIGSAW_SIZES = [2, 3, 4, 5];
 // Hangman and memory pairs (app/.../games/Hangman.kt and Memory.kt; the server keeps the same lists).
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true };
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
-const MEMORY_GRIDS = [[3, "3 (3 × 2)"], [4, "4 (4 × 2)"], [6, "6 (4 × 3)"], [8, "8 (4 × 4)"], [10, "10 (5 × 4)"]];
+const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
 
 // The TV's levels: the same setups as pb_hooks/quizzes_lib.js and app/.../games/Setup.kt.
 const MATHS_LEVELS = [
@@ -272,9 +272,10 @@ function renderGames(c) {
   if (memory.on) {
     memoryPart.append(
       el("div", { className: "sub-h", textContent: "Pairs to find" }),
-      seg(MEMORY_GRIDS, memory.pairs, (pairs) => saveMemory({ pairs })),
+      seg(Object.keys(MEMORY_GRIDS).map((n) => [Number(n), n]), memory.pairs, (pairs) => saveMemory({ pairs })),
+      el("div", { className: "muted", textContent: `${memory.pairs * 2} cards, ${MEMORY_GRIDS[memory.pairs] || ""}.` }),
       el("div", { className: "sub-h", textContent: "Pictures" }),
-      seg([["clipart", "Animals"], ["photos", "Family photos"], ["both", "Both"]], memory.pictures, (pictures) => saveMemory({ pictures })),
+      seg([["clipart", "Animals"], ["photos", "Photos"], ["both", "Both"]], memory.pictures, (pictures) => saveMemory({ pictures })),
       el("div", { className: "muted", textContent: memory.pictures === "clipart"
         ? "Cards with cartoon animals."
         : "Cards with the family photos from the Photos tab; animals fill in if there aren't enough." }));
