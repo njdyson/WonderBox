@@ -5,9 +5,9 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 
 | Folder | What it is |
 |---|---|
-| `pb_migrations/` | Database setup: `children`, `videos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
-| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos, linking TVs. |
-| `pb_public/` | The phone app (PWA): sign in, paste a YouTube link, choose who it's for, order and remove videos, stats (`stats.js`), linked TVs. |
+| `pb_migrations/` | Database setup: `children` (with game levels), `videos`, `channels`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
+| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
+| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, game levels, stats (`stats.js`), linked TVs. |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
 
@@ -20,6 +20,15 @@ UK-blocked videos and live streams that haven't started. To add one: Google Clou
 create a project, enable **YouTube Data API v3**, create an API key (restrict it to that
 API), then run the install task again with `YOUTUBE_API_KEY='…'` added (step 4). The key
 is kept in the data folder, not in Git.
+
+## Channels
+
+Paste a channel link (`youtube.com/@name`, `/channel/UC…`, `/c/…` or `/user/…`) and the
+channel's newest videos come with it, without Shorts. The server fetches new ones every six
+hours, or straight away from the channel's ⚙ in the phone app. With the API key it lists
+the latest 50 and leaves out any that won't play on the TV. Without it, YouTube's feed only
+has the latest 15 (fewer once Shorts are taken out), unchecked; videos seen before are kept,
+so the list grows to 50 over time.
 
 ## Setting it up on the Plesk server
 
