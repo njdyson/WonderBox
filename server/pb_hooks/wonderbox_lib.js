@@ -134,12 +134,13 @@ function games(child) {
     clockSetup: quiz.clockSetup(stored.clock, clockLevel),
     flags: flagLevel,
     flagSetup: quiz.flagSetup(stored.flags, flagLevel),
-    // Which earn stars: maths, spelling, clock, flags, quizzes, hangman, memory, jigsaw, videos (learning ones).
-    treatGames: quiz.treatGames(stored.treats),
+    // Which earn stars: maths, spelling, clock, flags, quizzes, hangman, scramble, memory, jigsaw, videos (learning ones).
+    treatGames: quiz.treatGames(stored.treats, stored.treatsOffered),
     points: extra.pointsSetup(stored.points),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
     hangman: extra.hangmanSetup(stored.hangman),
+    scramble: extra.scrambleSetup(stored.scramble),
     memory: extra.memorySetup(stored.memory),
   }
 }
@@ -158,9 +159,9 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, memory, points}: how hard a child's games are (jigsaw 0 is off), which of
- * them earn stars and how many, and their sound effects. hangman, memory and points are whole
- * setups (pb_hooks/games_lib.js).
+ * jigsaw, sounds, hangman, scramble, memory, points}: how hard a child's games are (jigsaw 0 is off),
+ * which of them earn stars and how many, and their sound effects. hangman, scramble (the word
+ * game), memory and points are whole setups (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -182,8 +183,11 @@ function saveGames(userId, body) {
     flags: current.flagSetup,
     flagLevel: current.flags,
     treats: current.treatGames,
+    // The games there were to choose from, so ones added later can earn by default.
+    treatsOffered: quiz.TREAT_GAMES,
   })
   setup.hangman = body.hangman ? extra.hangmanSetup(body.hangman) : current.hangman
+  setup.scramble = body.scramble ? extra.scrambleSetup(body.scramble) : current.scramble
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
   setup.points = body.points ? extra.pointsSetup(body.points) : current.points
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
@@ -216,7 +220,7 @@ function saveGames(userId, body) {
     setup.flags = quiz.flagPreset(flags)
   }
   setup.flagLevel = flags
-  if (Array.isArray(body.treatGames)) setup.treats = quiz.treatGames(body.treatGames)
+  if (Array.isArray(body.treatGames)) setup.treats = quiz.treatGames(body.treatGames, quiz.TREAT_GAMES)
   child.set("maths_level", maths)
   child.set("spelling_level", spelling)
   child.set("round_size", clamp(body.roundSize, 3, 30, current.roundSize))

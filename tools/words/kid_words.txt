@@ -1,0 +1,36 @@
+# Words a 4 to 6 year old knows, British spellings. The word game builds its puzzles from
+# these and shows the ones a child missed. One per line, 3 to 7 letters, lower case.
+# Animals
+ant ants ape apes bat bats bear bears bee bees bird birds bug bugs bull calf camel cat cats chick cow cows crab crow deer dog dogs donkey duck ducks eagle eel elephant emu ewe fish fly foal fox frog frogs goat goats goose hen hens hippo horse koala lamb lion lions mole monkey moth mouse mice mule newt otter owl owls panda parrot pig pigs pony puppy rabbit rat rats robin seal seals shark sheep slug snail snake spider swan tiger toad wasp whale wolf worm worms yak zebra kitten puppy hamster badger beaver turtle penguin lizard dolphin pet pets cub cubs kid kids tail tails wing wings paw paws fur nest egg eggs
+# Food
+apple apples bun buns cake cakes carrot cheese chip chips corn egg figs fig grape grapes ham honey ice jam jelly juice lemon lime meat melon milk nut nuts oat oats orange pea peas peach pear pears pie pies pizza plum plums rice roll salt soup stew sweet sweets tea toast bean beans bread butter cream crisps pasta sauce sugar flour nuts lolly treat treats dinner lunch snack tart tarts plate bowl cup cups pan pot pots spoon fork knife mug mugs dish
+# Body and clothes
+arm arms ear ears eye eyes face foot feet hair hand hands head hip knee leg legs lip lips nose neck toe toes tooth teeth chin cheek back skin hat hats cap caps coat coats sock socks shoe shoes boot boots dress scarf glove gloves shirt skirt vest jumper pants tie bag bags belt ring
+# Home and things
+bed beds bath box boxes book books bell bin car cars chair clock cot cup desk door doll drum fan gate jar key keys kite lamp lid map mat mop mug net pen pens pin pot rug sofa tap tin toy toys tub van vase wall window rope bus train boat ship plane truck bike ball balls bat game games home house room roof step steps stairs bricks block blocks brush comb soap towel table cushion pillow sheet tent swing slide sand spade bucket shell shells drum drums flag flags card cards gift gifts present party balloon robot rocket
+# Nature and places
+sun moon star stars sky cloud rain snow wind tree trees leaf leaves log logs rock rocks hill pond lake sea river beach park farm road path wood woods grass mud dirt flower flowers rose bud seed seeds stone stones sand ice fire water earth land field garden plant plants shop school zoo town city den
+# People
+mum dad nan gran baby boy boys girl girls man men lady king queen prince princess friend sister brother aunt uncle teacher son
+# Doing words
+act add ask bake bark beg bite blow bounce build buy call camp carry catch chase clap climb cook crawl cry cut dance dig dive draw dream drink drive drop dry eat fall feed find fix flip float fly fold get give go grab grin grow help hid hide hit hop hug hum hunt jog jump kick kiss knit knock laugh lay lick lift like look love make melt mix nap nod open pack paint pat pick pin play plant pop pull push put race read rest ride rip rock roll rub run sail sang saw say see sew shake share shine shout sing sink sip sit skip sleep slip smile sniff snore spin spill splash stamp stand step stir stop swim swing talk tap taste tell tip toss tug wag walk wash wave win wink wish yell zip
+ate ran sat met got had hug hugs hop hops ran runs sits naps jumps jumped played plays sings swim swims eats sees says
+# Describing words
+bad big bold cold cool cosy dry fast fun funny good hot kind lazy long loud mad new nice old pink red blue green tan wet tiny tall slow soft sad shy small hard happy sunny windy rainy snowy fizzy silly smelly spotty stripy brave clean dirty full empty high low quick quiet near far real sweet sour best last next first
+# Colours, numbers and time
+red blue green pink black white brown grey gold orange purple yellow silver one two three four five six seven eight nine ten zero day days night week year time noon dawn today
+# Little words
+all and any are bit but can did each for fun got had has her him his how its let lot not now off old our out own see she the too top two use was way who why yes yet you hello yes
+# Phonics phase 2 and more
+sat pat tap pin tin dig mat dog cat pig cot kick sick pen met sack pack ten men sock net neck dock rug get peg mum duck rock sun red beg bat fun bug bit fig bun off fog hat hen bed bell hill kiss huff doll mess puff tag nap sip pit tip nip can man pan ran fan van cap gap lap map cob hop mop pop top cog log jog nod pod rod cut hut nut bud mud tub rub sub hum gum yum web wet jet let pet set vet bet led fed lit sit fit hit kit bib rib dim him rim zip lip hip
+# Others
+art band bang bent best bolt bone camp cast clap club coin cone cord dart dash deck dent dust edge fame farm fast fist flap game gift glad glow gold golf goal hall hand harp hint hold hole hook horn hose hunt idea inch iron jazz joke kind king lane last late leap lime line lion list mail mask mint mist moon nail name neat note pace page pain pair pale palm pant park part past peak pile pine pipe plan plot pole pond pool post rain ramp rest ring rink road rope rose rule rust sail salt same seat shed shop sign silk sing slot snap spot star step stop tale tank tape team tent tide tile toad tone tool trap tray trip tune vest wall wand warm wave wing wise wool yard yarn
+plan plane plant plate slate slant stain saint paint pain panel planet lean lent tent tents nest rest test vest pest best west nets pets tens ants tan tans tea teas eat eats sea seat set sets ten pen pens pants spin spit spat snap span pans nap naps pat pats tap taps spot stop pots tops post most host lost cost dot dots hot not lot rot got cog dog fog hog jog log bog
+rain rains train trains grain brain drain stain paint saint faint
+ring rings sing sings king kings wing wings ding thing things string
+ear ears tear tears near hear dear fear gear year rear wear pear bear
+tea team teams meat meats heat seat beat neat eat mean bean beans lean
+star stars start rats arts mast past fast last cast vast
+# Longer words, for the word game's bigger puzzles
+rainbow monster chicken kitchen picture parents pancake cartoon toaster trainer lantern sandals pockets planets plaster artists tractor station starter spiders rabbits parrots carrots snowman crayons stories lettuce popcorn crumpet biscuit cupcake tadpole peanuts bananas oranges unicorn pumpkin cookies apricot marbles shelter painter seaside pirates teapots raisins players dragons sisters winters rockets baskets pencils gardens
+pirate castle sister dinner winter rocket basket pencil tomato carpet parent teapot season sprout stripe stamps sunset sailor dragon pastry sticks stamp riders racing listen silent tinsel petals pastel planes trains brains plates places spoons stones roses noses hoses horses pears rains notes tones nets parcel bridge
