@@ -66,15 +66,16 @@ import kotlin.random.Random
 /**
  * The word game. Levels 1 and 2: a word's letters are jumbled and the child picks them back
  * into order with the arrows and OK, hearing the word and seeing its picture. Levels 3 to 5:
- * make as many words as you can from a handful of letters, with a bonus star for one that
- * uses them all. Finishing earns the child's game stars (plus the bonus), like hangman.
+ * make as many words as you can from a handful of letters, with a cheer for one that uses
+ * them all. Finishing wins a treat (when [hasTreats]), like hangman.
  */
 @Composable
 fun WordGameScreen(
     app: AppState,
     child: Child,
-    stars: Int,
-    onFinished: (earned: Int) -> Unit,
+    hasTreats: Boolean,
+    onFinished: () -> Unit,
+    onPickTreat: () -> Unit,
     onBack: () -> Unit,
     random: Random = Random,
     /** Letters (by position) to pick straight away, and how many words to have found (for screenshots). */
@@ -87,26 +88,23 @@ fun WordGameScreen(
     val recent = remember { RecentTopics.forGame("${child.id}/$SCRAMBLE") }
     var game by remember { mutableIntStateOf(0) }
     var finished by remember { mutableStateOf(false) }
-    var earned by remember { mutableIntStateOf(0) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
     DisposableEffect(Unit) { onDispose { app.stopSpeaking() } }
 
-    fun finish(found: Int, extra: Int, data: JsonObjectBuilder.() -> Unit) {
+    fun finish(found: Int, data: JsonObjectBuilder.() -> Unit) {
         EventLog.log("scramble.finish", child.id, subject = SCRAMBLE, value = found.toDouble()) {
             put("level", setup.level)
             put("seconds", (System.currentTimeMillis() - startedAt) / 1000)
             data()
         }
         app.sounds.play(Sounds.Effect.Finish, child)
-        // The bonus only comes with stars: a game that doesn't earn them doesn't earn it either.
-        earned = if (stars > 0) stars + extra else 0
         finished = true
-        onFinished(earned)
+        onFinished()
     }
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
         if (finished) {
-            Finished(child, earned, onPlayAgain = {
+            Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 startedAt = System.currentTimeMillis()
                 game++
                 finished = false
@@ -115,14 +113,14 @@ fun WordGameScreen(
             key(game) {
                 if (setup.makeWords) {
                     MakeWordsGame(app, child, wordList, recent, random, startPicks, startFound, onDone = { round ->
-                        finish(round.found.size, if (round.gotLongest) 1 else 0) {
+                        finish(round.found.size) {
                             put("letters", round.letters.joinToString(""))
                             put("longest", round.gotLongest)
                         }
                     })
                 } else {
                     UnjumbleGame(app, child, recent, random, startPicks, onDone = { missed ->
-                        finish(setup.goal, 0) { put("missed", missed) }
+                        finish(setup.goal) { put("missed", missed) }
                     })
                 }
             }
@@ -343,14 +341,14 @@ private fun MakeWordsGame(
                     put("letters", round.letters.joinToString(""))
                 }
                 val all = word.length == round.letters.size
-                message = if (all) "$word uses every letter! Bonus star!" else "You found $word!"
+                message = if (all) "$word uses every letter! Amazing!" else "You found $word!"
                 if (round.done) {
                     over = true
                     app.sounds.play(Sounds.Effect.Right, child)
                     val longest = round.longest
                     app.say(
                         "$word! That's ${round.found.size} words! " +
-                            if (round.gotLongest) "And you found the longest word. Bonus star!" else "The longest word was $longest.",
+                            if (round.gotLongest) "And you found the longest word!" else "The longest word was $longest.",
                     )
                     if (!round.gotLongest) message = "The longest word was $longest"
                     scope.launch {

@@ -16,8 +16,8 @@ const MATHS_TYPES = ["count", "add", "sub", "add3", "missing", "bonds", "double"
 const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"]
 const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
 
-// The games that can earn stars on the TV ("quizzes" is all the parent's quizzes, "videos" the
-// learning videos), and the ones that do until the parent changes it: not the jigsaw or pairs.
+// The games that can win a treat on the TV ("quizzes" is all the parent's quizzes, "videos" the
+// learning and exercise videos), and the ones that do until the parent changes it: not the jigsaw or pairs.
 const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "memory", "jigsaw", "videos"]
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"]
 // The games a parent could tick before the word game came, for children saved without treatsOffered.
@@ -178,8 +178,8 @@ function clockSetup(input, level) {
 }
 
 /**
- * The games that earn stars, checked; the default ones if it's never been set. A game added
- * since the parent chose (not in [offered], the games there were then) earns if it does by
+ * The games that win a treat, checked; the default ones if it's never been set. A game added
+ * since the parent chose (not in [offered], the games there were then) wins if it does by
  * default, so a new game isn't left out just because the parent once changed the list.
  */
 function treatGames(input, offered) {

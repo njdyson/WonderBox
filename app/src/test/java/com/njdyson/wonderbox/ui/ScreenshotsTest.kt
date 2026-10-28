@@ -37,12 +37,6 @@ import com.njdyson.wonderbox.data.MUSIC
 import com.njdyson.wonderbox.data.TREAT
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.json
-import com.njdyson.wonderbox.data.Points
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import com.njdyson.wonderbox.data.GameSettings
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.MyWord
@@ -67,7 +61,6 @@ class ScreenshotsTest {
 
     private val summer = Child(
         "c1", "Summer", "🦄", "#FF5C7A",
-        points = 12,
         games = GameSettings(
             mathsSetup = MathsSetup(types = listOf("missing", "add"), max = 20, choices = 4),
             spellingSetup = SpellingSetup(types = listOf("first"), lists = listOf("mine"), myWords = listOf(MyWord("friend", "👫"))),
@@ -96,7 +89,7 @@ class ScreenshotsTest {
         if (withPhotos) fakePhotos(context)
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo")
         val videos = titles.mapIndexed { i, title ->
-            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos", duration = listOf(0, 0, 0, 150, 200, 540)[i])
+            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos")
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
@@ -129,6 +122,22 @@ class ScreenshotsTest {
         shoot("home-summer")
     }
 
+    // Two treats saved up: the Treats tile, last, counts them.
+    @Test fun homeWithSavedTreats() {
+        val app = app(withPhotos = true)
+        saveTwo(app)
+        compose.setContent { WonderBoxTheme { HomeScreen(app, summer, {}) } }
+        shoot("home-summer-treats")
+    }
+
+    /** Wins three treats and saves two of them. */
+    private fun saveTwo(app: AppState) {
+        repeat(3) { app.earnTreat(summer.id) }
+        val treats = app.library.treatShelvesFor(summer.id).flatMap { it.videos }
+        app.saveTreat(summer.id, treats[0])
+        app.saveTreat(summer.id, treats[1])
+    }
+
     @Test fun quizzes() {
         val app = app(withPhotos = true)
         val games = app.library.gamesFor(summer, photos = true).filter { it.isQuiz }
@@ -153,36 +162,26 @@ class ScreenshotsTest {
 
     @Test fun music() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Music", app.library.musicShelvesFor(summer.id), {}, prices = true) } }
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Music", app.library.musicShelvesFor(summer.id), {}) } }
         shoot("music-summer")
     }
 
-    // The treat videos, priced by length; not enough stars for the long one.
-    @Test fun treatVideos() {
+    // Straight after winning: pick one to save.
+    @Test fun pickTreat() {
         val app = app()
+        app.earnTreat(summer.id)
         compose.setContent {
-            WonderBoxTheme {
-                VideosScreen(
-                    app, summer, "Videos", app.library.treatShelvesFor(summer.id), {},
-                    prices = true,
-                    message = "You need 9 ⭐ for this one. Earn some in Quizzes!",
-                )
-            }
+            WonderBoxTheme { VideosScreen(app, summer, "Pick a treat to save!", app.library.treatShelvesFor(summer.id), {}, stars = true) }
         }
-        shoot("treat-videos-summer")
+        shoot("pick-treat-summer")
     }
 
-    // The end of a quiz: the stars it earned.
-    @Test fun finished() {
+    // The Treats section: just the two saved, though one more is won and not picked yet.
+    @Test fun treats() {
         val app = app()
-        compose.setContent {
-            WonderBoxTheme {
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
-                    Finished(summer, 5, {}, {}, app)
-                }
-            }
-        }
-        shoot("finished-stars")
+        saveTwo(app)
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Treats", app.treatsSectionFor(summer.id), {}, stars = true) } }
+        shoot("treats-summer")
     }
 
     @Test fun photoGrid() {
@@ -195,7 +194,7 @@ class ScreenshotsTest {
         val app = app()
         fakePhotos(ApplicationProvider.getApplicationContext())
         val entry = app.library.gamesFor(child).first { it.key == key }
-        compose.setContent { WonderBoxTheme { GameScreen(app, child, entry, starsPerAnswer = 1, onBack = {}) } }
+        compose.setContent { WonderBoxTheme { GameScreen(app, child, entry, {}, {}, {}, hasTreats = true) } }
         shoot(name)
     }
 
@@ -226,19 +225,19 @@ class ScreenshotsTest {
     // Jesse has one photo of his own; Summer's five don't show here.
     @Test fun jigsawPickPhotoJesse() {
         val app = app(withPhotos = true)
-        compose.setContent { WonderBoxTheme { JigsawScreen(app, jesse, 3, {}, {}) } }
+        compose.setContent { WonderBoxTheme { JigsawScreen(app, jesse, true, {}, {}, {}) } }
         shoot("jigsaw-pick-photo-jesse")
     }
 
     @Test fun jigsawPickPhoto() {
         val app = app(withPhotos = true)
-        compose.setContent { WonderBoxTheme { JigsawScreen(app, summer, 3, {}, {}) } }
+        compose.setContent { WonderBoxTheme { JigsawScreen(app, summer, true, {}, {}, {}) } }
         shoot("jigsaw-pick-photo")
     }
 
     @Test fun jigsawCarrying() {
         val app = app(withPhotos = true)
-        compose.setContent { WonderBoxTheme { JigsawScreen(app, summer, 3, {}, {}, startPhoto = photos[0], random = Random(3)) } }
+        compose.setContent { WonderBoxTheme { JigsawScreen(app, summer, true, {}, {}, {}, startPhoto = photos[0], random = Random(3)) } }
         settle()
         // Put two pieces in their places, then carry a third one step along.
         val j = Jigsaw.jumbled(3, Random(3))
@@ -258,7 +257,7 @@ class ScreenshotsTest {
 
     @Test fun jigsawDone() {
         val app = app(withPhotos = true)
-        compose.setContent { WonderBoxTheme { JigsawScreen(app, summer, 3, {}, {}, startPhoto = photos[0], random = Random(5)) } }
+        compose.setContent { WonderBoxTheme { JigsawScreen(app, summer, true, {}, {}, {}, startPhoto = photos[0], random = Random(5)) } }
         settle()
         val j = Jigsaw.jumbled(3, Random(5))
         var cursor = 0
@@ -275,7 +274,7 @@ class ScreenshotsTest {
 
     @Test fun hangman() {
         val app = app()
-        compose.setContent { WonderBoxTheme { HangmanScreen(app, jesse, 3, {}, {}, random = Random(4), startGuesses = "aei") } }
+        compose.setContent { WonderBoxTheme { HangmanScreen(app, jesse, true, {}, {}, {}, random = Random(4), startGuesses = "aei") } }
         settle()
         compose.mainClock.advanceTimeBy(600)
         shoot("hangman")
@@ -284,7 +283,7 @@ class ScreenshotsTest {
     @Test fun hangmanAllLetters() {
         val app = app()
         val child = jesse.copy(games = GameSettings(hangman = HangmanSetup(lists = listOf("long"), letters = 26, balloons = 8, say = false)))
-        compose.setContent { WonderBoxTheme { HangmanScreen(app, child, 3, {}, {}, random = Random(2), startGuesses = "est") } }
+        compose.setContent { WonderBoxTheme { HangmanScreen(app, child, true, {}, {}, {}, random = Random(2), startGuesses = "est") } }
         settle()
         compose.mainClock.advanceTimeBy(600)
         shoot("hangman-all-letters")
@@ -293,7 +292,7 @@ class ScreenshotsTest {
     @Test fun wordJumble() {
         val app = app()
         val child = summer.copy(games = summer.games.copy(scramble = ScrambleSetup(lists = listOf("short"))))
-        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, 3, {}, {}, random = Random(3)) } }
+        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, true, {}, {}, {}, random = Random(3)) } }
         settle()
         compose.mainClock.advanceTimeBy(600)
         shoot("word-jumble")
@@ -302,7 +301,7 @@ class ScreenshotsTest {
     @Test fun wordJumbleLonger() {
         val app = app()
         val child = jesse.copy(games = GameSettings(scramble = ScrambleSetup(level = 2, lists = listOf("long"))))
-        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, 3, {}, {}, random = Random(5), startPicks = listOf(1, 3)) } }
+        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, true, {}, {}, {}, random = Random(5), startPicks = listOf(1, 3)) } }
         settle()
         compose.mainClock.advanceTimeBy(600)
         shoot("word-jumble-longer")
@@ -311,7 +310,7 @@ class ScreenshotsTest {
     @Test fun makeWords() {
         val app = app()
         val child = jesse.copy(games = GameSettings(scramble = ScrambleSetup(level = 4)))
-        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, 3, {}, {}, random = Random(7), startPicks = listOf(0, 2), startFound = 3) } }
+        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, true, {}, {}, {}, random = Random(7), startPicks = listOf(0, 2), startFound = 3) } }
         settle()
         compose.mainClock.advanceTimeBy(600)
         shoot("make-words")
@@ -329,7 +328,7 @@ class ScreenshotsTest {
         val app = app(withPhotos)
         // The same deal as the screen's, to know where a pair is.
         val faces = deal(ApplicationProvider.getApplicationContext(), child.games.memory, app.photosFor(child.id), Random(seed)).faces
-        compose.setContent { WonderBoxTheme { MemoryScreen(app, child, 3, {}, {}, random = Random(seed)) } }
+        compose.setContent { WonderBoxTheme { MemoryScreen(app, child, true, {}, {}, {}, random = Random(seed)) } }
         settle()
         val columns = Memory.columns(faces.size)
         val twin = faces.lastIndexOf(faces[0])

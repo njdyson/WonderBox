@@ -41,7 +41,7 @@ about it.
 |---|---|---|---|---|
 | `app.start` | | | | The TV app opens (no child). |
 | `profile.pick` | | | | A child picks their face. |
-| `category.open` | `quizzes`, `games`, `learning` (the free videos), `music`, `exercise`, `photos` or `videos` (the treat videos) | | | A child opens a tile on their home page. |
+| `category.open` | `treats`, `quizzes`, `games`, `videos`, `music` or `photos` | | | A child opens a tile on their home page. |
 | `video.play` | YouTube ID | | `title`, `channel` | A video starts playing. |
 | `video.watch` | YouTube ID | seconds actually playing | `title`, `channel`, `position`, `duration` (seconds), `finished` (true/false), and how smoothly it played: `stalls` (times it stopped to buffer), `frames` and `dropped` (video frames shown and skipped), `quality` (e.g. `1920x1080`), `codec` | The player closes. |
 | `channel.open` | channel id | | `name` | A channel is opened. |
@@ -57,9 +57,8 @@ about it.
 | `scramble.finish` | `scramble` | words found | `level`, `seconds`; `missed` (levels 1 and 2), `letters` and `longest` (found a word using every letter, levels 3 to 5) | A game of the word game is finished. |
 | `memory.start` | `memory` | | `pairs`, `pictures` (`clipart`, `photos` or `both`) | A game of memory pairs starts. |
 | `memory.finish` | `memory` | pairs | `pairs`, `flips` (cards turned), `pictures`, `seconds` | Every pair is found. |
-| `points.earn` | the game id (`maths`, `quiz/<id>`, `jigsaw`, ...) or YouTube ID | stars (a whole number, 1 to 1000) | `reason` (`quiz.answer`, `jigsaw.finish`, `hangman.finish`, `scramble.finish` (the game's stars plus 1 for a word using every letter), `memory.finish`, `video.watch` (with `seconds` played) or `treats.convert` (old saved treats, 5 stars each)) | A child earns stars: each right answer, a finished jigsaw, hangman, word game or pairs game, or minutes of a learning video (up to the daily cap). Only what the parent chose earns. The server adds `value` to the child's `points`. |
-| `points.spend` | YouTube ID | stars (a whole number) | `reason` (`video.play`), `seconds` (the video's length) | A treat or music video starts playing and its price is taken. The server takes `value` from the child's `points` (never below 0). |
-| `points.adjust` | | stars, + to give or - to take | `reason` (`parent`) | A parent gives or takes stars in the phone app. Phone app only: one from a TV is skipped. |
+| `reward.earn` | `treat` | | `reason` (`quiz.finish`, `jigsaw.finish`, `hangman.finish`, `scramble.finish`, `memory.finish` or `video.finish`), `game` (`jigsaw`, `hangman`, `scramble`, `memory`, `videos`, or the round's game), `video` (YouTube ID, for `video.finish`) | A finished game round, jigsaw, hangman, word game or pairs, or a learning or exercise video watched all the way through for the first time, wins a treat to pick (only what the parent chose). |
+| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked and saved in the child's Treats section (watching it later logs `video.play`). |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 
 ## The API

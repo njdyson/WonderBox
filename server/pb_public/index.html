@@ -212,7 +212,7 @@
     <h2 id="playHeading">GAMES</h2>
     <div class="card stack" id="playGames"></div>
 
-    <h2 id="treatsHeading">STARS AND SOUNDS</h2>
+    <h2 id="treatsHeading">TREATS AND SOUNDS</h2>
     <div class="card stack" id="treatRules"></div>
   </section>
 
@@ -531,8 +531,8 @@ function setCategory(item, value) {
   item.tier = value === "treat" ? "treat" : "free";
   item.section = value === "treat" ? "videos" : value;
 }
-const costsStars = (item) => item.tier === "treat" || item.section === "music";
-const TIER_HELP = "Treat and music videos cost stars on the TV, by length. Stars come from quizzes, games, learning and exercise videos (you choose which, under Games).";
+const isTreat = (item) => item.tier === "treat";
+const TIER_HELP = "Treats stay hidden on the TV. Finishing a game (you choose which, under Games) lets the child pick one, which waits in their Treats until they watch it.";
 
 function renderAdding() {
   if (!checked) return searching ? renderSearch() : $("adding").replaceChildren();
@@ -566,7 +566,7 @@ function renderAdding() {
         }))
       : el("div", { className: "muted", textContent: "Add a child in Family first." }),
     seg(CATEGORY_OPTIONS, categoryOf(checked), (v) => { setCategory(checked, v); renderAdding(); }, "seg cats"),
-    costsStars(checked) ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
+    isTreat(checked) ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
     el("div", { className: "row" },
       el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : isChannel ? `Add ${sourceName(info).toLowerCase()}` : "Add video", onclick: async (e) => {
         e.target.disabled = true;
@@ -612,7 +612,7 @@ function render() {
 
 // --- A child's list, one kind at a time -------------------------------------
 
-// The TV's home page tiles: Learning and Exercise (free, earn stars), Music and Videos (the treats), which cost stars, and channels.
+// The TV's home page tiles: what's always there, music, exercise, treats (locked until won), and channels.
 const KINDS = [
   ["videos", "📚 Learning", (i) => i.tier !== "treat" && i.section !== "music" && i.section !== "exercise"],
   ["music", "🎵 Music", (i) => i.tier !== "treat" && i.section === "music"],
@@ -677,7 +677,7 @@ function renderVideos(c) {
       videos: `No learning videos for ${c.name} yet. Search for videos, channels or playlists above, or paste a YouTube link.`,
       music: `No music for ${c.name} yet. Add a song or a playlist and choose 🎵 Music.`,
       exercise: `No exercise videos for ${c.name} yet. Add kids' yoga or a workout and choose 🤸 Exercise.`,
-      treats: `No treat videos for ${c.name} yet. Add a video and choose ⭐ Treat; it costs stars to watch on the TV.`,
+      treats: `No treat videos for ${c.name} yet. Add a video and choose ⭐ Treat; it stays hidden on the TV until a game is won and it's picked.`,
     }[kind] })]));
 }
 
@@ -859,7 +859,7 @@ function itemSheet(item, kind) {
       } }, face(c), c.name);
     })),
     seg(CATEGORY_OPTIONS, categoryOf(draft), (v) => { setCategory(draft, v); draw(); }, "seg cats"),
-    costsStars(draft) ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
+    isTreat(draft) ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
     el("button", { textContent: draft.children.length ? "Save" : isChannel ? `Remove ${sourceName(item).toLowerCase()}` : "Remove video", onclick: async () => {
       await edit(`/api/wonder/${kind}/update`, { id: item.id, ...draft });
       closeSheet();

@@ -6,14 +6,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.njdyson.wonderbox.BuildConfig
 import com.njdyson.wonderbox.data.Library
-import com.njdyson.wonderbox.data.Points
 import com.njdyson.wonderbox.data.Server
 import com.njdyson.wonderbox.data.Store
 import com.njdyson.wonderbox.data.UnlinkedException
+import com.njdyson.wonderbox.data.Shelf
+import com.njdyson.wonderbox.data.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** The TV app's state: whether it's linked, the children and videos, and the grown-ups' settings. Stars are in [Points]. */
+/** The TV app's state: whether it's linked, the children and videos, treats earned, and the grown-ups' settings. */
 class AppState(context: Context) {
     private val store = Store(context)
     val serverUrl = BuildConfig.SERVER_URL
@@ -36,24 +37,71 @@ class AppState(context: Context) {
     var speakTitles by mutableStateOf(store.speakTitles)
         private set
 
+    /** Treats earned by finishing a game and not yet picked, by child ID. Kept on this TV. */
+    var treats by mutableStateOf(store.treats)
+        private set
+
+    fun treatsFor(childId: String) = treats[childId] ?: 0
+
     /** Videos each child has watched all the way through (YouTube IDs), recorded by the player. */
     var watched by mutableStateOf(store.watched.mapValues { it.value.toSet() })
         private set
 
     fun watchedFor(childId: String): Set<String> = watched[childId].orEmpty()
 
-    /** Picks up the videos the player recorded as watched while it was on top. */
-    fun reloadFromPlayer() {
+    /**
+     * Picks up what the player recorded while it was on top: videos watched, and treats won by
+     * watching them. Returns the children who won a treat since.
+     */
+    fun reloadFromPlayer(): Set<String> {
         watched = store.watched.mapValues { it.value.toSet() }
+        val fresh = store.treats
+        val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
+        treats = fresh
+        return won
     }
 
-    /** The stars in [childId]'s jar. */
-    fun starsFor(childId: String) = Points.balance(childId)
+    fun earnTreat(childId: String) {
+        treats = treats + (childId to treatsFor(childId) + 1)
+        store.treats = treats
+    }
 
-    init {
-        Points.init(context)
-        // Treats won or saved before stars: five stars each, about a treat video's worth.
-        store.takeOldTreats().forEach { (child, n) -> Points.earn(child, n * OLD_TREAT_STARS, "treats.convert") }
+    /** Picked treats waiting in each child's Treats section, as [Video.id]s, by child ID. Kept on this TV. */
+    var savedTreats by mutableStateOf(store.savedTreats)
+        private set
+
+    /**
+     * A child's saved treats, oldest first, that are still in the library (the parent may have
+     * removed one). Each video's ID is "saved/<n>/<id>", n its place in [savedTreats], so the
+     * same treat saved twice shows twice.
+     */
+    fun savedTreatsFor(childId: String): List<Video> {
+        val all = library.treatShelvesFor(childId).flatMap { it.videos }.associateBy { it.id }
+        return savedTreats[childId].orEmpty().mapIndexedNotNull { i, id -> all[id]?.copy(id = "saved/$i/$id") }
+    }
+
+    /** The Treats section's row: only the treats they've won and picked, never the rest. */
+    fun treatsSectionFor(childId: String): List<Shelf> =
+        savedTreatsFor(childId).let { mine -> if (mine.isEmpty()) emptyList() else listOf(Shelf("saved", "My treats", true, mine)) }
+
+    /** Uses up one of the child's treats to save [video] in their Treats section; false if they have none. */
+    fun saveTreat(childId: String, video: Video): Boolean {
+        val have = treatsFor(childId)
+        if (have <= 0) return false
+        treats = treats + (childId to have - 1)
+        store.treats = treats
+        savedTreats = savedTreats + (childId to savedTreats[childId].orEmpty() + video.id)
+        store.savedTreats = savedTreats
+        return true
+    }
+
+    /** Takes a saved treat (one from [savedTreatsFor]) out of the Treats section, as it's watched. */
+    fun useSavedTreat(childId: String, saved: Video) {
+        val index = saved.id.split("/").getOrNull(1)?.toIntOrNull() ?: return
+        val list = savedTreats[childId].orEmpty()
+        if (index !in list.indices) return
+        savedTreats = savedTreats + (childId to list.filterIndexed { i, _ -> i != index })
+        store.savedTreats = savedTreats
     }
 
     /** The games' sound effects. */
@@ -67,9 +115,7 @@ class AppState(context: Context) {
         val key = deviceKey ?: return
         try {
             val server = Server(serverUrl, key)
-            val askedAt = System.currentTimeMillis()
             val fresh = withContext(Dispatchers.IO) { server.library() }
-            Points.fromServer(fresh, askedAt)
             library = fresh
             store.library = fresh
             voice.serverHasVoice = fresh.voice
@@ -105,7 +151,6 @@ class AppState(context: Context) {
         deviceKey = null
         library = Library()
         photos = emptyList()
-        Points.forget()
     }
 
     /** One child's photos, newest first. */
@@ -137,9 +182,5 @@ class AppState(context: Context) {
     fun close() {
         voice.close()
         sounds.close()
-    }
-
-    companion object {
-        const val OLD_TREAT_STARS = 5
     }
 }

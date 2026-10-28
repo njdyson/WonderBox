@@ -8,9 +8,6 @@ const ID_PATTERN = /^[a-z0-9]{15}$/
 const MAX_BATCH = 500
 const MAX_DATA_BYTES = 8000
 const DAY_MS = 24 * 3600 * 1000
-// Stars: earned on the TV, spent on treat and music videos, or given and taken in the phone app.
-const POINTS_SIGN = { "points.earn": 1, "points.spend": -1, "points.adjust": 1 }
-const MAX_POINTS_CHANGE = 1000
 
 /** The linked TV making the request, or null (e.g. the phone app). */
 function callerDevice(e) {
@@ -44,10 +41,9 @@ function eventTime(value) {
 function saveEvents(userId, device, body) {
   const list = Array.isArray(body.events) ? body.events : body.type ? [body] : []
   if (list.length > MAX_BATCH) throw new BadRequestError(`At most ${MAX_BATCH} events at a time.`)
-  const kids = new Map()
+  const kids = new Set()
   const children = $app.findRecordsByFilter("children", "user = {:u}", "", 500, 0, { u: userId })
-  for (let i = 0; i < children.length; i++) kids.set(children[i].id, children[i])
-  const changed = new Set()
+  for (let i = 0; i < children.length; i++) kids.add(children[i].id)
   const collection = $app.findCollectionByNameOrId("events")
   let saved = 0
   let skipped = 0
@@ -60,13 +56,6 @@ function saveEvents(userId, device, body) {
     // A child removed while the TV was offline: their events go with them.
     if (!TYPE_PATTERN.test(type) || type.length > 64 || (childId && !kids.has(childId)) || !isFinite(value) ||
         JSON.stringify(data).length > MAX_DATA_BYTES) {
-      skipped++
-      continue
-    }
-    // A change of stars is for one child, a whole number; only the phone app adjusts, either way.
-    const sign = POINTS_SIGN[type]
-    const adjust = type === "points.adjust"
-    if (sign && (!childId || !Number.isInteger(value) || Math.abs(value) > MAX_POINTS_CHANGE || (adjust ? device : value < 0))) {
       skipped++
       continue
     }
@@ -91,13 +80,7 @@ function saveEvents(userId, device, body) {
     record.set("at", eventTime(ev.at))
     $app.save(record)
     saved++
-    if (sign) {
-      const child = kids.get(childId)
-      child.set("points", Math.max(0, child.getInt("points") + sign * value))
-      changed.add(childId)
-    }
   }
-  for (const childId of changed) $app.save(kids.get(childId))
   return { saved, skipped }
 }
 
