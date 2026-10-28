@@ -80,6 +80,9 @@ import kotlinx.serialization.json.put
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
+/** The jigsaw's icon, drawn from its bundled Fluent picture (old Fire TVs have no 🧩). */
+const val PUZZLE = "🧩"
+
 /**
  * Jigsaws of the family photos, played with just the arrows and OK. The child picks a photo,
  * then it's cut into the child's size of grid ([com.njdyson.wonderbox.data.GameSettings.jigsaw])
@@ -162,7 +165,7 @@ private fun Header(child: Child, title: String, right: String) {
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(Modifier.size(52.dp).background(parseColor(child.color), CircleShape), contentAlignment = Alignment.Center) {
-            Text("🧩", fontSize = 28.sp)
+            EmojiPicture(PUZZLE, 38.dp)
         }
         Text(title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
         Box(Modifier.weight(1f))
@@ -290,13 +293,13 @@ private fun Puzzle(
 
     Column(Modifier.fillMaxSize().padding(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         val placed = changes.let { jigsaw.rightCount }
-        Header(child, "Jigsaw", if (done) "🎉 All done!" else "🧩 $placed of ${jigsaw.size}")
+        Header(child, "Jigsaw", if (done) "🎉 All done!" else "$placed of ${jigsaw.size} pieces")
         Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 val picture = image
                 when {
                     failed -> Text("That photo won't load right now. Press Back and try another!", color = Color.White, fontSize = 24.sp, textAlign = TextAlign.Center)
-                    picture == null -> Text("🧩", fontSize = 80.sp)
+                    picture == null -> EmojiPicture(PUZZLE, 110.dp)
                     else -> {
                         val crop = remember(picture) { cropFor(picture) }
                         val aspect = crop.second.width.toFloat() / crop.second.height
@@ -372,7 +375,7 @@ private fun Celebrate(
     Text("You did it, ${child.name}!", color = Tangerine, fontSize = 32.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
     if (stars > 0) Text("You earned $stars ⭐", color = Color.White, fontSize = 22.sp)
     if (showButtons) {
-        BigButton("🧩 Another", Modifier.focusRequester(firstButton), onAnother)
+        BigButton("Another jigsaw", Modifier.focusRequester(firstButton), onAnother)
         BigButton("Back", Modifier, onBack)
     }
 }
