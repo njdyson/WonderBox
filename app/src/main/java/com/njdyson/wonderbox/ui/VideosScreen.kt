@@ -127,7 +127,7 @@ fun VideosScreen(
                             itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
                                 VideoCard(
                                     video,
-                                    price = if (!prices) null else Points.durations[video.youtubeId]?.let { rates.price(it.toDouble()) } ?: 0,
+                                    price = if (!prices) null else Points.lengthOf(video)?.let { rates.price(it.toDouble()) } ?: 0,
                                     watched = video.youtubeId in watched,
                                     ink = ink,
                                     tilt = if (i % 2 == 0) -2f else 2f,

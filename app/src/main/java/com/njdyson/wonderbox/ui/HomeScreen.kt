@@ -1,7 +1,6 @@
 package com.njdyson.wonderbox.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -34,12 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,7 +100,7 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
                 }
                 Text(child.name, color = ink, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 if (title != null) Text("·  $title", color = ink.copy(alpha = 0.85f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                StarJar(stars)
+                StarCount(stars)
                 Box(Modifier.weight(1f))
                 Logo(boxColor = if (ink == Ink) Ink else Color.White)
             }
@@ -194,36 +189,17 @@ private fun CategoryTile(category: Category, onClick: () -> Unit, onFocus: () ->
     }
 }
 
-/**
- * A child's stars, in a jar that fills up as they save them (full at [JAR_FULL]), with the
- * number beside it. Earned with quizzes, games and learning videos; spent on treat and music videos.
- */
+/** A child's stars. Earned with quizzes, games and learning videos; spent on treat and music videos. */
 @Composable
-fun StarJar(stars: Int, modifier: Modifier = Modifier) {
-    val fill = (stars.toFloat() / JAR_FULL).coerceIn(0f, 1f)
-    Row(
-        modifier.background(Color.White, RoundedCornerShape(50)).padding(start = 10.dp, end = 18.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Canvas(Modifier.width(30.dp).height(40.dp)) {
-            val lid = size.height * 0.18f
-            val body = Size(size.width, size.height - lid)
-            val corner = CornerRadius(size.width * 0.28f)
-            // The stars inside, from the bottom up.
-            if (fill > 0f) {
-                val level = body.height * fill
-                drawRoundRect(Color(0xFFFFC93C), topLeft = Offset(0f, size.height - level), size = Size(size.width, level), cornerRadius = corner)
-            }
-            drawRoundRect(Ink, topLeft = Offset(0f, lid), size = body, cornerRadius = corner, style = Stroke(width = 3.dp.toPx()))
-            drawRoundRect(Tangerine, topLeft = Offset(size.width * 0.12f, 0f), size = Size(size.width * 0.76f, lid), cornerRadius = CornerRadius(4.dp.toPx()))
-        }
-        Text("⭐ $stars", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
-    }
+fun StarCount(stars: Int, modifier: Modifier = Modifier) {
+    Text(
+        "⭐ $stars",
+        color = Ink,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Black,
+        modifier = modifier.background(Color.White, RoundedCornerShape(50)).padding(horizontal = 16.dp, vertical = 6.dp),
+    )
 }
-
-/** How many stars fill the jar to the top. */
-private const val JAR_FULL = 30
 
 /** The Quizzes or Games screen: a tile for each of [games], three to a row. */
 @Composable

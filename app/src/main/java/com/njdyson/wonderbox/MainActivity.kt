@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
             fun play(video: Video, child: Child) {
                 val paid = video.isTreat || video.isMusic
                 if (paid) {
-                    val price = Points.durations[video.youtubeId]?.let { child.games.points.price(it.toDouble()) } ?: 1
+                    val price = Points.lengthOf(video)?.let { child.games.points.price(it.toDouble()) } ?: 1
                     val have = Points.balance(child.id)
                     if (have < price) {
                         tell("You need $price ⭐ for this one. Earn some in Quizzes!")

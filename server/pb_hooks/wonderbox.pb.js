@@ -155,6 +155,12 @@ cronAdd("wonderbox_channels", "17 */6 * * *", () => {
   require(`${__hooks}/wonderbox_lib.js`).refreshAllChannels()
 })
 
+// Lengths for videos that don't have one yet (older ones, or added while the API was down),
+// so the TV can price them. Nothing to do, and no API call, once every length is known.
+cronAdd("wonderbox_durations", "*/20 * * * *", () => {
+  require(`${__hooks}/wonderbox_lib.js`).fillDurations()
+})
+
 // --- Linking a TV ------------------------------------------------------------
 
 // Called by the TV: returns a code to show, and a secret only the TV knows for polling.

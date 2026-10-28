@@ -26,12 +26,12 @@ Family photos from the phone show on the TV as a slideshow.
   order, leaving out any with nothing in them. Each opens its own screen; the video ones
   are rows, like a TV app (their own videos, then a row for each channel). Videos watched
   all the way through (at least 80% actually playing) get a tick and fade back.
-- **Stars:** a jar in the header shows each child's stars. Right answers (1 each), finished
+- **Stars:** the header shows how many stars each child has. Right answers (1 each), finished
   jigsaws, hangman or pairs (3), and learning and exercise videos (a star per 3 minutes actually played,
   up to 10 a day) earn them, for the games the parent chose (maths, spelling, the clock,
   flags, quizzes, hangman and learning videos until changed; those have a star on their
-  tile). Treat and music videos cost them, a star per minute, shown on each card once its
-  length is known; without enough, the TV says how many are needed. The server keeps each
+  tile). Treat and music videos cost them, a star per minute, shown on each card (the
+  server gets every video's length from YouTube); without enough, the TV says how many are needed. The server keeps each
   child's balance, so the phone app shows it and can give or take stars, and sets the rates.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up

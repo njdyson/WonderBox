@@ -294,6 +294,8 @@ try:
     assert lib["videos"][0]["tier"] == "free"
     lib = call("POST", "/api/wonder/videos/update", {"id": bunny, "tier": "treat"}, token)
     assert lib["videos"][0]["tier"] == "treat" and len(lib["videos"][0]["children"]) == 2
+    # Every video has a length in seconds (0 until known), for the TV's star prices.
+    assert all(isinstance(v["duration"], int) and v["duration"] >= 0 for v in lib["videos"]), lib["videos"]
     lib = call("POST", "/api/wonder/videos/update", {"id": bunny, "tier": "nonsense"}, token)
     assert lib["videos"][0]["tier"] == "free"
 
