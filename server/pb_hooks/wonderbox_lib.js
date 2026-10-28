@@ -63,6 +63,8 @@ function library(userId) {
       avatar: c.getString("avatar"),
       color: c.getString("color"),
       picture: pictureUrl(c),
+      // Stars in their jar (wonderbox_events.js keeps it up to date).
+      points: c.getInt("points"),
       games: games(c),
     })),
     quizzes: require(`${__hooks}/quizzes_lib.js`).quizList(userId),
@@ -129,8 +131,9 @@ function games(child) {
     clockSetup: quiz.clockSetup(stored.clock, clockLevel),
     flags: flagLevel,
     flagSetup: quiz.flagSetup(stored.flags, flagLevel),
-    // Which games win a treat: maths, spelling, clock, quizzes, hangman, memory, jigsaw.
+    // Which earn stars: maths, spelling, clock, flags, quizzes, hangman, memory, jigsaw, videos (learning ones).
     treatGames: quiz.treatGames(stored.treats),
+    points: extra.pointsSetup(stored.points),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
     hangman: extra.hangmanSetup(stored.hangman),
@@ -152,9 +155,9 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, memory}: how hard a child's games are (jigsaw 0 is off), which of
- * them win a treat, and their sound effects. hangman and memory are whole setups
- * (pb_hooks/games_lib.js).
+ * jigsaw, sounds, hangman, memory, points}: how hard a child's games are (jigsaw 0 is off), which of
+ * them earn stars and how many, and their sound effects. hangman, memory and points are whole
+ * setups (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -179,6 +182,7 @@ function saveGames(userId, body) {
   })
   setup.hangman = body.hangman ? extra.hangmanSetup(body.hangman) : current.hangman
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
+  setup.points = body.points ? extra.pointsSetup(body.points) : current.points
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
   let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
   if (body.mathsSetup) {

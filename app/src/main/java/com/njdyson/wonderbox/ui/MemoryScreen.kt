@@ -69,9 +69,8 @@ import kotlin.random.Random
 fun MemoryScreen(
     app: AppState,
     child: Child,
-    hasTreats: Boolean,
+    stars: Int,
     onFinished: () -> Unit,
-    onPickTreat: () -> Unit,
     onBack: () -> Unit,
     photos: List<Photo> = app.photosFor(child.id),
     random: Random = Random,
@@ -82,7 +81,7 @@ fun MemoryScreen(
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
         if (finished) {
-            Finished(child, hasTreats, onPickTreat, onPlayAgain = {
+            Finished(child, stars, onPlayAgain = {
                 game++
                 finished = false
             }, onBack = onBack, app = app)

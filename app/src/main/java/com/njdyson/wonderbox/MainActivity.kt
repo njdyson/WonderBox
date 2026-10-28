@@ -14,7 +14,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
+import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.data.Points
 import com.njdyson.wonderbox.data.GameSettings
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
@@ -40,7 +42,6 @@ import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.VideosScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.put
 
 private sealed interface Screen {
     data object Profiles : Screen
@@ -48,12 +49,8 @@ private sealed interface Screen {
     data class Home(val childId: String) : Screen
     /** Quizzes or Games. */
     data class Games(val childId: String, val category: Category) : Screen
-    /** Videos or Music. */
+    /** Learning videos, Music or Treats. */
     data class Videos(val childId: String, val category: Category) : Screen
-    /** The child's Treats section: the treats they've saved up, and any won but not picked yet. */
-    data class Treats(val childId: String) : Screen
-    /** Picking a treat to save, straight after winning one. */
-    data class PickTreat(val childId: String) : Screen
     data class PhotoGrid(val childId: String) : Screen
     data class Photos(val childId: String, val start: Int) : Screen
     /** [game] is a [com.njdyson.wonderbox.games.GameEntry] key: "maths", "spelling" or "quiz/<id>". */
@@ -95,49 +92,46 @@ class MainActivity : ComponentActivity() {
 
             fun open(screen: Screen) { stack.add(screen) }
 
-            /** Whether finishing [game] wins [childId] a treat: they have treats, and the phone app says it should. */
-            fun earnsTreat(childId: String, game: String): Boolean {
-                val child = app.library.children.firstOrNull { it.id == childId } ?: return false
-                return child.games.earnsTreat(game) && app.library.shelvesFor(childId).any { it.treat }
-            }
-
-            fun winTreat(childId: String, reason: String, game: String) {
-                app.earnTreat(childId)
-                // A treat to pick; reward.unlock is logged when it's picked.
-                EventLog.log("reward.earn", childId, subject = "treat") {
-                    put("reason", reason)
-                    put("game", game)
-                }
+            /**
+             * Stars [childId] earns from [game]: per right answer for quizzes, per finish for
+             * other games; 0 if the phone app says that game doesn't earn.
+             */
+            fun starsFrom(childId: String, game: String, perAnswer: Boolean): Int {
+                val child = app.library.children.firstOrNull { it.id == childId } ?: return 0
+                if (!child.games.earnsTreat(game)) return 0
+                return if (perAnswer) child.games.points.answer else child.games.points.game
             }
             fun back() { if (stack.size > 1) saved.removeState(stack.removeAt(stack.lastIndex).toString()) }
-            // Won a treat: the game gives way to picking one, then they're back in the Quizzes or Games.
-            fun pickTreat(childId: String) {
-                saved.removeState(stack.last().toString())
-                stack[stack.lastIndex] = Screen.PickTreat(childId)
-            }
-            // Saves [video] in the child's Treats section with one of their won treats.
-            fun saveTreat(childId: String, video: Video): Boolean {
-                if (!app.saveTreat(childId, video)) return false
-                EventLog.log("reward.unlock", childId, subject = video.youtubeId) {
-                    put("reason", "treat.pick")
-                    put("tier", video.tier)
-                    put("title", video.title)
+            // "You need 4 stars" and the like, shown for a moment at the top of the videos.
+            var notice by remember { mutableStateOf<String?>(null) }
+            fun tell(text: String) {
+                notice = text
+                app.say(text.filter { it.isLetterOrDigit() || it.isWhitespace() || it in ".,!'" }.trim())
+                scope.launch {
+                    delay(3_500)
+                    if (notice == text) notice = null
                 }
-                app.say("${video.title}. Saved in your treats!")
-                return true
             }
-            fun play(video: Video, childId: String) {
+            /**
+             * Plays [video]. Treat and music videos cost stars (by length, once it's known; at
+             * least one to start), learning videos earn them as they play.
+             */
+            fun play(video: Video, child: Child) {
+                val paid = video.isTreat || video.isMusic
+                if (paid) {
+                    val price = Points.durations[video.youtubeId]?.let { child.games.points.price(it.toDouble()) } ?: 1
+                    val have = Points.balance(child.id)
+                    if (have < price) {
+                        tell("You need $price ⭐ for this one. Earn some in Quizzes!")
+                        return
+                    }
+                }
                 app.stopSpeaking()
-                // Watching a whole free video (not music, not a treat) can win a treat, if the parent chose that.
-                val earns = !video.isTreat && !video.isMusic && earnsTreat(childId, GameSettings.VIDEOS)
-                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns))
+                val earns = !paid && child.games.earnsTreat(GameSettings.VIDEOS)
+                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, child.id, earns = earns, paid = paid))
             }
-            // Back from a video: tick it if it was watched all through, and pick the treat if that won one.
-            LaunchedEffect(resumeCount.intValue) {
-                val won = app.reloadFromPlayer()
-                val here = stack.last()
-                if (here is Screen.Videos && here.childId in won) open(Screen.PickTreat(here.childId))
-            }
+            // Back from a video: tick it if it was watched all through.
+            LaunchedEffect(resumeCount.intValue) { app.reloadFromPlayer() }
             BackHandler(enabled = stack.size > 1) { back() }
 
             WonderBoxTheme {
@@ -167,13 +161,10 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 HomeScreen(app, child, onOpen = {
                                     EventLog.log("category.open", child.id, subject = it.name.lowercase())
-                                // A won treat not picked yet: pick it first, then land in the Treats section with it.
-                                if (it == Category.Treats && app.treatsFor(child.id) > 0) open(Screen.Treats(child.id))
                                     open(
                                         when (it) {
-                                            Category.Treats -> if (app.treatsFor(child.id) > 0) Screen.PickTreat(child.id) else Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
-                                            Category.Videos, Category.Music -> Screen.Videos(child.id, it)
+                                            Category.Learning, Category.Music, Category.Videos -> Screen.Videos(child.id, it)
                                             Category.Photos -> Screen.PhotoGrid(child.id)
                                         },
                                     )
@@ -206,54 +197,20 @@ class MainActivity : ComponentActivity() {
                             if (child == null) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val shelves = if (screen.category == Category.Music) app.library.musicShelvesFor(child.id) else app.library.videoShelvesFor(child.id)
-                                VideosScreen(app, child, screen.category.title, shelves, watched = app.watchedFor(child.id), onPlay = { play(it, child.id) })
-                            }
-                        }
-                        is Screen.Treats -> {
-                            val child = app.library.children.firstOrNull { it.id == screen.childId }
-                            val catalogue = child?.let { app.library.treatShelvesFor(it.id) }.orEmpty()
-                            if (child == null || catalogue.isEmpty()) {
-                                LaunchedEffect(Unit) { back() }
-                            } else {
-                                // Only the treats they've won and picked; watching one uses it up.
+                                val shelves = when (screen.category) {
+                                    Category.Music -> app.library.musicShelvesFor(child.id)
+                                    Category.Videos -> app.library.treatShelvesFor(child.id)
+                                    else -> app.library.videoShelvesFor(child.id)
+                                }
                                 VideosScreen(
                                     app,
                                     child,
-                                    Category.Treats.title,
-                                    app.treatsSectionFor(child.id),
-                                    stars = true,
-                                    empty = "Win a quiz to save up a treat!",
-                                    onPlay = { video ->
-                                        app.useSavedTreat(child.id, video)
-                                        play(video, child.id)
-                                    },
-                                )
-                            }
-                        }
-                        is Screen.PickTreat -> {
-                            val child = app.library.children.firstOrNull { it.id == screen.childId }
-                            val shelves = child?.let { app.library.treatShelvesFor(it.id) }.orEmpty()
-                            if (child == null || shelves.isEmpty() || app.treatsFor(child.id) <= 0) {
-                                LaunchedEffect(Unit) { back() }
-                            } else {
-                                VideosScreen(
-                                    app,
-                                    child,
-                                    "Pick a treat to save!",
+                                    screen.category.title,
                                     shelves,
-                                    stars = true,
-                                    greeting = "Pick a treat to save!",
-                                    onPlay = { video ->
-                                        // Saved for later, and back to learning once they've heard it's saved;
-                                        // any treats still to pick wait here.
-                                        if (saveTreat(child.id, video) && app.treatsFor(child.id) <= 0) {
-                                            scope.launch {
-                                                delay(2_500)
-                                                if (stack.lastOrNull() == screen) back()
-                                            }
-                                        }
-                                    },
+                                    watched = app.watchedFor(child.id),
+                                    prices = screen.category != Category.Learning,
+                                    message = notice,
+                                    onPlay = { play(it, child) },
                                 )
                             }
                         }
@@ -264,24 +221,12 @@ class MainActivity : ComponentActivity() {
                             if (child == null || entry == null) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                // Only the games the parent chose win a treat (maths and spelling, not jigsaws, by default).
-                                val hasTreats = app.library.shelvesFor(child.id).any { it.treat } && child.games.earnsTreat(entry.key)
+                                // Only the games the parent chose earn stars (not jigsaws or pairs, by default).
                                 GameScreen(
                                     app,
                                     child,
                                     entry,
-                                    hasTreats = hasTreats,
-                                    onFinished = {
-                                        if (hasTreats) {
-                                            app.earnTreat(child.id)
-                                            // A treat to pick; reward.unlock is logged when it's picked.
-                                            EventLog.log("reward.earn", child.id, subject = "treat") {
-                                                put("reason", "quiz.finish")
-                                                put("game", screen.game)
-                                            }
-                                        }
-                                    },
-                                    onPickTreat = { pickTreat(child.id) },
+                                    starsPerAnswer = starsFrom(child.id, entry.key, perAnswer = true),
                                     onBack = { back() },
                                 )
                             }
@@ -291,21 +236,12 @@ class MainActivity : ComponentActivity() {
                             if (child == null) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val hasTreats = app.library.shelvesFor(child.id).any { it.treat } && child.games.earnsTreat(JIGSAW)
+                                val stars = starsFrom(child.id, JIGSAW, perAnswer = false)
                                 JigsawScreen(
                                     app,
                                     child,
-                                    hasTreats = hasTreats,
-                                    onFinished = {
-                                        if (hasTreats) {
-                                            app.earnTreat(child.id)
-                                            EventLog.log("reward.earn", child.id, subject = "treat") {
-                                                put("reason", "jigsaw.finish")
-                                                put("game", "jigsaw")
-                                            }
-                                        }
-                                    },
-                                    onPickTreat = { pickTreat(child.id) },
+                                    stars = stars,
+                                    onFinished = { Points.earn(child.id, stars, "jigsaw.finish", JIGSAW) },
                                     onBack = { back() },
                                 )
                             }
@@ -315,13 +251,12 @@ class MainActivity : ComponentActivity() {
                             if (child == null || !child.games.hangman.on) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val treat = earnsTreat(child.id, HANGMAN)
+                                val stars = starsFrom(child.id, HANGMAN, perAnswer = false)
                                 HangmanScreen(
                                     app,
                                     child,
-                                    hasTreats = treat,
-                                    onFinished = { if (treat) winTreat(child.id, "hangman.finish", HANGMAN) },
-                                    onPickTreat = { pickTreat(child.id) },
+                                    stars = stars,
+                                    onFinished = { Points.earn(child.id, stars, "hangman.finish", HANGMAN) },
                                     onBack = { back() },
                                 )
                             }
@@ -331,13 +266,12 @@ class MainActivity : ComponentActivity() {
                             if (child == null || !child.games.memory.on) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val treat = earnsTreat(child.id, MEMORY)
+                                val stars = starsFrom(child.id, MEMORY, perAnswer = false)
                                 MemoryScreen(
                                     app,
                                     child,
-                                    hasTreats = treat,
-                                    onFinished = { if (treat) winTreat(child.id, "memory.finish", MEMORY) },
-                                    onPickTreat = { pickTreat(child.id) },
+                                    stars = stars,
+                                    onFinished = { Points.earn(child.id, stars, "memory.finish", MEMORY) },
                                     onBack = { back() },
                                 )
                             }

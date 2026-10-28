@@ -45,4 +45,22 @@ function memorySetup(value) {
   }
 }
 
-module.exports = { hangmanSetup, memorySetup }
+// Stars (app/.../data/Api.kt PointsSetup): per right answer, per finished jigsaw, hangman or
+// pairs game, minutes of a learning video per star (with a daily cap, 0 for none), and
+// minutes of a treat or music video one star buys.
+const POINTS_DEFAULT = { answer: 1, game: 3, videoMinutes: 3, videoCap: 10, treatMinutes: 1 }
+const POINTS_LIMITS = { answer: [0, 10], game: [0, 20], videoMinutes: [1, 30], videoCap: [0, 100], treatMinutes: [1, 10] }
+
+/** A child's star rates, {answer, game, videoMinutes, videoCap, treatMinutes}, each kept in range. */
+function pointsSetup(value) {
+  const v = value && typeof value === "object" ? value : {}
+  const out = {}
+  for (const key of Object.keys(POINTS_DEFAULT)) {
+    const n = Math.round(Number(v[key]))
+    const [min, max] = POINTS_LIMITS[key]
+    out[key] = v[key] !== undefined && v[key] !== null && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : POINTS_DEFAULT[key]
+  }
+  return out
+}
+
+module.exports = { hangmanSetup, memorySetup, pointsSetup }

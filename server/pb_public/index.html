@@ -208,7 +208,7 @@
     <h2 id="playHeading">GAMES</h2>
     <div class="card stack" id="playGames"></div>
 
-    <h2 id="treatsHeading">TREATS AND SOUNDS</h2>
+    <h2 id="treatsHeading">STARS AND SOUNDS</h2>
     <div class="card stack" id="treatRules"></div>
   </section>
 
@@ -520,7 +520,7 @@ function seg(options, value, onPick) {
 
 const TIER_OPTIONS = [["free", "Always there"], ["treat", "⭐ Treat"]];
 const SECTION_OPTIONS = [["videos", "📺 Videos"], ["music", "🎵 Music"]];
-const TIER_HELP = "Treats are locked on the TV until a game is finished; each game won unlocks one treat (you choose which games count, under Games).";
+const TIER_HELP = "Treat and music videos cost stars on the TV, by length. Stars come from quizzes, games and learning videos (you choose which, under Games).";
 
 function renderAdding() {
   if (!checked) return searching ? renderSearch() : $("adding").replaceChildren();
@@ -601,11 +601,11 @@ function render() {
 
 // --- A child's list, one kind at a time -------------------------------------
 
-// The TV's home page tiles: what's always there, music, treats (locked until won), and channels.
+// The TV's home page tiles: Learning (free, earns stars), Music and Videos (the treats, which cost stars), and channels.
 const KINDS = [
-  ["videos", "📺 Videos", (i) => i.tier !== "treat" && i.section !== "music"],
+  ["videos", "📚 Learning", (i) => i.tier !== "treat" && i.section !== "music"],
   ["music", "🎵 Music", (i) => i.tier !== "treat" && i.section === "music"],
-  ["treats", "⭐ Treats", (i) => i.tier === "treat"],
+  ["treats", "⭐ Treat videos", (i) => i.tier === "treat"],
   ["channels", "📡 Channels", null],
 ];
 let kind = KINDS.some(([k]) => k === localStorage.getItem("wonderbox_kind")) ? localStorage.getItem("wonderbox_kind") : "videos";
@@ -652,9 +652,9 @@ function renderVideos(c) {
     ? "Add a child in Family first, then their videos."
     : q ? `Nothing called "${$("find").value.trim()}" here.`
     : {
-      videos: `No videos for ${c.name} yet. Search for some above, or paste a YouTube link.`,
+      videos: `No learning videos for ${c.name} yet. Search for some above, or paste a YouTube link.`,
       music: `No music for ${c.name} yet. Add a song and choose 🎵 Music.`,
-      treats: `No treats for ${c.name} yet. Add a video and choose ⭐ Treat; it stays locked on the TV until a game is won.`,
+      treats: `No treat videos for ${c.name} yet. Add a video and choose ⭐ Treat; it costs stars to watch on the TV.`,
       channels: `No channels or playlists for ${c.name} yet. Search for one above; the TV shows each as its own row.`,
     }[kind] })]));
 }

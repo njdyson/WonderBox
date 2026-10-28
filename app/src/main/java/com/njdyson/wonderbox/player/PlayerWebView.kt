@@ -2,6 +2,7 @@ package com.njdyson.wonderbox.player
 
 import android.annotation.SuppressLint
 import com.njdyson.wonderbox.BuildConfig
+import com.njdyson.wonderbox.data.Points
 import android.content.Context
 import android.graphics.Color
 import android.os.Handler
@@ -157,6 +158,7 @@ object PlayerWebView {
             main.post {
                 position = current
                 duration = length
+                if (length > 0) videoId?.let { Points.learnDuration(it, length) }
             }
         }
 

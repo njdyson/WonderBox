@@ -84,16 +84,15 @@ import kotlin.random.Random
  * Jigsaws of the family photos, played with just the arrows and OK. The child picks a photo,
  * then it's cut into the child's size of grid ([com.njdyson.wonderbox.data.GameSettings.jigsaw])
  * and jumbled. OK picks a piece up, the arrows carry it, OK puts it down and it swaps with
- * the piece there. Pieces in the right place click in and stay. Finishing one earns a treat,
+ * the piece there. Pieces in the right place click in and stay. Finishing one earns [stars],
  * like a game round. Back puts a carried piece down, or goes back to the child's screen.
  */
 @Composable
 fun JigsawScreen(
     app: AppState,
     child: Child,
-    hasTreats: Boolean,
+    stars: Int,
     onFinished: () -> Unit,
-    onPickTreat: () -> Unit,
     onBack: () -> Unit,
     /** Start straight on this photo (for screenshots); normally the child picks one. */
     startPhoto: Photo? = null,
@@ -111,7 +110,7 @@ fun JigsawScreen(
         } else {
             key(picked.id, round) {
                 Puzzle(
-                    app, child, picked, hasTreats, random, onFinished, onPickTreat, onBack,
+                    app, child, picked, stars, random, onFinished, onBack,
                     onAnother = {
                         lastPhotoId = picked.id
                         photo = null
@@ -176,10 +175,9 @@ private fun Puzzle(
     app: AppState,
     child: Child,
     photo: Photo,
-    hasTreats: Boolean,
+    stars: Int,
     random: Random,
     onFinished: () -> Unit,
-    onPickTreat: () -> Unit,
     onBack: () -> Unit,
     onAnother: () -> Unit,
 ) {
@@ -241,7 +239,7 @@ private fun Puzzle(
         onFinished()
         scope.launch {
             delay(700)
-            app.say(if (hasTreats) "You did it, ${child.name}! Pick a treat!" else "You did it, ${child.name}!")
+            app.say(if (stars > 0) "You did it, ${child.name}! You earned $stars ${if (stars == 1) "star" else "stars"}!" else "You did it, ${child.name}!")
             delay(1_300)
             showButtons = true
             firstButton.requestFocusWhenReady()
@@ -333,7 +331,7 @@ private fun Puzzle(
             ) {
                 val picture = image
                 if (done) {
-                    Celebrate(child, hasTreats, showButtons, firstButton, onPickTreat, onAnother, onBack)
+                    Celebrate(child, stars, showButtons, firstButton, onAnother, onBack)
                 } else if (picture != null) {
                     // The picture on the box, to help find where pieces go.
                     val crop = remember(picture) { cropFor(picture) }
@@ -362,10 +360,9 @@ private fun Puzzle(
 @Composable
 private fun Celebrate(
     child: Child,
-    hasTreats: Boolean,
+    stars: Int,
     showButtons: Boolean,
     firstButton: FocusRequester,
-    onPickTreat: () -> Unit,
     onAnother: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -373,11 +370,10 @@ private fun Celebrate(
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) }
     Text("🎉", fontSize = 90.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
     Text("You did it, ${child.name}!", color = Tangerine, fontSize = 32.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-    if (hasTreats) Text("You've won a treat ⭐", color = Color.White, fontSize = 22.sp)
+    if (stars > 0) Text("You earned $stars ⭐", color = Color.White, fontSize = 22.sp)
     if (showButtons) {
-        if (hasTreats) BigButton("⭐ Pick a treat", Modifier.focusRequester(firstButton), onPickTreat)
-        BigButton("🧩 Another", if (hasTreats) Modifier else Modifier.focusRequester(firstButton), onAnother)
-        if (!hasTreats) BigButton("Back", Modifier, onBack)
+        BigButton("🧩 Another", Modifier.focusRequester(firstButton), onAnother)
+        BigButton("Back", Modifier, onBack)
     }
 }
 

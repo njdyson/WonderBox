@@ -2,8 +2,8 @@
 
 A Fire TV Stick app for two children, with a phone app for the parent. The parent picks
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
-YouTube can be reached. Whole channels can be added, music gets its own screen, and "treat"
-videos are won by finishing games and saved up to watch later.
+YouTube can be reached. Whole channels can be added, music gets its own screen, and children
+earn stars with quizzes, games and learning videos to spend on treat and music videos.
 Family photos from the phone show on the TV as a slideshow.
 
 | Folder | What it is |
@@ -20,19 +20,18 @@ Family photos from the phone show on the TV as a slideshow.
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
 - **A child's home page:** big tiles on a screen of their own colour so they can tell it's
-  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws), Videos, Music
-  and Photos, always in that order, leaving out any with nothing in them, then Treats. Each
-  opens its own screen; Videos and Music are rows, like a TV app (their own videos, then a
-  row for each channel). Treat videos never show there: finishing a game (10 right answers
-  by default) wins a treat, and the child picks one to save and carries on learning. The
-  Treats section holds only the treats they've picked (its tile counts them), and watching
-  one uses it up; a won treat left unpicked (Back from the picker) is picked when they next
-  open Treats. Videos watched all the way through get a tick and fade back; the first
-  time a free video (not music) is watched through without skipping (at least 80% of it
-  actually playing), it wins a treat too, unless the parent turned "Watching a whole video"
-  off in the phone app. The parent chooses which
-  games win a treat: maths, spelling, the clock, flags, quizzes and hangman until changed, not
-  jigsaws or memory pairs. Those games have a star on their tile.
+  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws),
+  Learning (the free videos), Music, Photos and Videos (the treat videos), always in that
+  order, leaving out any with nothing in them. Each opens its own screen; the video ones
+  are rows, like a TV app (their own videos, then a row for each channel). Videos watched
+  all the way through (at least 80% actually playing) get a tick and fade back.
+- **Stars:** a jar in the header shows each child's stars. Right answers (1 each), finished
+  jigsaws, hangman or pairs (3), and learning videos (a star per 3 minutes actually played,
+  up to 10 a day) earn them, for the games the parent chose (maths, spelling, the clock,
+  flags, quizzes, hangman and learning videos until changed; those have a star on their
+  tile). Treat and music videos cost them, a star per minute, shown on each card once its
+  length is known; without enough, the TV says how many are needed. The server keeps each
+  child's balance, so the phone app shows it and can give or take stars, and sets the rates.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
   to the 2, 5 and 10 times tables), spelling five (first letter up to spelling the whole
@@ -55,14 +54,14 @@ Family photos from the phone show on the TV as a slideshow.
 - **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
   with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
   emoji) or both. Each quiz is a tile next to Maths and Spelling, under Quizzes, for the children it's for;
-  answering every question wins it (and a treat). Answers are shuffled and read out as
+  answering every question wins it (and a star for each right answer). Answers are shuffled and read out as
   they're focused.
 - **Jigsaws:** a Jigsaw tile under Games (once there are family photos) turns a photo the child picks
   into a jumbled jigsaw, 2 x 2 up to 5 x 5 pieces (set per child in the phone app, 3 x 3 by
   default, or off). Played with just the arrows and OK: OK picks a piece up, the arrows carry
   it, OK puts it down and it swaps with the piece there. Pieces click into place with a soft
   chime and stay put, the whole picture is shown alongside, and after a while a carried
-  piece's place is hinted. Finishing one wins a treat. Back puts a carried piece down.
+  piece's place is hinted. Finishing one earns stars. Back puts a carried piece down.
 - **Photos** (a tile on each child's home page once they have any; each photo is for one or
   more children): a grid of them, and OK on one shows it full screen. Left and right flip
   through them, OK plays or stops a slideshow, Back goes back to the grid.

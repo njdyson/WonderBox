@@ -72,7 +72,7 @@ object EventLog {
     /**
      * Records an event. [type] is dotted and lower case ("video.play"); [child] is who was
      * using the TV; [subject] what it was about (a YouTube ID, a game); [value] one number
-     * worth adding up; [data] anything else.
+     * worth adding up; [data] anything else. Returns the event's ID.
      */
     fun log(
         type: String,
@@ -80,7 +80,7 @@ object EventLog {
         subject: String = "",
         value: Double = 0.0,
         data: (JsonObjectBuilder.() -> Unit)? = null,
-    ) {
+    ): String {
         val event = LoggedEvent(newId(), type, child, subject, value, data?.let { buildJsonObject(it) }, now())
         synchronized(lock) {
             queue.add(event)
@@ -89,6 +89,7 @@ object EventLog {
         worker.execute { save() }
         main.removeCallbacks(flushSoon)
         main.postDelayed(flushSoon, 5_000)
+        return event.id
     }
 
     /** Sends anything waiting now, e.g. when the app comes back to the foreground. */
@@ -116,6 +117,7 @@ object EventLog {
             }
             synchronized(lock) { queue.removeAll(batch.toSet()) }
             save()
+            Points.sent(batch.mapTo(HashSet()) { it.id })
         }
     }
 
