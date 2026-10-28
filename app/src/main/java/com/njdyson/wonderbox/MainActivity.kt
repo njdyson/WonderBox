@@ -15,6 +15,7 @@ import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
 import com.njdyson.wonderbox.ui.LinkScreen
+import com.njdyson.wonderbox.ui.PhotosScreen
 import com.njdyson.wonderbox.ui.ProfileScreen
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
@@ -24,6 +25,7 @@ import kotlinx.coroutines.delay
 private sealed interface Screen {
     data object Profiles : Screen
     data class Videos(val childId: String) : Screen
+    data object Photos : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -69,6 +71,7 @@ class MainActivity : ComponentActivity() {
                             lastChildId = it.id
                             open(Screen.Videos(it.id))
                         },
+                        onPhotos = { open(Screen.Photos) },
                         onGrownUps = { open(Screen.Gate) },
                     )
                     is Screen.Videos -> {
@@ -83,6 +86,7 @@ class MainActivity : ComponentActivity() {
                             })
                         }
                     }
+                    Screen.Photos -> PhotosScreen(app)
                     Screen.Gate -> GrownUpGate(onPassed = {
                         stack.removeAt(stack.lastIndex)
                         open(Screen.Settings)
