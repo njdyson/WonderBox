@@ -11,11 +11,21 @@ import com.njdyson.wonderbox.data.Store
 import com.njdyson.wonderbox.data.UnlinkedException
 import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
+import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.AutoLevel
+import com.njdyson.wonderbox.games.autoLevel
+import com.njdyson.wonderbox.games.withLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.put
 
 /** The TV app's state: whether it's linked, the children and videos, treats earned, and the grown-ups' settings. */
 class AppState(context: Context) {
+    private companion object {
+        /** How long a level change waits for the server to catch up before the server's level wins. */
+        const val PENDING_LEVEL_MS = 30 * 60 * 1000L
+    }
+
     private val store = Store(context)
     val serverUrl = BuildConfig.SERVER_URL
 
@@ -64,6 +74,60 @@ class AppState(context: Context) {
     fun earnTreat(childId: String) {
         treats = treats + (childId to treatsFor(childId) + 1)
         store.treats = treats
+    }
+
+    /** How the last rounds went at each auto-level game's current level, by "<child>/<game>" ([AutoLevel.step]). */
+    private var autoHistory = store.autoHistory
+
+    /**
+     * Level changes not yet seen back from the server, by "<child>/<game>": the level and when.
+     * A sync that comes back before the TV's `level.change` event reached the server keeps them.
+     */
+    private val pendingLevels = mutableMapOf<String, Pair<Int, Long>>()
+
+    /**
+     * After a round of [game] that went as [result]: moves [childId] up or down a level when the
+     * game is on auto and it's time ([AutoLevel.step]). Returns the new level when it changed.
+     */
+    fun autoLevel(childId: String, game: String, result: AutoLevel.Result): Int? {
+        val child = library.children.firstOrNull { it.id == childId } ?: return null
+        val (level, levels) = child.games.autoLevel(game) ?: return null
+        val key = "$childId/$game"
+        // "<level>:<results>", so rounds at a level the parent has since changed don't count.
+        val before = autoHistory[key].orEmpty().split(":").takeIf { it.size == 2 && it[0] == "$level" }?.get(1).orEmpty()
+        val (next, history) = AutoLevel.step(level, levels, before, result)
+        autoHistory = autoHistory + (key to "$next:$history")
+        store.autoHistory = autoHistory
+        if (next == level) return null
+        EventLog.log("level.change", childId, subject = game, value = next.toDouble()) {
+            put("from", level)
+            put("to", next)
+            put("result", result.name.lowercase())
+        }
+        pendingLevels[key] = next to System.currentTimeMillis()
+        putLibrary(withLevels(library))
+        return next
+    }
+
+    /** [fresh] with the level changes the server hasn't caught up with yet. */
+    private fun withLevels(fresh: Library): Library {
+        val now = System.currentTimeMillis()
+        pendingLevels.entries.removeAll { (key, pending) ->
+            val (childId, game) = key.split("/", limit = 2)
+            val current = fresh.children.firstOrNull { it.id == childId }?.games?.autoLevel(game)
+            current == null || current.first == pending.first || now - pending.second > PENDING_LEVEL_MS
+        }
+        if (pendingLevels.isEmpty()) return fresh
+        return fresh.copy(children = fresh.children.map { child ->
+            pendingLevels.entries.filter { it.key.startsWith("${child.id}/") }.fold(child) { c, (key, pending) ->
+                c.copy(games = c.games.withLevel(key.substringAfter("/"), pending.first))
+            }
+        })
+    }
+
+    private fun putLibrary(value: Library) {
+        library = value
+        store.library = value
     }
 
     /** Picked treats waiting in each child's Treats section, as [Video.id]s, by child ID. Kept on this TV. */
@@ -116,8 +180,7 @@ class AppState(context: Context) {
         try {
             val server = Server(serverUrl, key)
             val fresh = withContext(Dispatchers.IO) { server.library() }
-            library = fresh
-            store.library = fresh
+            putLibrary(withLevels(fresh))
             voice.serverHasVoice = fresh.voice
             syncError = null
             // Photos are extra: if they fail (say, a server without them yet) the videos still work.

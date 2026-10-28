@@ -80,6 +80,10 @@ function saveEvents(userId, device, body) {
     record.set("at", eventTime(ev.at))
     $app.save(record)
     saved++
+    // An auto-level game moving up or down: the child's new level (only the first time it's sent).
+    if (type === "level.change" && childId) {
+      require(`${__hooks}/wonderbox_lib.js`).autoLevel(userId, childId, String(ev.subject || ""), data.to)
+    }
   }
   return { saved, skipped }
 }

@@ -70,6 +70,13 @@ class Store(context: Context) {
         prefs.edit().putString("treats", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), now + (childId to (now[childId] ?: 0) + 1))).commit()
     }
 
+    /** How the last rounds went at each auto-level game's level, by "<child>/<game>" (games/AutoLevel.kt). */
+    var autoHistory: Map<String, String>
+        get() = prefs.getString("auto_history", null)?.let {
+            runCatching { json.decodeFromString(MapSerializer(String.serializer(), String.serializer()), it) }.getOrNull()
+        } ?: emptyMap()
+        set(value) = prefs.edit().putString("auto_history", json.encodeToString(MapSerializer(String.serializer(), String.serializer()), value)).apply()
+
     /** Read video titles aloud when they're focused. */
     var speakTitles: Boolean
         get() = prefs.getBoolean("speak_titles", true)

@@ -54,6 +54,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.AutoLevel
 import com.njdyson.wonderbox.games.ClockQuestions
 import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.Question
@@ -89,6 +90,8 @@ fun GameScreen(
     var finished by remember { mutableStateOf(false) }
     var wrongAnswers by remember { mutableIntStateOf(0) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
+    // The level an auto-level game moved up to after this round, to cheer about.
+    var levelUp by remember { mutableStateOf<Int?>(null) }
     val subject = entry.key
     val color = parseColor(child.color)
     DisposableEffect(Unit) { onDispose { app.stopSpeaking() } }
@@ -100,11 +103,12 @@ fun GameScreen(
             Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 right = 0
                 wrongAnswers = 0
+                levelUp = null
                 startedAt = System.currentTimeMillis()
                 round = entry.newRound(child)
                 question = round.next()
                 finished = false
-            }, onBack = onBack, app = app)
+            }, onBack = onBack, app = app, levelUp = levelUp)
         } else {
             Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -141,6 +145,11 @@ fun GameScreen(
                                     put("seconds", (System.currentTimeMillis() - startedAt) / 1000)
                                     put("level", level)
                                     if (entry.quiz != null) put("title", entry.title)
+                                }
+                                // A parent's quiz has no levels; the rest may be on auto.
+                                if (entry.quiz == null) {
+                                    val next = app.autoLevel(child.id, subject, AutoLevel.quiz(goal, wrongAnswers))
+                                    levelUp = next?.takeIf { it > level }
                                 }
                                 finished = true
                                 app.sounds.play(Sounds.Effect.Finish, child)
@@ -424,13 +433,17 @@ private fun AnswerButton(
     }
 }
 
-/** "You did it!", then a treat to pick (when [hasTreats]), play again or back. Hangman and pairs end with it too. */
+/**
+ * "You did it!", then a treat to pick (when [hasTreats]), play again or back. Hangman and pairs end
+ * with it too. [levelUp] is the level an auto-level game has just moved up to (moving down is quiet).
+ */
 @Composable
-internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit, onPlayAgain: () -> Unit, onBack: () -> Unit, app: AppState) {
+internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit, onPlayAgain: () -> Unit, onBack: () -> Unit, app: AppState, levelUp: Int? = null) {
     val first = remember { FocusRequester() }
     val pop = remember { Animatable(0.3f) }
     LaunchedEffect(Unit) {
-        app.say(if (hasTreats) "You did it, ${child.name}! Pick a treat!" else "You did it, ${child.name}!")
+        val up = if (levelUp != null) " You're going up to level $levelUp!" else ""
+        app.say(if (hasTreats) "You did it, ${child.name}!$up Pick a treat!" else "You did it, ${child.name}!$up")
         pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
     }
     LaunchedEffect(Unit) { first.requestFocusWhenReady() }
@@ -446,6 +459,7 @@ internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit,
             color = Color.White,
             fontSize = 28.sp,
         )
+        if (levelUp != null) Text("⬆️ Up to level $levelUp next time!", color = Leaf, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.padding(top = 12.dp)) {
             if (hasTreats) BigButton("⭐ Pick a treat", Modifier.focusRequester(first), onPickTreat)
             BigButton("Play again", if (hasTreats) Modifier else Modifier.focusRequester(first), onPlayAgain)

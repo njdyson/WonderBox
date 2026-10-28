@@ -52,6 +52,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.AutoLevel
 import com.njdyson.wonderbox.games.MakeWords
 import com.njdyson.wonderbox.games.RecentTopics
 import com.njdyson.wonderbox.games.SCRAMBLE
@@ -89,14 +90,17 @@ fun WordGameScreen(
     var game by remember { mutableIntStateOf(0) }
     var finished by remember { mutableStateOf(false) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
+    // The level the game moved up to after this one, when it's on auto.
+    var levelUp by remember { mutableStateOf<Int?>(null) }
     DisposableEffect(Unit) { onDispose { app.stopSpeaking() } }
 
-    fun finish(found: Int, data: JsonObjectBuilder.() -> Unit) {
+    fun finish(found: Int, result: AutoLevel.Result, data: JsonObjectBuilder.() -> Unit) {
         EventLog.log("scramble.finish", child.id, subject = SCRAMBLE, value = found.toDouble()) {
             put("level", setup.level)
             put("seconds", (System.currentTimeMillis() - startedAt) / 1000)
             data()
         }
+        levelUp = app.autoLevel(child.id, SCRAMBLE, result)?.takeIf { it > setup.level }
         app.sounds.play(Sounds.Effect.Finish, child)
         finished = true
         onFinished()
@@ -106,21 +110,22 @@ fun WordGameScreen(
         if (finished) {
             Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 startedAt = System.currentTimeMillis()
+                levelUp = null
                 game++
                 finished = false
-            }, onBack = onBack, app = app)
+            }, onBack = onBack, app = app, levelUp = levelUp)
         } else {
             key(game) {
                 if (setup.makeWords) {
-                    MakeWordsGame(app, child, wordList, recent, random, startPicks, startFound, onDone = { round ->
-                        finish(round.found.size) {
+                    MakeWordsGame(app, child, wordList, recent, random, startPicks, startFound, onDone = { round, skips ->
+                        finish(round.found.size, AutoLevel.makeWords(round.gotLongest, skips)) {
                             put("letters", round.letters.joinToString(""))
                             put("longest", round.gotLongest)
                         }
                     })
                 } else {
-                    UnjumbleGame(app, child, recent, random, startPicks, onDone = { missed ->
-                        finish(setup.goal) { put("missed", missed) }
+                    UnjumbleGame(app, child, recent, random, startPicks, onDone = { missed, tries ->
+                        finish(setup.goal, AutoLevel.unjumble(setup.goal, missed, tries)) { put("missed", missed) }
                     })
                 }
             }
@@ -130,7 +135,7 @@ fun WordGameScreen(
 
 /** Levels 1 and 2: [ScrambleSetup.goal] jumbled words, one after another. */
 @Composable
-private fun UnjumbleGame(app: AppState, child: Child, recent: RecentTopics, random: Random, startPicks: List<Int>, onDone: (missed: Int) -> Unit) {
+private fun UnjumbleGame(app: AppState, child: Child, recent: RecentTopics, random: Random, startPicks: List<Int>, onDone: (missed: Int, tries: Int) -> Unit) {
     val setup = child.games.scramble
     val words = remember { Unjumble.words(setup, child.games.spelling().myWords) }
     fun nextWord(): Unjumble {
@@ -140,6 +145,7 @@ private fun UnjumbleGame(app: AppState, child: Child, recent: RecentTopics, rand
     var current by remember { mutableStateOf(nextWord()) }
     var found by remember { mutableIntStateOf(0) }
     var missed by remember { mutableIntStateOf(0) }
+    var tries by remember { mutableIntStateOf(0) }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -154,7 +160,8 @@ private fun UnjumbleGame(app: AppState, child: Child, recent: RecentTopics, rand
                     put("said", setup.say)
                 }
                 if (solved) found++ else missed++
-                if (found >= setup.goal) onDone(missed) else current = nextWord()
+                tries += current.misses + current.wrongs
+                if (found >= setup.goal) onDone(missed, tries) else current = nextWord()
             })
         }
     }
@@ -291,9 +298,11 @@ private fun MakeWordsGame(
     random: Random,
     startPicks: List<Int>,
     startFound: Int,
-    onDone: (MakeWords) -> Unit,
+    /** The round, and how many times the child asked for new letters before it. */
+    onDone: (MakeWords, skips: Int) -> Unit,
 ) {
     val setup = child.games.scramble
+    var skips by remember { mutableIntStateOf(0) }
     var round by remember { mutableStateOf(MakeWords.new(words, setup.letters, setup.goal, random, recent)) }
     var changes by remember { mutableIntStateOf(0) }
     var over by remember { mutableStateOf(false) }
@@ -353,7 +362,7 @@ private fun MakeWordsGame(
                     if (!round.gotLongest) message = "The longest word was $longest"
                     scope.launch {
                         delay(4_500)
-                        onDone(round)
+                        onDone(round, skips)
                     }
                 } else {
                     app.sounds.play(if (all) Sounds.Effect.Right else Sounds.Effect.Piece, child)
@@ -431,6 +440,7 @@ private fun MakeWordsGame(
                 SmallButton("New letters") {
                     if (!over) {
                         EventLog.log("scramble.skip", child.id, subject = round.letters.joinToString(""), value = round.found.size.toDouble())
+                        skips++
                         round = MakeWords.new(words, setup.letters, setup.goal, random, recent)
                         changes++
                     }

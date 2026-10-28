@@ -9,6 +9,11 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.BitmapDrawable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performKeyInput
@@ -408,6 +413,19 @@ class ScreenshotsTest {
         p.color = 0xFFFFF59D.toInt(); c.drawRect(310f, 700f, 400f, 780f, p)
         p.color = 0xFF5D4037.toInt(); c.drawRect(460f, 760f, 540f, 900f, p)
         return bmp
+    }
+
+    // The end of a round of a game on auto that's just moved up a level.
+    @Test fun finishedLevelUp() {
+        val app = app()
+        compose.setContent {
+            WonderBoxTheme {
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
+                    Finished(jesse, hasTreats = true, onPickTreat = {}, onPlayAgain = {}, onBack = {}, app = app, levelUp = 4)
+                }
+            }
+        }
+        shoot("finished-level-up")
     }
 
     @Test fun settings() {
