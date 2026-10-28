@@ -99,8 +99,8 @@ data class Channel(
 @Serializable
 data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "")
 
-/** A row of videos on a child's screen: their own videos, or one channel's. */
-data class Shelf(val key: String, val title: String, val treat: Boolean, val videos: List<Video>, val picture: String = "")
+/** A row of videos on a child's screen: their own videos, or one channel's. [music] rows go on the Music screen. */
+data class Shelf(val key: String, val title: String, val treat: Boolean, val videos: List<Video>, val picture: String = "", val music: Boolean = false)
 
 /** Everything the TV shows, as the server sends it (GET /api/wonder/library). */
 @Serializable
@@ -122,7 +122,7 @@ data class Library(
         fun shelves(treat: Boolean): List<Shelf> {
             val own = mine.filter { it.isTreat == treat }
             val ownShelf = Shelf(if (treat) "treats" else "videos", if (treat) "Treats" else "My videos", treat, own.filter { !it.isMusic })
-            val musicShelf = Shelf(if (treat) "treat-music" else "music", if (treat) "Music treats" else "Music", treat, own.filter { it.isMusic })
+            val musicShelf = Shelf(if (treat) "treat-music" else "music", if (treat) "Music treats" else "Music", treat, own.filter { it.isMusic }, music = true)
             val channelShelves = channels.filter { (it.tier == TREAT) == treat }.map { ch ->
                 Shelf(
                     "channel/${ch.id}",
@@ -132,12 +132,22 @@ data class Library(
                         Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section)
                     },
                     ch.thumbnail,
+                    music = ch.section == MUSIC,
                 )
             }
             return (listOf(ownShelf, musicShelf) + channelShelves).filter { it.videos.isNotEmpty() }
         }
         return shelves(treat = false) + shelves(treat = true)
     }
+
+    /** The Videos screen's rows: no music, no treats. */
+    fun videoShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && !it.music }
+
+    /** The Music screen's rows (no treats). */
+    fun musicShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.music }
+
+    /** The treats, videos and music, only shown once a treat has been won. */
+    fun treatShelvesFor(childId: String) = shelvesFor(childId).filter { it.treat }
 }
 
 /** A family photo, for the [children] it's for. [image] and [thumb] are paths on the server. */

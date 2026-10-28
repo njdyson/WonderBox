@@ -41,6 +41,7 @@ about it.
 |---|---|---|---|---|
 | `app.start` | | | | The TV app opens (no child). |
 | `profile.pick` | | | | A child picks their face. |
+| `category.open` | `treats`, `quizzes`, `games`, `videos`, `music` or `photos` | | | A child opens a tile on their home page. |
 | `video.play` | YouTube ID | | `title`, `channel` | A video starts playing. |
 | `video.watch` | YouTube ID | seconds actually playing | `title`, `channel`, `position`, `duration` (seconds), `finished` (true/false), and how smoothly it played: `stalls` (times it stopped to buffer), `frames` and `dropped` (video frames shown and skipped), `quality` (e.g. `1920x1080`), `codec` | The player closes. |
 | `channel.open` | channel id | | `name` | A channel is opened. |
@@ -49,7 +50,7 @@ about it.
 | `jigsaw.start` | photo id | | `size` (pieces along each side) | A photo jigsaw starts. |
 | `jigsaw.finish` | photo id | number of pieces | `size`, `moves` (swaps), `seconds` | A photo jigsaw is finished. |
 | `reward.earn` | `treat` | | `reason` (`quiz.finish` or `jigsaw.finish`), `game` (`jigsaw` for jigsaws) | A finished game round or jigsaw wins a treat to pick (only the games the parent chose). |
-| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason`, `tier` | A treat or reward is unlocked. |
+| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked from the treats screen. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 
 ## The API
