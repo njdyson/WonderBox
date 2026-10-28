@@ -69,11 +69,25 @@
   .video:first-child { border-top: 0; }
   .video img { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; flex: none; }
   .video .t { font-weight: 700; font-size: 15px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-  .video .who { display: flex; gap: 4px; margin-top: 4px; }
-  .video .who span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; }
+  .face-mini { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; }
   .video .tools { display: grid; grid-template-columns: repeat(2, 36px); gap: 4px; flex: none; }
   .video .tools button { padding: 6px 0; font-size: 14px; }
   .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+  .video img.round { width: 54px; aspect-ratio: 1; border-radius: 50%; margin: 0 21px; }
+  .badges { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+  .badge { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 8px; background: rgba(255,255,255,.12); }
+  .badge.treat { background: var(--yellow); color: var(--deep); }
+  .badge.music { background: var(--pink); color: var(--deep); }
+  .strip { display: flex; gap: 6px; overflow-x: auto; }
+  .strip img { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; flex: none; background: #000; }
+  .preview img.round { width: 72px; aspect-ratio: 1; border-radius: 50%; }
+
+  /* Two or three options, one chosen: Video or Music, Always or Treat */
+  .seg { display: flex; background: rgba(255,255,255,.1); border-radius: 12px; padding: 3px; gap: 3px; }
+  .seg button { flex: 1; background: transparent; color: var(--text); font-weight: 600; padding: 8px 6px; }
+  .seg button.on { background: var(--text); color: var(--deep); font-weight: 800; }
+  label.field { display: grid; gap: 6px; font-weight: 700; }
+  select { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 0; background: #fff; color: #111; width: 100%; }
 
   .tv { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
   .tv:first-child { border-top: 0; }
@@ -124,9 +138,9 @@
 <section id="mainView" hidden>
   <div id="pairCard"></div>
 
-  <h2>ADD A VIDEO</h2>
+  <h2>ADD A VIDEO, SONG OR CHANNEL</h2>
   <form class="row" id="addForm">
-    <input type="url" id="link" class="grow" placeholder="Paste a YouTube link" autocomplete="off" inputmode="url" enterkeyhint="go">
+    <input type="url" id="link" class="grow" placeholder="Paste a YouTube video or channel link" autocomplete="off" inputmode="url" enterkeyhint="go">
     <button id="checkBtn">Check</button>
   </form>
   <div id="adding"></div>
@@ -134,8 +148,14 @@
   <h2>CHILDREN</h2>
   <div class="kids" id="kids"></div>
 
+  <h2 id="channelsHeading" hidden>CHANNELS</h2>
+  <div class="card" id="channels" hidden></div>
+
   <h2 id="videosHeading">VIDEOS</h2>
   <div class="card" id="videos"></div>
+
+  <h2 id="gamesHeading">GAMES</h2>
+  <div class="card stack" id="games"></div>
 
   <h2>FAMILY PHOTOS</h2>
   <div class="card stack">
@@ -165,9 +185,13 @@ const TOKEN = "wonderbox_token";
 const AVATARS = ["🦊", "🐢", "🦁", "🐼", "🐸", "🦄", "🐙", "🐝", "🐧", "🦖", "🐱", "🐶", "🐰", "🚀", "⭐", "🌈"];
 const COLORS = ["#FFD23F", "#FF6B9A", "#3EC1D3", "#7BD389", "#FF9F43", "#A78BFA"];
 let token = localStorage.getItem(TOKEN) || "";
-let library = { children: [], videos: [] };
+let library = { children: [], videos: [], channels: [] };
+// The TV app's game levels (app/.../games/Questions.kt).
+const MATHS_LEVELS = ["Counting to 5", "Adding to 5", "Adding to 10", "Adding and taking away to 10", "Adding and taking away to 20", "2, 5 and 10 times tables"];
+const SPELLING_LEVELS = ["First letter (c_t)", "Middle letter (c_t)", "Missing letter, longer words", "Which is spelt right?", "Spell the whole word"];
+const ROUND_SIZES = [3, 5, 10, 15, 20];
 let selected = localStorage.getItem("wonderbox_child") || "";
-let checked = null; // the video being added: {url, info, children}
+let checked = null; // the video or channel being added: {url, info, children, tier, section}
 let busy = false;
 
 const $ = (id) => document.getElementById(id);
@@ -272,7 +296,7 @@ async function load() {
 }
 
 function setLibrary(data) {
-  library = { children: data.children || [], videos: data.videos || [] };
+  library = { children: data.children || [], videos: data.videos || [], channels: data.channels || [] };
   if (!child(selected)) selected = library.children[0] ? library.children[0].id : "";
   render();
 }
@@ -290,8 +314,13 @@ async function check() {
   $("adding").replaceChildren(el("div", { className: "muted", style: "margin-top:10px", textContent: "Checking it will play on the TV…" }));
   try {
     const info = await api("/api/wonder/videos/check", { url });
-    const existing = library.videos.find((v) => v.youtubeId === info.youtubeId);
-    checked = { url, info, children: existing ? [...existing.children] : selected ? [selected] : [] };
+    const existing = existingFor(info);
+    checked = {
+      url, info,
+      children: existing ? [...existing.children] : selected ? [selected] : [],
+      tier: existing ? existing.tier : "free",
+      section: existing ? existing.section : "videos",
+    };
     renderAdding();
   } catch (e) {
     checked = null;
@@ -302,19 +331,42 @@ async function check() {
   }
 }
 
+/** The video or channel already in the library that [info] (from a check) is. */
+function existingFor(info) {
+  return info.kind === "channel"
+    ? library.channels.find((c) => c.channelId === info.channelId)
+    : library.videos.find((v) => v.youtubeId === info.youtubeId);
+}
+
+/** Buttons for one of a few options; [onPick] gets the option's value. */
+function seg(options, value, onPick) {
+  return el("div", { className: "seg" }, ...options.map(([v, label]) =>
+    el("button", { type: "button", className: v === value ? "on" : "", textContent: label, onclick: () => onPick(v) })));
+}
+
+const TIER_OPTIONS = [["free", "Always there"], ["treat", "⭐ Treat"]];
+const SECTION_OPTIONS = [["videos", "📺 Videos"], ["music", "🎵 Music"]];
+const TIER_HELP = "Treats are locked on the TV until a game is finished; each game won unlocks one treat.";
+
 function renderAdding() {
   if (!checked) return $("adding").replaceChildren();
   const { info } = checked;
-  const already = library.videos.some((v) => v.youtubeId === info.youtubeId);
+  const isChannel = info.kind === "channel";
+  const already = !!existingFor(info);
   $("adding").replaceChildren(el("div", { className: "card stack" },
     el("div", { className: "preview" },
-      el("img", { src: info.thumbnail, alt: "" }),
+      el("img", { src: info.thumbnail, alt: "", className: isChannel ? "round" : "" }),
       el("div", { className: "grow" },
-        el("div", { className: "t", textContent: info.title || "Untitled video" }),
-        el("div", { className: "muted", textContent: info.channel }))),
-    el("div", { className: "muted", textContent: info.checked === "full"
-      ? "✓ Plays on the TV."
-      : "✓ Plays outside YouTube. (Age-restricted videos are only caught with a YouTube API key on the server.)" }),
+        el("div", { className: "t", textContent: info.title || (isChannel ? "Channel" : "Untitled video") }),
+        el("div", { className: "muted", textContent: isChannel ? `Channel · ${info.videoCount} videos for now` : info.channel }))),
+    isChannel
+      ? el("div", { className: "strip" }, ...info.videos.map((v) => el("img", { src: v.thumbnail, alt: v.title, title: v.title, loading: "lazy" })))
+      : "",
+    el("div", { className: "muted", textContent: isChannel
+      ? "Its newest videos are added now, and new ones every few hours. (Shorts are left out.)"
+      : info.checked === "full"
+        ? "✓ Plays on the TV."
+        : "✓ Plays outside YouTube. (Age-restricted videos are only caught with a YouTube API key on the server.)" }),
     el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
     library.children.length
       ? el("div", { className: "kids" }, ...library.children.map((c) => {
@@ -325,10 +377,16 @@ function renderAdding() {
           } }, face(c), c.name);
         }))
       : el("div", { className: "muted", textContent: "Add a child below first." }),
+    seg(SECTION_OPTIONS, checked.section, (v) => { checked.section = v; renderAdding(); }),
+    seg(TIER_OPTIONS, checked.tier, (v) => { checked.tier = v; renderAdding(); }),
+    checked.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
     el("div", { className: "row" },
-      el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : "Add video", onclick: async () => {
-        const data = await edit("/api/wonder/videos/add", { url: checked.url, children: checked.children });
-        if (!data) return;
+      el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : isChannel ? "Add channel" : "Add video", onclick: async (e) => {
+        e.target.disabled = true;
+        e.target.textContent = isChannel ? "Getting its videos…" : "Adding…";
+        const data = await edit(isChannel ? "/api/wonder/channels/add" : "/api/wonder/videos/add",
+          { url: checked.url, children: checked.children, tier: checked.tier, section: checked.section });
+        if (!data) return renderAdding();
         toast(already ? "Saved" : "Added to the TV");
         checked = null;
         $("link").value = "";
@@ -357,24 +415,72 @@ function render() {
   const list = c ? library.videos.filter((v) => v.children.includes(c.id)) : [];
   $("videos").replaceChildren(...(list.length ? list.map((v, i) => el("div", { className: "video" },
     el("img", { src: v.thumbnail, alt: "", loading: "lazy" }),
-    el("div", { className: "grow", onclick: () => whoSheet(v) },
+    el("div", { className: "grow", onclick: () => itemSheet(v, "videos") },
       el("div", { className: "t", textContent: v.title || v.youtubeId }),
-      el("div", { className: "who" }, ...v.children.map(child).filter(Boolean).map((k) => face(k, "span", "")))),
+      badges(v)),
     el("div", { className: "tools" },
       el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => edit("/api/wonder/videos/move", { id: v.id, delta: -1, child: c.id }) }),
       el("button", { className: "ghost", textContent: "↓", disabled: i === list.length - 1, onclick: () => edit("/api/wonder/videos/move", { id: v.id, delta: 1, child: c.id }) }),
-      el("button", { className: "ghost", textContent: "👥", title: "Who it's for", onclick: () => whoSheet(v) }),
-      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeVideo(v, c) })),
+      el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(v, "videos") }),
+      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(v, c, "videos") })),
   )) : [el("div", { className: "empty", textContent: c
     ? `No videos for ${c.name} yet. Paste a YouTube link above.`
     : "Add a child first, then their videos." })]));
+
+  // Channels: one row per channel; the TV shows each as its own row of videos.
+  const channels = c ? library.channels.filter((ch) => ch.children.includes(c.id)) : [];
+  $("channelsHeading").hidden = $("channels").hidden = !channels.length;
+  $("channelsHeading").textContent = c ? `${c.name.toUpperCase()}'S CHANNELS` : "CHANNELS";
+  $("channels").replaceChildren(...channels.map((ch, i) => el("div", { className: "video" },
+    el("img", { src: ch.thumbnail, alt: "", loading: "lazy", className: "round" }),
+    el("div", { className: "grow", onclick: () => itemSheet(ch, "channels") },
+      el("div", { className: "t", textContent: ch.title || ch.channelId }),
+      badges(ch, `${ch.videos.length} videos`)),
+    el("div", { className: "tools" },
+      el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => edit("/api/wonder/channels/move", { id: ch.id, delta: -1 }) }),
+      el("button", { className: "ghost", textContent: "↓", disabled: i === channels.length - 1, onclick: () => edit("/api/wonder/channels/move", { id: ch.id, delta: 1 }) }),
+      el("button", { className: "ghost", textContent: "⚙", title: "Who it's for, treat, music", onclick: () => itemSheet(ch, "channels") }),
+      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(ch, c, "channels") })),
+  )));
+
+  renderGames(c);
   renderAdding();
 }
 
-async function removeVideo(v, c) {
-  const others = v.children.filter((id) => id !== c.id);
-  if (!confirm(others.length ? `Remove "${v.title}" from ${c.name}'s videos?` : `Remove "${v.title}"?`)) return;
-  await edit("/api/wonder/videos/update", { id: v.id, children: others });
+/** Who it's for, and whether it's a treat or music. */
+function badges(item, extra) {
+  return el("div", { className: "badges" },
+    ...item.children.map(child).filter(Boolean).map((k) => face(k, "span", "face-mini")),
+    ...(item.tier === "treat" ? [el("span", { className: "badge treat", textContent: "⭐ Treat" })] : []),
+    ...(item.section === "music" ? [el("span", { className: "badge music", textContent: "🎵 Music" })] : []),
+    ...(extra ? [el("span", { className: "badge", textContent: extra })] : []));
+}
+
+/** A child's game levels, saved as soon as they're changed. */
+function renderGames(c) {
+  $("gamesHeading").hidden = $("games").hidden = !c;
+  if (!c) return;
+  $("gamesHeading").textContent = `${c.name.toUpperCase()}'S GAMES`;
+  const g = c.games || { maths: 1, spelling: 1, roundSize: 10 };
+  const save = (change) => edit("/api/wonder/children/games", { id: c.id, ...g, ...change }).then((d) => d && toast("Saved"));
+  const select = (options, value, onChange) => {
+    const s = el("select", { onchange: () => onChange(Number(s.value)) }, ...options.map(([v, label]) => el("option", { value: v, textContent: label, selected: v === value })));
+    return s;
+  };
+  const hasTreats = library.videos.concat(library.channels).some((i) => i.tier === "treat" && i.children.includes(c.id));
+  $("games").replaceChildren(
+    el("label", { className: "field" }, "🔢 Maths", select(MATHS_LEVELS.map((n, i) => [i + 1, `${i + 1}. ${n}`]), g.maths, (v) => save({ maths: v }))),
+    el("label", { className: "field" }, "🔤 Spelling", select(SPELLING_LEVELS.map((n, i) => [i + 1, `${i + 1}. ${n}`]), g.spelling, (v) => save({ spelling: v }))),
+    el("label", { className: "field" }, "Right answers to win a treat", select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize, (v) => save({ roundSize: v }))),
+    el("div", { className: "muted", textContent: hasTreats
+      ? TIER_HELP
+      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }));
+}
+
+async function removeItem(item, c, kind) {
+  const others = item.children.filter((id) => id !== c.id);
+  if (!confirm(others.length ? `Remove "${item.title}" from ${c.name}'s ${kind}?` : `Remove "${item.title}"?`)) return;
+  await edit(`/api/wonder/${kind}/update`, { id: item.id, children: others });
 }
 
 function closeSheet() { $("sheet").hidden = true; $("sheet").replaceChildren(); }
@@ -419,25 +525,38 @@ function childSheet(c) {
   if (!c) setTimeout(() => name.focus(), 50);
 }
 
-/** Who a video is for. */
-function whoSheet(v) {
-  let kids = [...v.children];
+/** A video or channel ([kind] "videos" or "channels"): who it's for, treat or not, music or not. */
+function itemSheet(item, kind) {
+  const draft = { children: [...item.children], tier: item.tier || "free", section: item.section || "videos" };
+  const isChannel = kind === "channels";
   const draw = () => openSheet(
     el("div", { className: "preview" },
-      el("img", { src: v.thumbnail, alt: "" }),
-      el("div", { className: "grow" }, el("div", { className: "t", textContent: v.title }), el("div", { className: "muted", textContent: v.channel }))),
+      el("img", { src: item.thumbnail, alt: "", className: isChannel ? "round" : "" }),
+      el("div", { className: "grow" },
+        el("div", { className: "t", textContent: item.title }),
+        el("div", { className: "muted", textContent: isChannel ? `Channel · ${item.videos.length} videos` : item.channel }))),
     el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
     el("div", { className: "kids" }, ...library.children.map((c) => {
-      const on = kids.includes(c.id);
+      const on = draft.children.includes(c.id);
       return el("button", { className: "kid" + (on ? " on" : ""), onclick: () => {
-        kids = on ? kids.filter((id) => id !== c.id) : [...kids, c.id];
+        draft.children = on ? draft.children.filter((id) => id !== c.id) : [...draft.children, c.id];
         draw();
       } }, face(c), c.name);
     })),
-    el("button", { textContent: kids.length ? "Save" : "Remove video", onclick: async () => {
-      await edit("/api/wonder/videos/update", { id: v.id, children: kids });
+    seg(SECTION_OPTIONS, draft.section, (v) => { draft.section = v; draw(); }),
+    seg(TIER_OPTIONS, draft.tier, (v) => { draft.tier = v; draw(); }),
+    draft.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
+    el("button", { textContent: draft.children.length ? "Save" : isChannel ? "Remove channel" : "Remove video", onclick: async () => {
+      await edit(`/api/wonder/${kind}/update`, { id: item.id, ...draft });
       closeSheet();
     } }),
+    ...(isChannel ? [el("button", { className: "ghost", textContent: "Get its newest videos now", onclick: async (e) => {
+      e.target.disabled = true;
+      e.target.textContent = "Getting them…";
+      const data = await edit("/api/wonder/channels/refresh", { id: item.id });
+      if (data) toast("Up to date");
+      closeSheet();
+    } })] : []),
     el("button", { className: "ghost", textContent: "Cancel", onclick: closeSheet }));
   draw();
 }

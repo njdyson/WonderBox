@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -40,7 +41,6 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -172,34 +172,39 @@ private fun photoRequest(context: Context, app: AppState, photo: Photo, crossfad
 
 /**
  * "Photos": a row of thumbnails, newest first, for a child's screen. OK on one opens the
- * slideshow there ([onOpen] gets its index). Shows nothing until there are photos.
+ * slideshow there ([onOpen] gets its index). [onFocus] gets the focused photo's ID, and
+ * [focusModifier] goes on the photo [focusedId], so focus can come back to it.
+ * Shows nothing until there are photos.
  */
 @Composable
 fun PhotosRow(
     app: AppState,
     onOpen: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    firstModifier: Modifier = Modifier,
-    edge: Dp = 48.dp,
+    onFocus: (String) -> Unit = {},
+    focusedId: String? = null,
+    focusModifier: Modifier = Modifier,
 ) {
     val photos = app.photos
     if (photos.isEmpty()) return
-    Column(modifier) {
+    Column {
         Text(
             "📷 Photos",
             color = Color.White,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = edge, end = edge, top = 6.dp),
+            modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 6.dp),
         )
         LazyRow(
-            contentPadding = PaddingValues(start = edge, end = edge, top = 10.dp, bottom = 10.dp),
+            contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 10.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(26.dp),
         ) {
             itemsIndexed(photos, key = { _, p -> p.id }) { i, photo ->
                 Surface(
                     onClick = { onOpen(i) },
-                    modifier = (if (i == 0) firstModifier else Modifier).width(256.dp).aspectRatio(16f / 9f),
+                    modifier = (if (photo.id == focusedId) focusModifier else Modifier)
+                        .width(256.dp)
+                        .aspectRatio(16f / 9f)
+                        .onFocusChanged { if (it.isFocused) onFocus(photo.id) },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Deep, focusedContainerColor = Deep),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),

@@ -13,7 +13,21 @@ import java.net.URLEncoder
 
 /** A child, picked by their avatar when the app opens. */
 @Serializable
-data class Child(val id: String, val name: String, val avatar: String = "", val color: String = "#FFD23F")
+data class Child(
+    val id: String,
+    val name: String,
+    val avatar: String = "",
+    val color: String = "#FFD23F",
+    val games: GameSettings = GameSettings(),
+)
+
+/** How hard a child's games are (set in the phone app), and how many right answers earn a treat. */
+@Serializable
+data class GameSettings(val maths: Int = 1, val spelling: Int = 1, val roundSize: Int = 10)
+
+/** "free" videos are always there; "treat" ones are unlocked by finishing a game. */
+const val TREAT = "treat"
+const val MUSIC = "music"
 
 /** A YouTube video the parent chose, for one or more children. */
 @Serializable
@@ -24,12 +38,68 @@ data class Video(
     val channel: String = "",
     val thumbnail: String = "",
     val children: List<String> = emptyList(),
+    val tier: String = "free",
+    /** "music" for the Music row, otherwise "videos". */
+    val section: String = "videos",
+) {
+    val isTreat get() = tier == TREAT
+    val isMusic get() = section == MUSIC
+}
+
+/** A whole YouTube channel; the server keeps its latest videos up to date. */
+@Serializable
+data class Channel(
+    val id: String,
+    val channelId: String = "",
+    val title: String = "",
+    val thumbnail: String = "",
+    val children: List<String> = emptyList(),
+    val tier: String = "free",
+    val section: String = "videos",
+    val videos: List<ChannelVideo> = emptyList(),
 )
+
+@Serializable
+data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "")
+
+/** A row of videos on a child's screen: their own videos, or one channel's. */
+data class Shelf(val key: String, val title: String, val treat: Boolean, val videos: List<Video>, val picture: String = "")
 
 /** Everything the TV shows, as the server sends it (GET /api/wonder/library). */
 @Serializable
-data class Library(val children: List<Child> = emptyList(), val videos: List<Video> = emptyList()) {
+data class Library(
+    val children: List<Child> = emptyList(),
+    val videos: List<Video> = emptyList(),
+    val channels: List<Channel> = emptyList(),
+) {
     fun videosFor(childId: String) = videos.filter { childId in it.children }
+
+    /**
+     * A child's rows, always-there ones first: their own videos, their music, then each
+     * channel, then the same again for treats. Empty rows are left out.
+     */
+    fun shelvesFor(childId: String): List<Shelf> {
+        val mine = videosFor(childId)
+        val channels = channels.filter { childId in it.children }
+        fun shelves(treat: Boolean): List<Shelf> {
+            val own = mine.filter { it.isTreat == treat }
+            val ownShelf = Shelf(if (treat) "treats" else "videos", if (treat) "Treats" else "My videos", treat, own.filter { !it.isMusic })
+            val musicShelf = Shelf(if (treat) "treat-music" else "music", if (treat) "Music treats" else "Music", treat, own.filter { it.isMusic })
+            val channelShelves = channels.filter { (it.tier == TREAT) == treat }.map { ch ->
+                Shelf(
+                    "channel/${ch.id}",
+                    ch.title.ifBlank { "Channel" },
+                    treat,
+                    ch.videos.map { v ->
+                        Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section)
+                    },
+                    ch.thumbnail,
+                )
+            }
+            return (listOf(ownShelf, musicShelf) + channelShelves).filter { it.videos.isNotEmpty() }
+        }
+        return shelves(treat = false) + shelves(treat = true)
+    }
 }
 
 /** A family photo, shown to everyone in the slideshow. [image] and [thumb] are paths on the server. */
