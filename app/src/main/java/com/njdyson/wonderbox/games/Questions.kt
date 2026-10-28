@@ -22,6 +22,8 @@ data class Question(
     val answerIndex: Int = -1,
     /** What kind of question it is, for the activity log: "add", "first", "quiz"... */
     val kind: String = "",
+    /** What it's about ("van", "3 + 2", "count 4"): a round avoids asking the same one again soon. */
+    val topic: String = prompt.ifBlank { spoken },
 ) {
     fun isRight(choice: Int) = if (answerIndex >= 0) choice == answerIndex else choices.getOrNull(choice) == answer
 
@@ -74,7 +76,7 @@ internal object MathsQuestions {
         return when (type) {
             "count" -> {
                 val n = random.nextInt(1, minOf(max, 10) + 1)
-                Question("How many?", "How many can you count?", choices(n, count, 1..maxOf(n + 3, 6), random), "$n", thing.repeat(n), kind = type)
+                Question("How many?", "How many can you count?", choices(n, count, 1..maxOf(n + 3, 6), random), "$n", thing.repeat(n), kind = type, topic = "count $n")
             }
             "add" -> {
                 val a = random.nextInt(1, max)
@@ -96,7 +98,7 @@ internal object MathsQuestions {
             }
             "bigger" -> {
                 val numbers = (0..max).shuffled(random).take(count)
-                Question("", "Which number is the biggest?", numbers.map { "$it" }, "${numbers.max()}", kind = type)
+                Question("", "Which number is the biggest?", numbers.map { "$it" }, "${numbers.max()}", kind = type, topic = "biggest ${numbers.sorted()}")
             }
             else -> {
                 val table = setup.tables.filter { it in 1..12 }.ifEmpty { listOf(2) }.random(random)
@@ -157,13 +159,13 @@ internal object SpellingQuestions {
             "missing" -> missing(word, if (word.length == 3) 1 else random.nextInt(1, word.length), picture, count, random, "Which letter is missing from $word?", type)
             "pick" -> {
                 val wrong = misspellings(word, random).take(count - 1)
-                Question("", "Which one spells $word?", (wrong + word).shuffled(random), word, picture, kind = type)
+                Question("", "Which one spells $word?", (wrong + word).shuffled(random), word, picture, kind = type, topic = word)
             }
             else -> {
                 var letters = word.map { "$it" }.shuffled(random)
                 // Never already in order: that's no puzzle (unless every letter is the same).
                 while (letters.joinToString("") == word && word.toSet().size > 1) letters = letters.shuffled(random)
-                Question(word.map { "_" }.joinToString(""), "Spell $word", letters, word, picture, build = true, kind = "build")
+                Question(word.map { "_" }.joinToString(""), "Spell $word", letters, word, picture, build = true, kind = "build", topic = word)
             }
         }
     }
@@ -176,7 +178,7 @@ internal object SpellingQuestions {
         val pool = if (letter in VOWELS) VOWELS else CONSONANTS
         val others = pool.filter { it != letter }.toList().shuffled(random).take(count - 1)
         val prompt = word.substring(0, index) + "_" + word.substring(index + 1)
-        return Question(prompt, "$spoken $word.", (others + letter).shuffled(random).map { "$it" }, "$letter", picture, kind = kind)
+        return Question(prompt, "$spoken $word.", (others + letter).shuffled(random).map { "$it" }, "$letter", picture, kind = kind, topic = word)
     }
 
     /** Believable wrong spellings of [word], all different, none of them [word]. */

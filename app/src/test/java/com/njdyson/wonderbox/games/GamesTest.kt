@@ -44,4 +44,30 @@ class GamesTest {
         assertEquals(0, round.level)
         repeat(20) { assertEquals("7", round.next().prompt.split(" ")[2]) }
     }
+
+    @Test
+    fun aRoundDoesNotRepeatItself() {
+        // Level 1 spelling has 18 words: ten in a row are all different, round after round.
+        val child = Child("jesse", "Jesse", games = GameSettings(spelling = 1, roundSize = 10))
+        val entry = Library().gamesFor(child).first { it.key == "spelling" }
+        repeat(5) { r ->
+            val round = entry.newRound(child, Random(r))
+            val words = List(10) { round.next().topic }
+            assertEquals(words.toString(), 10, words.toSet().size)
+        }
+    }
+
+    @Test
+    fun withFewToChooseFromItTakesTurns() {
+        val words = listOf(MyWord("said"), MyWord("was"), MyWord("the"))
+        val child = Child("sam", "Sam", games = GameSettings(spellingSetup = SpellingSetup(types = listOf("first"), lists = listOf("mine"), myWords = words)))
+        val round = Library().gamesFor(child).first { it.key == "spelling" }.newRound(child, Random(3))
+        val asked = List(12) { round.next().topic }
+        asked.windowed(3).forEach { assertEquals(asked.toString(), 3, it.toSet().size) }
+        // Counting to 5: five different numbers before any comes back.
+        val counter = Child("c", "C", games = GameSettings(maths = 1))
+        val counting = Library().gamesFor(counter).first().newRound(counter, Random(4))
+        val counts = List(15) { counting.next().answer }
+        counts.windowed(5).forEach { assertEquals(counts.toString(), 5, it.toSet().size) }
+    }
 }
