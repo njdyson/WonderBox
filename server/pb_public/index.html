@@ -22,7 +22,7 @@
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    padding: 0 16px calc(48px + env(safe-area-inset-bottom));
+    padding: 0 16px calc(96px + env(safe-area-inset-bottom));
   }
   header {
     position: sticky; top: 0; z-index: 2; background: var(--bg);
@@ -91,8 +91,21 @@
 
   .tv { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
   .tv:first-child { border-top: 0; }
-  footer { margin-top: 24px; font-size: 13px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
-  footer a { color: var(--yellow); }
+  .tv .face { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; flex: none; }
+
+  /* The tab bar along the bottom, like a phone app's */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; gap: 2px;
+    background: var(--deep); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px rgba(0,0,0,.25);
+  }
+  .tabbar button {
+    flex: 1; min-width: 0; display: grid; justify-items: center; gap: 1px; padding: 6px 2px;
+    background: transparent; color: var(--muted); font-size: 12px; font-weight: 700;
+  }
+  .tabbar button span { font-size: 22px; line-height: 1.1; filter: grayscale(.6); opacity: .8; }
+  .tabbar button.on { background: rgba(255,255,255,.14); color: var(--text); }
+  .tabbar button.on span { filter: none; opacity: 1; }
 
   /* Family photos: square thumbnails, three across */
   .photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
@@ -114,7 +127,7 @@
   .swatches button { width: 36px; height: 36px; border-radius: 50%; padding: 0; }
   .swatches button.on { outline: 3px solid #fff; outline-offset: 2px; }
   .toast {
-    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); transform: translateX(-50%);
     background: #fff; color: var(--deep); font-weight: 700; padding: 10px 16px; border-radius: 999px;
     z-index: 20; box-shadow: 0 6px 20px rgba(0,0,0,.35); max-width: calc(100% - 32px); text-align: center;
   }
@@ -134,46 +147,73 @@
   </form>
 </section>
 
-<!-- Signed in -->
+<!-- Signed in: one tab at a time, picked from the bar at the bottom -->
 <section id="mainView" hidden>
   <div id="pairCard"></div>
 
-  <h2>ADD A VIDEO, SONG, CHANNEL OR PLAYLIST</h2>
-  <form class="row" id="addForm">
-    <input type="text" id="link" class="grow" placeholder="Search YouTube, or paste a link" autocomplete="off" autocapitalize="off" enterkeyhint="search">
-    <button id="checkBtn">Search</button>
-  </form>
-  <div id="adding"></div>
+  <section class="tab" id="videosTab" data-tab="videos">
+    <h2>ADD A VIDEO, SONG, CHANNEL OR PLAYLIST</h2>
+    <form class="row" id="addForm">
+      <input type="text" id="link" class="grow" placeholder="Search YouTube, or paste a link" autocomplete="off" autocapitalize="off" enterkeyhint="search">
+      <button id="checkBtn">Search</button>
+    </form>
+    <div id="adding"></div>
 
-  <h2>CHILDREN</h2>
-  <div class="kids" id="kids"></div>
+    <h2>WHOSE VIDEOS</h2>
+    <div class="kids kid-pick"></div>
 
-  <h2 id="channelsHeading" hidden>CHANNELS</h2>
-  <div class="card" id="channels" hidden></div>
+    <h2 id="channelsHeading" hidden>CHANNELS</h2>
+    <div class="card" id="channels" hidden></div>
 
-  <h2 id="videosHeading">VIDEOS</h2>
-  <div class="card" id="videos"></div>
+    <h2 id="videosHeading">VIDEOS</h2>
+    <div class="card" id="videos"></div>
+  </section>
 
-  <h2 id="gamesHeading">GAMES</h2>
-  <div class="card stack" id="games"></div>
+  <section class="tab" id="gamesTab" data-tab="games" hidden>
+    <h2>WHOSE GAMES</h2>
+    <div class="kids kid-pick"></div>
+    <div class="card empty" id="gamesEmpty" hidden>Add a child in Family first, then choose their games here.</div>
 
-  <h2>FAMILY PHOTOS</h2>
-  <div class="card stack">
-    <button type="button" id="addPhotosBtn">Add photos</button>
-    <input type="file" id="photoFiles" accept="image/*" multiple hidden>
-    <div class="muted" id="photosNote">Everyone can look through these on the TV. Photos are made smaller before they're sent, to save space.</div>
-    <div class="photos" id="photos"></div>
-  </div>
-  <h2>STATS</h2>
-  <div id="stats"></div>
+    <h2 id="gamesHeading">GAMES</h2>
+    <div class="card stack" id="games"></div>
+  </section>
 
-  <h2>YOUR TVS</h2>
-  <div class="card" id="tvs"></div>
+  <section class="tab" id="photosTab" data-tab="photos" hidden>
+    <h2>FAMILY PHOTOS</h2>
+    <div class="card stack">
+      <button type="button" id="addPhotosBtn">Add photos</button>
+      <input type="file" id="photoFiles" accept="image/*" multiple hidden>
+      <div class="muted" id="photosNote">Everyone can look through these on the TV. Photos are made smaller before they're sent, to save space.</div>
+      <div class="photos" id="photos"></div>
+    </div>
+  </section>
 
-  <footer>
-    <span id="who"></span>
-    <a href="#" id="signOut">Sign out</a>
-  </footer>
+  <section class="tab" id="statsTab" data-tab="stats" hidden>
+    <h2>STATS</h2>
+    <div id="stats"></div>
+  </section>
+
+  <section class="tab" id="familyTab" data-tab="family" hidden>
+    <h2>CHILDREN</h2>
+    <div class="card" id="family"></div>
+
+    <h2>YOUR TVS</h2>
+    <div class="card" id="tvs"></div>
+
+    <h2>YOU</h2>
+    <div class="card row">
+      <span class="grow" id="who"></span>
+      <button class="ghost small" id="signOut">Sign out</button>
+    </div>
+  </section>
+
+  <nav class="tabbar" id="tabbar">
+    <button type="button" data-tab="videos"><span>📺</span>Videos</button>
+    <button type="button" data-tab="games"><span>🎮</span>Games</button>
+    <button type="button" data-tab="photos"><span>🖼️</span>Photos</button>
+    <button type="button" data-tab="stats"><span>📊</span>Stats</button>
+    <button type="button" data-tab="family"><span>👪</span>Family</button>
+  </nav>
 </section>
 
 <div id="error"></div>
@@ -278,6 +318,7 @@ $("signOut").onclick = (e) => { e.preventDefault(); signedOut(); };
 async function start(user) {
   $("loginView").hidden = true;
   $("mainView").hidden = false;
+  showTab(tab);
   $("who").textContent = user.email;
   await load();
   showPairing();
@@ -430,7 +471,7 @@ function renderAdding() {
             renderAdding();
           } }, face(c), c.name);
         }))
-      : el("div", { className: "muted", textContent: "Add a child below first." }),
+      : el("div", { className: "muted", textContent: "Add a child in Family first." }),
     seg(SECTION_OPTIONS, checked.section, (v) => { checked.section = v; renderAdding(); }),
     seg(TIER_OPTIONS, checked.tier, (v) => { checked.tier = v; renderAdding(); }),
     checked.tier === "treat" ? el("div", { className: "muted", textContent: TIER_HELP }) : "",
@@ -452,7 +493,8 @@ function renderAdding() {
 // --- Children and their videos ---------------------------------------------
 
 function render() {
-  $("kids").replaceChildren(
+  // The Videos and Games tabs each pick a child; it's the same choice in both.
+  for (const pick of document.querySelectorAll(".kid-pick")) pick.replaceChildren(
     ...library.children.map((c) => el("button", {
       className: "kid" + (c.id === selected ? " on" : ""),
       onclick: () => {
@@ -462,7 +504,8 @@ function render() {
         render();
       },
     }, face(c), c.name)),
-    el("button", { className: "kid add ghost", textContent: "+ Add a child", onclick: () => childSheet(null) }));
+    // Adding and changing children lives in Family; this is a shortcut until there's one.
+    ...(library.children.length ? [] : [el("button", { className: "kid add ghost", textContent: "+ Add a child", onclick: () => childSheet(null) })]));
 
   const c = child(selected);
   $("videosHeading").textContent = c ? `${c.name.toUpperCase()}'S VIDEOS` : "VIDEOS";
@@ -479,7 +522,7 @@ function render() {
       el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeItem(v, c, "videos") })),
   )) : [el("div", { className: "empty", textContent: c
     ? `No videos for ${c.name} yet. Search for some above, or paste a YouTube link.`
-    : "Add a child first, then their videos." })]));
+    : "Add a child in Family first, then their videos." })]));
 
   // Channels and playlists: the TV shows each as its own row of videos.
   const channels = c ? library.channels.filter((ch) => ch.children.includes(c.id)) : [];
@@ -498,8 +541,55 @@ function render() {
   )));
 
   renderGames(c);
+  $("gamesEmpty").hidden = !!c;
+  renderFamily();
   renderAdding();
 }
+
+/** The Family tab's list of children, each with a button to change them. */
+function renderFamily() {
+  $("family").replaceChildren(
+    ...library.children.map((c) => el("div", { className: "tv" },
+      face(c),
+      el("div", { className: "grow" },
+        el("div", { style: "font-weight:700", textContent: c.name }),
+        el("div", { className: "muted", textContent: familyNote(c) })),
+      el("button", { className: "ghost small", textContent: "Change", onclick: () => childSheet(c) }))),
+    ...(library.children.length ? [] : [el("div", { className: "muted", textContent: "No children yet. Add one, then choose their videos and games." })]),
+    el("button", { className: "ghost", style: "width:100%;margin-top:10px", textContent: "+ Add a child", onclick: () => childSheet(null) }));
+}
+
+/** "12 videos · 2 channels" for a child. */
+function familyNote(c) {
+  const count = (list, one) => {
+    const n = list.filter((i) => i.children.includes(c.id)).length;
+    return n ? `${n} ${one}${n === 1 ? "" : "s"}` : "";
+  };
+  return [count(library.videos, "video"), count(library.channels, "channel")].filter(Boolean).join(" · ") || "Nothing to watch yet";
+}
+
+// --- Tabs -------------------------------------------------------------------
+
+const TABS = ["videos", "games", "photos", "stats", "family"];
+let tab = TABS.includes(localStorage.getItem("wonderbox_tab")) ? localStorage.getItem("wonderbox_tab") : "videos";
+
+function showTab(name) {
+  const changed = name !== tab;
+  tab = name;
+  localStorage.setItem("wonderbox_tab", tab);
+  for (const section of document.querySelectorAll("#mainView .tab")) section.hidden = section.dataset.tab !== tab;
+  for (const button of $("tabbar").children) button.classList.toggle("on", button.dataset.tab === tab);
+  if (changed) window.scrollTo(0, 0);
+}
+
+$("tabbar").onclick = (e) => {
+  const button = e.target.closest("button");
+  if (!button) return;
+  showTab(button.dataset.tab);
+  // Fresh numbers and TVs each time those tabs are opened.
+  if (tab === "stats") loadStats();
+  if (tab === "family") loadTvs();
+};
 
 /** Who it's for, and whether it's a treat or music. */
 function badges(item, extra) {
