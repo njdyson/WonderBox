@@ -14,3 +14,11 @@ routerAdd("GET", "/api/wonder/speech", (e) => {
   e.response.header().set("Cache-Control", "private, max-age=31536000, immutable")
   return e.blob(200, "audio/wav", $os.readFile(file))
 })
+
+// GET /api/wonder/voice: whether the server's voice is set up, and if not, why. Open to
+// anyone (it says nothing private), so it can be checked in a browser after installing.
+routerAdd("GET", "/api/wonder/voice", (e) => {
+  const speech = require(`${__hooks}/speech_lib.js`)
+  const problem = speech.problem()
+  return e.json(200, { voice: !problem, problem })
+})

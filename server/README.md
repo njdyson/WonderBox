@@ -85,6 +85,11 @@ fails. Without Piper (`VOICE=0`, or a server it can't run on) the TVs use their 
 The TV's Grown-ups screen shows which voice it's using, with a "Test the voice" button.
 Piper is found through `PIPER_BIN` and `PIPER_VOICE`, set in the systemd service.
 
+To switch it on, run the step 4 install task again (after Plesk has deployed the latest
+code). Its output ends with "The server's voice works." or says why Piper didn't run. Then
+https://wonder.psybob.uk/api/wonder/voice should say `"voice": true`; if it doesn't, its
+`problem` says what's missing.
+
 ## Setting it up on the Plesk server
 
 Same as BlockbusterTV, with its own subdomain, folder, port (8096) and service (`wonderbox`).
