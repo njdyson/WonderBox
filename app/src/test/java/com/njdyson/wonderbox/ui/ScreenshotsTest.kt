@@ -112,10 +112,57 @@ class ScreenshotsTest {
         shoot("profiles")
     }
 
+    @Test fun home() {
+        val app = app(withPhotos = true)
+        compose.setContent { WonderBoxTheme { HomeScreen(app, summer, {}) } }
+        shoot("home-summer")
+    }
+
+    // Just won a treat: a Treats tile appears first, and focus lands on it.
+    @Test fun homeWithTreat() {
+        val app = app(withPhotos = true)
+        app.earnTreat(summer.id)
+        compose.setContent { WonderBoxTheme { HomeScreen(app, summer, {}) } }
+        shoot("home-summer-treat")
+    }
+
+    @Test fun quizzes() {
+        val app = app(withPhotos = true)
+        val games = app.library.gamesFor(summer, photos = true).filter { it.isQuiz }
+        compose.setContent { WonderBoxTheme { GamesScreen(app, summer, "Quizzes", games, {}) } }
+        shoot("quizzes-summer")
+    }
+
+    @Test fun games() {
+        val app = app(withPhotos = true)
+        val games = app.library.gamesFor(summer, photos = true).filter { !it.isQuiz }
+        compose.setContent { WonderBoxTheme { GamesScreen(app, summer, "Games", games, {}) } }
+        shoot("games-summer")
+    }
+
     @Test fun videos() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}, {}, {}) } }
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Videos", app.library.videoShelvesFor(summer.id), {}) } }
         shoot("videos-summer")
+    }
+
+    @Test fun music() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Music", app.library.musicShelvesFor(summer.id), {}) } }
+        shoot("music-summer")
+    }
+
+    @Test fun treats() {
+        val app = app()
+        app.earnTreat(summer.id)
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Pick a treat!", app.library.treatShelvesFor(summer.id), {}, picking = true) } }
+        shoot("treats-summer")
+    }
+
+    @Test fun photoGrid() {
+        val app = app(withPhotos = true)
+        compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, {}) } }
+        shoot("photos-summer")
     }
 
     private fun game(child: Child, key: String, name: String) {
@@ -134,12 +181,6 @@ class ScreenshotsTest {
     @Test fun quizPictures() = game(summer, "quiz/q1", "game-quiz-pictures")
 
     @Test fun quizWords() = game(summer, "quiz/q2", "game-quiz-words")
-
-    @Test fun videosWithJigsaw() {
-        val app = app(withPhotos = true)
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}, {}, {}) } }
-        shoot("videos-jigsaw-tile")
-    }
 
     // Jesse has one photo of his own; Summer's five don't show here.
     @Test fun jigsawPickPhotoJesse() {
@@ -307,9 +348,10 @@ class ScreenshotsTest {
         shoot("gate")
     }
 
-    @Test fun videosJesse() {
+    // Jesse has no photos and no quizzes of his own beyond the shared one.
+    @Test fun homeJesse() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, jesse, {}, {}, {}) } }
-        shoot("videos-jesse")
+        compose.setContent { WonderBoxTheme { HomeScreen(app, jesse, {}) } }
+        shoot("home-jesse")
     }
 }

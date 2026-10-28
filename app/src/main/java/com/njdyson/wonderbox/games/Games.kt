@@ -23,6 +23,9 @@ data class GameEntry(
     val game: Game? = null,
     val quiz: Quiz? = null,
 ) {
+    /** Rounds of questions (maths, spelling, a parent's quiz) go under Quizzes; the rest, like the jigsaw, under Games. */
+    val isQuiz get() = game != null || quiz != null
+
     /** A new round to play: [Round.goal] right answers wins it. */
     fun newRound(child: Child, random: Random = Random): Round {
         quiz?.let { return quizRound(it, random) }
