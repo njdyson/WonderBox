@@ -21,7 +21,10 @@ import coil.request.ImageResult
 import coil.request.SuccessResult
 import com.njdyson.wonderbox.data.Photo
 import com.njdyson.wonderbox.data.Photos
+import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.Jigsaw
+import com.njdyson.wonderbox.games.Memory
+import com.njdyson.wonderbox.games.MemorySetup
 import kotlin.random.Random
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -247,12 +250,50 @@ class ScreenshotsTest {
         shoot("jigsaw-done")
     }
 
-    /** The arrows from one place to another on a 3 x 3 jigsaw. */
-    private fun walk(from: Int, to: Int): List<Key> = buildList {
-        repeat(to % 3 - from % 3) { add(Key.DirectionRight) }
-        repeat(from % 3 - to % 3) { add(Key.DirectionLeft) }
-        repeat(to / 3 - from / 3) { add(Key.DirectionDown) }
-        repeat(from / 3 - to / 3) { add(Key.DirectionUp) }
+    @Test fun hangman() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { HangmanScreen(app, jesse, true, {}, {}, {}, random = Random(4), startGuesses = "aei") } }
+        settle()
+        compose.mainClock.advanceTimeBy(600)
+        shoot("hangman")
+    }
+
+    @Test fun hangmanAllLetters() {
+        val app = app()
+        val child = jesse.copy(games = GameSettings(hangman = HangmanSetup(lists = listOf("long"), letters = 26, balloons = 8, say = false)))
+        compose.setContent { WonderBoxTheme { HangmanScreen(app, child, true, {}, {}, {}, random = Random(2), startGuesses = "est") } }
+        settle()
+        compose.mainClock.advanceTimeBy(600)
+        shoot("hangman-all-letters")
+    }
+
+    @Test fun memory() = memory(summer, 6, "memory")
+
+    @Test fun memoryPhotos() = memory(
+        summer.copy(games = summer.games.copy(memory = MemorySetup(pairs = 8, pictures = "both"))),
+        8, "memory-photos", withPhotos = true,
+    )
+
+    /** Pairs with one pair found and another card turned over. */
+    private fun memory(child: Child, seed: Int, name: String, withPhotos: Boolean = false) {
+        val app = app(withPhotos)
+        // The same deal as the screen's, to know where a pair is.
+        val faces = deal(ApplicationProvider.getApplicationContext(), child.games.memory, app.photosFor(child.id), Random(seed)).faces
+        compose.setContent { WonderBoxTheme { MemoryScreen(app, child, true, {}, {}, {}, random = Random(seed)) } }
+        settle()
+        val columns = Memory.columns(faces.size)
+        val twin = faces.lastIndexOf(faces[0])
+        val other = (1 until faces.size).first { it != twin }
+        press(listOf(Key.DirectionCenter) + walk(0, twin, columns) + Key.DirectionCenter + walk(twin, other, columns) + Key.DirectionCenter)
+        shoot(name)
+    }
+
+    /** The arrows from one place to another on a grid [columns] wide (a 3 x 3 jigsaw). */
+    private fun walk(from: Int, to: Int, columns: Int = 3): List<Key> = buildList {
+        repeat(to % columns - from % columns) { add(Key.DirectionRight) }
+        repeat(from % columns - to % columns) { add(Key.DirectionLeft) }
+        repeat(to / columns - from / columns) { add(Key.DirectionDown) }
+        repeat(from / columns - to / columns) { add(Key.DirectionUp) }
     }
 
     @OptIn(ExperimentalTestApi::class)

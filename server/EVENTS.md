@@ -49,7 +49,11 @@ about it.
 | `quiz.finish` | game id | score (number right) | `total`, `wrong`, `seconds`, `level`, `title` (quizzes) | A round ends. |
 | `jigsaw.start` | photo id | | `size` (pieces along each side) | A photo jigsaw starts. |
 | `jigsaw.finish` | photo id | number of pieces | `size`, `moves` (swaps), `seconds` | A photo jigsaw is finished. |
-| `reward.earn` | `treat` | | `reason` (`quiz.finish` or `jigsaw.finish`), `game` (`jigsaw` for jigsaws) | A finished game round or jigsaw wins a treat to pick (only the games the parent chose). |
+| `hangman.word` | the word | 1 found, 0 out of balloons | `wrong` (letters), `balloons`, `letters` (to pick from), `said` (word read out) | One hangman word is over. |
+| `hangman.finish` | `hangman` | words found | `missed` (words the balloons ran out on), `seconds` | A game of hangman is finished. |
+| `memory.start` | `memory` | | `pairs`, `pictures` (`clipart`, `photos` or `both`) | A game of memory pairs starts. |
+| `memory.finish` | `memory` | pairs | `pairs`, `flips` (cards turned), `pictures`, `seconds` | Every pair is found. |
+| `reward.earn` | `treat` | | `reason` (`quiz.finish`, `jigsaw.finish`, `hangman.finish` or `memory.finish`), `game` (`jigsaw`, `hangman`, `memory`, or the round's game) | A finished game round, jigsaw, hangman or pairs wins a treat to pick (only the games the parent chose). |
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked from the treats screen. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 
