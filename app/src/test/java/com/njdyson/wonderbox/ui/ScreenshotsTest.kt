@@ -115,12 +115,20 @@ class ScreenshotsTest {
         shoot("home-summer")
     }
 
-    // Just won a treat: a Treats tile appears first, and focus lands on it.
-    @Test fun homeWithTreat() {
+    // Two treats saved up: the Treats tile, last, counts them.
+    @Test fun homeWithSavedTreats() {
         val app = app(withPhotos = true)
-        app.earnTreat(summer.id)
+        saveTwo(app)
         compose.setContent { WonderBoxTheme { HomeScreen(app, summer, {}) } }
-        shoot("home-summer-treat")
+        shoot("home-summer-treats")
+    }
+
+    /** Wins three treats and saves two of them. */
+    private fun saveTwo(app: AppState) {
+        repeat(3) { app.earnTreat(summer.id) }
+        val treats = app.library.treatShelvesFor(summer.id).flatMap { it.videos }
+        app.saveTreat(summer.id, treats[0])
+        app.saveTreat(summer.id, treats[1])
     }
 
     @Test fun quizzes() {
@@ -149,10 +157,21 @@ class ScreenshotsTest {
         shoot("music-summer")
     }
 
-    @Test fun treats() {
+    // Straight after winning: pick one to save.
+    @Test fun pickTreat() {
         val app = app()
         app.earnTreat(summer.id)
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Pick a treat!", app.library.treatShelvesFor(summer.id), {}, picking = true) } }
+        compose.setContent {
+            WonderBoxTheme { VideosScreen(app, summer, "Pick a treat to save!", app.library.treatShelvesFor(summer.id), {}, stars = true) }
+        }
+        shoot("pick-treat-summer")
+    }
+
+    // The Treats section: two saved, and one still to pick.
+    @Test fun treats() {
+        val app = app()
+        saveTwo(app)
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Treats", app.treatsSectionFor(summer.id), {}, stars = true) } }
         shoot("treats-summer")
     }
 

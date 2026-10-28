@@ -68,8 +68,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
 /**
- * Rows of one child's videos under a [title]: their Videos, their Music, or (when [picking])
- * the treats they've won a pick of, each picked one starring. The focused video's title is
+ * Rows of one child's videos under a [title]: their Videos, their Music, or their treats
+ * (with [stars] on). The focused video's title is
  * read aloud, and after a moment its player starts loading in the background so it starts
  * quickly when chosen.
  */
@@ -80,7 +80,12 @@ fun VideosScreen(
     title: String,
     shelves: List<Shelf>,
     onPlay: (Video) -> Unit,
-    picking: Boolean = false,
+    /** What to say when there are no [shelves]. */
+    empty: String = "No videos yet. Ask a grown-up to add some!",
+    /** Said once when the screen opens, e.g. "Pick a treat!". */
+    greeting: String? = null,
+    /** Stars on the cards, for treats. */
+    stars: Boolean = false,
 ) {
     val context = LocalContext.current
     val ink = parseColor(child.color).onColor()
@@ -108,7 +113,7 @@ fun VideosScreen(
                             itemsIndexed(shelf.videos, key = { _, v -> v.id }) { i, video ->
                                 VideoCard(
                                     video,
-                                    star = picking,
+                                    star = stars,
                                     ink = ink,
                                     tilt = if (i % 2 == 0) -2f else 2f,
                                     onClick = { onPlay(video) },
@@ -126,7 +131,7 @@ fun VideosScreen(
             if (shelves.isEmpty()) {
                 item(key = "empty") {
                     Text(
-                        "No videos yet. Ask a grown-up to add some!",
+                        empty,
                         color = ink,
                         fontSize = 24.sp,
                         modifier = Modifier.padding(start = 48.dp, top = 30.dp),
@@ -137,7 +142,7 @@ fun VideosScreen(
     }
 
     LaunchedEffect(shelves.size) {
-        if (picking && focusedKey == null) app.say("Pick a treat!")
+        if (greeting != null && focusedKey == null) app.say(greeting)
         if (firstKey != null) restore.requestFocusWhenReady()
     }
     // Read the title once focus settles, then preload its player if it stays there.

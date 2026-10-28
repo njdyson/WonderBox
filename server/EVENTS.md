@@ -50,7 +50,7 @@ about it.
 | `jigsaw.start` | photo id | | `size` (pieces along each side) | A photo jigsaw starts. |
 | `jigsaw.finish` | photo id | number of pieces | `size`, `moves` (swaps), `seconds` | A photo jigsaw is finished. |
 | `reward.earn` | `treat` | | `reason` (`quiz.finish` or `jigsaw.finish`), `game` (`jigsaw` for jigsaws) | A finished game round or jigsaw wins a treat to pick (only the games the parent chose). |
-| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked from the treats screen. |
+| `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked and saved in the child's Treats section (watching it later logs `video.play`). |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
 
 ## The API

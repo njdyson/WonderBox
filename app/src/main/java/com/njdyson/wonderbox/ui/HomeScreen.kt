@@ -48,14 +48,15 @@ import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.gamesFor
 
-/** What a child can pick on their home page. [Treats] only shows when they've won one to pick. */
+/** What a child can pick on their home page. */
 enum class Category(val title: String, val icon: String, val colors: List<Color>) {
-    Treats("Treats", "⭐", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
     Quizzes("Quizzes", "❓", listOf(Color(0xFF4D96FF), Color(0xFF2B5FD9))),
     Games("Games", "🎮", listOf(Color(0xFFA259FF), Color(0xFF6A2BD9))),
     Videos("Videos", "📺", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
     Music("Music", "🎵", listOf(Color(0xFF2EC4B6), Color(0xFF13867C))),
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
+    /** The treats they've saved up, and any won but not picked yet. Last, so learning comes first. */
+    Treats("Treats", "⭐", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
 }
 
 /**
@@ -65,12 +66,13 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
 fun AppState.categoriesFor(child: Child): List<Category> {
     val games = library.gamesFor(child, photos = photosFor(child.id).isNotEmpty())
     return buildList {
-        if (treatsFor(child.id) > 0 && library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Treats)
         if (games.any { it.isQuiz }) add(Category.Quizzes)
         if (games.any { !it.isQuiz }) add(Category.Games)
         if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Videos)
         if (library.musicShelvesFor(child.id).isNotEmpty()) add(Category.Music)
         if (photosFor(child.id).isNotEmpty()) add(Category.Photos)
+        // Always there once the parent has added treats, empty or not: it's where treats are saved up.
+        if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Treats)
     }
 }
 
@@ -113,15 +115,15 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
 /**
  * A child's home page: a big tile for each [Category] they have something in, three to a row.
  * The tiles are always in the same places, and focus comes back to the one last opened.
- * A won treat shows as a Treats tile first, focused, until it's picked.
+ * The Treats tile shows how many treats are saved up there.
  */
 @Composable
 fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
     val ink = parseColor(child.color).onColor()
     val categories = app.categoriesFor(child)
     var focused by rememberSaveable { mutableStateOf<String?>(null) }
-    // A treat to pick comes first and is where they land; otherwise the tile last opened.
-    val target = categories.firstOrNull { it == Category.Treats } ?: categories.firstOrNull { it.name == focused } ?: categories.firstOrNull()
+    val target = categories.firstOrNull { it.name == focused } ?: categories.firstOrNull()
+    val saved = app.savedTreatsFor(child.id).size
     val restore = remember { FocusRequester() }
 
     ChildScreen(app, child) {
@@ -144,6 +146,7 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
                     row.forEach { category ->
                         CategoryTile(
                             category,
+                            count = if (category == Category.Treats) saved else 0,
                             onClick = { onOpen(category) },
                             onFocus = {
                                 focused = category.name
@@ -161,7 +164,7 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
 }
 
 @Composable
-private fun CategoryTile(category: Category, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
         modifier = modifier.width(264.dp).height(176.dp).onFocusChanged { if (it.isFocused) onFocus() },
@@ -180,6 +183,15 @@ private fun CategoryTile(category: Category, onClick: () -> Unit, onFocus: () ->
         ) {
             Text(category.icon, fontSize = 64.sp)
             Text(category.title, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black)
+        }
+        if (count > 0) {
+            Text(
+                "$count",
+                color = Ink,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color.White, CircleShape).padding(horizontal = 14.dp, vertical = 2.dp),
+            )
         }
     }
 }
