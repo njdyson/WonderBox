@@ -173,6 +173,11 @@ class ScreenshotsTest {
 
     @Test fun gameClock() = game(jesse, "clock", "game-clock")
 
+    @Test fun gamePhonics() {
+        val phonics = jesse.copy(games = jesse.games.copy(spellingSetup = SpellingSetup(types = listOf("missing"), lists = listOf("phase2"))))
+        game(phonics, "spelling", "game-phonics")
+    }
+
     @Test fun gameOwnMix() = game(summer, "maths", "game-maths-own-mix")
 
     @Test fun gameOwnWords() = game(summer, "spelling", "game-spelling-own-words")

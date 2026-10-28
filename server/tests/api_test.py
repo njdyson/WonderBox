@@ -197,8 +197,9 @@ try:
     # New kinds of maths and spelling question are kept.
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {"types": ["add3", "bonds", "double", "half", "more"], "max": 20}}, token)
     assert lib["children"][0]["games"]["mathsSetup"]["types"] == ["add3", "bonds", "double", "half", "more"]
-    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spellingSetup": {"types": ["hearbuild", "hear"], "lists": ["short"]}}, token)
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spellingSetup": {"types": ["hearbuild", "hear"], "lists": ["phase2", "short"]}}, token)
     assert lib["children"][0]["games"]["spellingSetup"]["types"] == ["hear", "hearbuild"]
+    assert lib["children"][0]["games"]["spellingSetup"]["lists"] == ["short", "phase2"]
 
     # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "quizzes", "hangman"]

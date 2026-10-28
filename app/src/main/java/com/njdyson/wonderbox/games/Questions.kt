@@ -22,6 +22,11 @@ data class Question(
     val answerIndex: Int = -1,
     /** What kind of question it is, for the activity log: "add", "first", "quiz"... */
     val kind: String = "",
+    /**
+     * A phonics word's sounds ("s", "o", "ck"), drawn as sound buttons under it: a dot for a
+     * single letter, a line for two letters making one sound. Empty for other words.
+     */
+    val sounds: List<String> = emptyList(),
     /** What it's about ("van", "3 + 2", "count 4"): a round avoids asking the same one again soon. */
     val topic: String = prompt.ifBlank { spoken },
 ) {
@@ -202,6 +207,7 @@ internal object SpellingQuestions {
         val words = buildList {
             if ("short" in setup.lists) addAll(SHORT)
             if ("long" in setup.lists) addAll(LONG)
+            if ("phase2" in setup.lists) addAll(Phonics.PHASE2)
             if ("mine" in setup.lists) setup.myWords.forEach { add(it.word.lowercase() to it.picture) }
         }.filter { (word, _) -> word.length >= 2 && word.all { it in 'a'..'z' } }.ifEmpty { SHORT }
         val count = setup.choices.coerceIn(2, 4)
@@ -209,7 +215,7 @@ internal object SpellingQuestions {
         var type = setup.types.filter { it in TYPES }.ifEmpty { listOf("first") }.random(random)
         if (type == "build" && word.length > LONGEST_BUILD) type = "missing"
         if (type == "hearbuild" && word.length > LONGEST_BUILD) type = "hear"
-        return when (type) {
+        val q = when (type) {
             "first" -> missing(word, 0, picture, count, random, "Which letter does $word start with?", type)
             // In a three-letter word, the middle one.
             "missing" -> missing(word, if (word.length == 3) 1 else random.nextInt(1, word.length), picture, count, random, "Which letter is missing from $word?", type)
@@ -227,6 +233,8 @@ internal object SpellingQuestions {
                 Question(word.map { "_" }.joinToString(""), "Spell $word", letters, word, shown, build = true, kind = type, topic = word)
             }
         }
+        // Sound buttons for the phonics words, as on the school's sheets.
+        return if (Phonics.PHASE2.any { it.first == word }) q.copy(sounds = Phonics.graphemes(word)) else q
     }
 
     private val TYPES = setOf("first", "missing", "pick", "build", "hear", "hearbuild")
@@ -323,5 +331,58 @@ internal object ClockQuestions {
         val h = parts[1].toIntOrNull() ?: return null
         val m = parts[2].toIntOrNull() ?: return null
         return h to m
+    }
+}
+
+/**
+ * UK phonics (Letters and Sounds), for the school's "sound button" words. Only the letters
+ * are used: the TV never says a sound on its own, since its voice would say letter names.
+ */
+object Phonics {
+    /** Phase 2's sets, in the order they're taught: the sounds each one adds. */
+    val PHASE2_SETS = listOf(
+        listOf("s", "a", "t", "p"),
+        listOf("i", "n", "m", "d"),
+        listOf("g", "o", "c", "k"),
+        listOf("ck", "e", "u", "r"),
+        listOf("h", "b", "f", "ff", "l", "ll", "ss"),
+    )
+
+    /** Two letters making one sound, longest first. */
+    private val DIGRAPHS = PHASE2_SETS.flatten().filter { it.length > 1 }.sortedByDescending { it.length }
+
+    /**
+     * Phase 2 words (from Jesse's Sound Button Activity sheets, and more like them), with a
+     * picture where there's a clear one.
+     */
+    val PHASE2 = listOf(
+        // Sets 1 to 4
+        "sat" to "", "pat" to "", "tap" to "", "pin" to "📌", "tin" to "🥫", "dig" to "", "map" to "🗺", "mat" to "",
+        "dog" to "🐶", "cat" to "🐱", "pig" to "🐷", "cot" to "", "kick" to "", "sick" to "🤒", "pen" to "🖊", "met" to "",
+        "sack" to "", "pack" to "", "ten" to "🔟", "men" to "👨", "sock" to "🧦", "ticket" to "🎟", "net" to "🥅",
+        "neck" to "", "dock" to "", "pocket" to "", "rug" to "", "up" to "⬆", "pick" to "", "get" to "", "peg" to "",
+        "mum" to "👩", "duck" to "🦆", "rock" to "", "sun" to "🌞", "red" to "🔴",
+        // Set 5
+        "beg" to "", "bat" to "🦇", "of" to "", "fun" to "🎉", "bug" to "🐛", "bit" to "", "if" to "", "fig" to "",
+        "bun" to "", "bucket" to "", "off" to "", "fog" to "🌫", "hat" to "🎩", "hen" to "🐔", "bed" to "🛏",
+        "bell" to "🔔", "hill" to "⛰", "kiss" to "💋", "huff" to "", "doll" to "", "mess" to "", "puff" to "",
+    )
+
+    /** [word]'s sounds, by its letters: "sock" is s, o, ck. */
+    fun graphemes(word: String): List<String> {
+        val out = mutableListOf<String>()
+        var i = 0
+        while (i < word.length) {
+            val g = DIGRAPHS.firstOrNull { word.startsWith(it, i) } ?: word[i].toString()
+            out += g
+            i += g.length
+        }
+        return out
+    }
+
+    /** The Phase 2 set (1 to 5) that teaches the last of [word]'s sounds, or 0 if it needs a later one. */
+    fun set(word: String): Int {
+        val sets = graphemes(word).map { g -> PHASE2_SETS.indexOfFirst { g in it } }
+        return if (sets.any { it < 0 }) 0 else sets.max() + 1
     }
 }

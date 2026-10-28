@@ -226,4 +226,32 @@ class QuestionsTest {
         }
         assertEquals(null, ClockQuestions.parse("🕒"))
     }
+
+    @Test
+    fun phonicsWordsHaveSoundButtons() {
+        assertEquals(listOf("s", "o", "ck"), Phonics.graphemes("sock"))
+        assertEquals(listOf("o", "ff"), Phonics.graphemes("off"))
+        assertEquals(listOf("b", "u", "ck", "e", "t"), Phonics.graphemes("bucket"))
+        assertEquals(4, Phonics.set("kick"))
+        assertEquals(5, Phonics.set("fun"))
+        assertEquals(1, Phonics.set("sat"))
+        assertEquals(0, Phonics.set("zip"))
+        // Every word on Jesse's sheets is there, and every word can be sounded out with Phase 2.
+        val sheet = "beg bat of fun bug bit if fig bun bucket off fog kick sick pen met sack pack ten men sock ticket net neck dock pocket rug up pick get peg mum"
+        val words = Phonics.PHASE2.map { it.first }
+        for (w in sheet.split(" ")) assertTrue(w, w in words)
+        for (w in words) assertTrue(w, Phonics.set(w) > 0)
+        assertEquals(words.size, words.distinct().size)
+        for (type in listOf("first", "missing", "pick", "build", "hear", "hearbuild")) {
+            val setup = SpellingSetup(types = listOf(type), lists = listOf("phase2"), choices = 3)
+            repeat(100) {
+                val q = SpellingQuestions.question(setup, random)
+                assertEquals(q.toString(), q.topic, q.sounds.joinToString(""))
+                if (q.prompt.isNotEmpty()) assertEquals(q.toString(), q.topic.length, q.prompt.length)
+            }
+        }
+        // Other words get none.
+        val other = SpellingQuestions.question(SpellingSetup(types = listOf("pick"), lists = listOf("long")), random)
+        assertTrue(other.sounds.isEmpty())
+    }
 }
