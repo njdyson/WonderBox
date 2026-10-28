@@ -1,0 +1,15 @@
+{
+  "name": "Wonder Box",
+  "short_name": "Wonder Box",
+  "description": "Choose the videos your children can watch on the TV.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#24164F",
+  "theme_color": "#24164F",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,102 @@
+package com.njdyson.wonderbox.ui
+
+import android.content.Context
+import android.speech.tts.TextToSpeech
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.njdyson.wonderbox.BuildConfig
+import com.njdyson.wonderbox.data.Library
+import com.njdyson.wonderbox.data.Server
+import com.njdyson.wonderbox.data.Store
+import com.njdyson.wonderbox.data.UnlinkedException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
+
+/** The TV app's state: whether it's linked, the children and videos, and the grown-ups' settings. */
+class AppState(context: Context) {
+    private val store = Store(context)
+    val serverUrl = BuildConfig.SERVER_URL
+
+    var deviceKey by mutableStateOf(store.deviceKey)
+        private set
+    val linked get() = deviceKey != null
+
+    var library by mutableStateOf(store.library ?: Library())
+        private set
+
+    /** Why the last sync failed, for the grown-ups' settings; null when it worked. */
+    var syncError by mutableStateOf<String?>(null)
+        private set
+
+    var speakTitles by mutableStateOf(store.speakTitles)
+        private set
+
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+
+    init {
+        tts = TextToSpeech(context.applicationContext) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                tts?.language = Locale.UK
+                tts?.setSpeechRate(0.9f)
+            }
+        }
+    }
+
+    /** Fetches the latest children and videos. Keeps the cached ones if the network is down. */
+    suspend fun sync() {
+        val key = deviceKey ?: return
+        try {
+            val fresh = withContext(Dispatchers.IO) { Server(serverUrl, key).library() }
+            library = fresh
+            store.library = fresh
+            syncError = null
+        } catch (e: UnlinkedException) {
+            forgetLink()
+        } catch (e: Exception) {
+            syncError = e.message ?: e.javaClass.simpleName
+        }
+    }
+
+    suspend fun completeLink(key: String) {
+        store.deviceKey = key
+        deviceKey = key
+        sync()
+    }
+
+    suspend fun unlink() {
+        val key = deviceKey ?: return
+        runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).forget() } }
+        forgetLink()
+    }
+
+    private fun forgetLink() {
+        store.deviceKey = null
+        store.library = null
+        deviceKey = null
+        library = Library()
+    }
+
+    fun chooseSpeakTitles(on: Boolean) {
+        speakTitles = on
+        store.speakTitles = on
+        if (!on) tts?.stop()
+    }
+
+    /** Reads [text] aloud (a 4-year-old can't read the titles), replacing anything still being said. */
+    fun speak(text: String) {
+        if (speakTitles && ttsReady && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "focus")
+    }
+
+    fun stopSpeaking() {
+        tts?.stop()
+    }
+
+    fun close() {
+        tts?.shutdown()
+        tts = null
+    }
+}

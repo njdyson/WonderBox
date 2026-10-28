@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#24164F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wonder Box">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Wonder Box</title>
+<style>
+  :root {
+    --bg: #24164F; --card: #352468; --deep: #1A1040; --yellow: #FFD23F; --pink: #FF6B9A; --teal: #3EC1D3;
+    --text: #FFFFFF; --muted: rgba(255,255,255,.65); --good: #7BD389;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { overflow-x: hidden; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 0 16px calc(48px + env(safe-area-inset-bottom));
+  }
+  header {
+    position: sticky; top: 0; z-index: 2; background: var(--bg);
+    padding: calc(14px + env(safe-area-inset-top)) 0 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .logo { background: var(--yellow); color: var(--deep); font-weight: 900; letter-spacing: .5px; padding: 3px 10px; border-radius: 999px; }
+  .logo + b { font-weight: 900; color: var(--pink); }
+  #status { margin-left: auto; font-size: 12px; color: var(--muted); }
+  h2 { font-size: 13px; letter-spacing: 2px; color: var(--yellow); margin: 22px 0 8px; }
+  input[type=url], input[type=text], input[type=email], input[type=password] {
+    width: 100%; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 12px;
+    border: 2px solid transparent; background: #fff; color: #111;
+  }
+  input:focus { outline: none; border-color: var(--yellow); }
+  button {
+    font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+    background: var(--yellow); color: var(--deep); font-weight: 700;
+  }
+  button.ghost { background: rgba(255,255,255,.12); color: var(--text); font-weight: 600; }
+  button.small { padding: 6px 10px; font-size: 14px; }
+  button:disabled { opacity: .4; }
+  .card { background: var(--card); border-radius: 14px; padding: 16px; margin-top: 12px; }
+  .stack { display: grid; gap: 10px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .grow { flex: 1; min-width: 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .error { background: #6b1f3a; border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+
+  /* The video being added */
+  .preview { display: flex; gap: 12px; align-items: center; }
+  .preview img { width: 128px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: #000; flex: none; }
+  .preview .t { font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+
+  /* Children: avatar chips */
+  .kids { display: flex; gap: 8px; flex-wrap: wrap; }
+  .kid { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 12px 6px 6px;
+         background: rgba(255,255,255,.12); color: var(--text); font-weight: 700; }
+  .kid .face { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; }
+  .kid.on { background: var(--text); color: var(--deep); }
+  .kid.add { padding: 6px 14px; }
+
+  /* A child's videos */
+  .video { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
+  .video:first-child { border-top: 0; }
+  .video img { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; flex: none; }
+  .video .t { font-weight: 700; font-size: 15px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .video .who { display: flex; gap: 4px; margin-top: 4px; }
+  .video .who span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; }
+  .video .tools { display: grid; grid-template-columns: repeat(2, 36px); gap: 4px; flex: none; }
+  .video .tools button { padding: 6px 0; font-size: 14px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+  .tv { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,.08); }
+  .tv:first-child { border-top: 0; }
+  footer { margin-top: 24px; font-size: 13px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  footer a { color: var(--yellow); }
+
+  /* Bottom sheet: a child's details, or who a video is for */
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 17; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 18; background: var(--card);
+    border-radius: 18px 18px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+    max-height: 85vh; overflow-y: auto; box-shadow: 0 -8px 30px rgba(0,0,0,.4);
+  }
+  .picker { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+  .picker button { padding: 6px 0; font-size: 22px; background: rgba(255,255,255,.1); }
+  .picker button.on { outline: 3px solid var(--yellow); }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .swatches button { width: 36px; height: 36px; border-radius: 50%; padding: 0; }
+  .swatches button.on { outline: 3px solid #fff; outline-offset: 2px; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #fff; color: var(--deep); font-weight: 700; padding: 10px 16px; border-radius: 999px;
+    z-index: 20; box-shadow: 0 6px 20px rgba(0,0,0,.35); max-width: calc(100% - 32px); text-align: center;
+  }
+</style>
+</head>
+<body>
+<header><span class="logo">Wonder</span><b>Box</b><span id="status"></span></header>
+
+<!-- Signed out -->
+<section id="loginView" hidden>
+  <form class="card stack" id="loginForm">
+    <div style="font-weight:800;font-size:20px">Sign in</div>
+    <input type="email" id="email" placeholder="Email" autocomplete="username" required>
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+    <button>Sign in</button>
+    <div class="muted">Grown-ups only. Accounts are set up in the server's dashboard.</div>
+  </form>
+</section>
+
+<!-- Signed in -->
+<section id="mainView" hidden>
+  <div id="pairCard"></div>
+
+  <h2>ADD A VIDEO</h2>
+  <form class="row" id="addForm">
+    <input type="url" id="link" class="grow" placeholder="Paste a YouTube link" autocomplete="off" inputmode="url" enterkeyhint="go">
+    <button id="checkBtn">Check</button>
+  </form>
+  <div id="adding"></div>
+
+  <h2>CHILDREN</h2>
+  <div class="kids" id="kids"></div>
+
+  <h2 id="videosHeading">VIDEOS</h2>
+  <div class="card" id="videos"></div>
+
+  <h2>YOUR TVS</h2>
+  <div class="card" id="tvs"></div>
+
+  <footer>
+    <span id="who"></span>
+    <a href="#" id="signOut">Sign out</a>
+  </footer>
+</section>
+
+<div id="error"></div>
+<div id="sheet" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+const TOKEN = "wonderbox_token";
+const AVATARS = ["🦊", "🐢", "🦁", "🐼", "🐸", "🦄", "🐙", "🐝", "🐧", "🦖", "🐱", "🐶", "🐰", "🚀", "⭐", "🌈"];
+const COLORS = ["#FFD23F", "#FF6B9A", "#3EC1D3", "#7BD389", "#FF9F43", "#A78BFA"];
+let token = localStorage.getItem(TOKEN) || "";
+let library = { children: [], videos: [] };
+let selected = localStorage.getItem("wonderbox_child") || "";
+let checked = null; // the video being added: {url, info, children}
+let busy = false;
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+};
+
+class AuthError extends Error {}
+
+async function api(path, body, method) {
+  const res = await fetch(path, {
+    method: method || (body ? "POST" : "GET"),
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => null);
+  // No JSON at all means PocketBase answered with this page: its hooks aren't loaded.
+  if (data === null) throw new Error("The server isn't ready (its API didn't answer). Restart the wonderbox service.");
+  if (res.status === 401) throw new AuthError(data.message || "Please sign in again.");
+  if (!res.ok) throw new Error(data.message || `Something went wrong (${res.status}).`);
+  return data;
+}
+
+/** Runs an edit that returns the library, then redraws. */
+async function edit(path, body) {
+  busy = true;
+  try {
+    const data = await api(path, body);
+    setLibrary(data);
+    showError(null);
+    return data;
+  } catch (e) {
+    showError(e);
+    return null;
+  } finally {
+    busy = false;
+  }
+}
+
+function showError(e) {
+  if (e instanceof AuthError) return signedOut();
+  $("error").replaceChildren(e ? el("div", { className: "error", textContent: String(e.message || e) }) : "");
+}
+
+let toastTimer;
+function toast(text) {
+  $("toast").textContent = text;
+  $("toast").hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $("toast").hidden = true; }, 2400);
+}
+
+const child = (id) => library.children.find((c) => c.id === id);
+const face = (c, tag = "span", className = "face") =>
+  el(tag, { className, style: `background:${c.color}`, textContent: c.avatar || c.name.slice(0, 1).toUpperCase() });
+
+// --- Signing in -------------------------------------------------------------
+
+function signedOut() {
+  token = "";
+  localStorage.removeItem(TOKEN);
+  $("mainView").hidden = true;
+  $("loginView").hidden = false;
+  $("status").textContent = "";
+}
+
+$("loginForm").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const auth = await api("/api/collections/users/auth-with-password", { identity: $("email").value, password: $("password").value });
+    token = auth.token;
+    localStorage.setItem(TOKEN, token);
+    showError(null);
+    start(auth.record);
+  } catch (err) {
+    $("error").replaceChildren(el("div", { className: "error", textContent: "That email and password didn't match." }));
+  }
+};
+
+$("signOut").onclick = (e) => { e.preventDefault(); signedOut(); };
+
+async function start(user) {
+  $("loginView").hidden = true;
+  $("mainView").hidden = false;
+  $("who").textContent = user.email;
+  await load();
+  showPairing();
+  loadTvs();
+}
+
+async function load() {
+  try {
+    setLibrary(await api("/api/wonder/library"));
+    $("status").textContent = "";
+  } catch (e) {
+    showError(e);
+  }
+}
+
+function setLibrary(data) {
+  library = { children: data.children || [], videos: data.videos || [] };
+  if (!child(selected)) selected = library.children[0] ? library.children[0].id : "";
+  render();
+}
+
+// --- Adding a video ---------------------------------------------------------
+
+$("addForm").onsubmit = (e) => { e.preventDefault(); check(); };
+// Pasting a link checks it straight away.
+$("link").addEventListener("paste", () => setTimeout(check, 0));
+
+async function check() {
+  const url = $("link").value.trim();
+  if (!url) return;
+  $("checkBtn").disabled = true;
+  $("adding").replaceChildren(el("div", { className: "muted", style: "margin-top:10px", textContent: "Checking it will play on the TV…" }));
+  try {
+    const info = await api("/api/wonder/videos/check", { url });
+    const existing = library.videos.find((v) => v.youtubeId === info.youtubeId);
+    checked = { url, info, children: existing ? [...existing.children] : selected ? [selected] : [] };
+    renderAdding();
+  } catch (e) {
+    checked = null;
+    if (e instanceof AuthError) return signedOut();
+    $("adding").replaceChildren(el("div", { className: "error", textContent: e.message }));
+  } finally {
+    $("checkBtn").disabled = false;
+  }
+}
+
+function renderAdding() {
+  if (!checked) return $("adding").replaceChildren();
+  const { info } = checked;
+  const already = library.videos.some((v) => v.youtubeId === info.youtubeId);
+  $("adding").replaceChildren(el("div", { className: "card stack" },
+    el("div", { className: "preview" },
+      el("img", { src: info.thumbnail, alt: "" }),
+      el("div", { className: "grow" },
+        el("div", { className: "t", textContent: info.title || "Untitled video" }),
+        el("div", { className: "muted", textContent: info.channel }))),
+    el("div", { className: "muted", textContent: info.checked === "full"
+      ? "✓ Plays on the TV."
+      : "✓ Plays outside YouTube. (Age-restricted videos are only caught with a YouTube API key on the server.)" }),
+    el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
+    library.children.length
+      ? el("div", { className: "kids" }, ...library.children.map((c) => {
+          const on = checked.children.includes(c.id);
+          return el("button", { className: "kid" + (on ? " on" : ""), onclick: () => {
+            checked.children = on ? checked.children.filter((id) => id !== c.id) : [...checked.children, c.id];
+            renderAdding();
+          } }, face(c), c.name);
+        }))
+      : el("div", { className: "muted", textContent: "Add a child below first." }),
+    el("div", { className: "row" },
+      el("button", { className: "grow", disabled: !checked.children.length, textContent: already ? "Save" : "Add video", onclick: async () => {
+        const data = await edit("/api/wonder/videos/add", { url: checked.url, children: checked.children });
+        if (!data) return;
+        toast(already ? "Saved" : "Added to the TV");
+        checked = null;
+        $("link").value = "";
+        renderAdding();
+      } }),
+      el("button", { className: "ghost", textContent: "Cancel", onclick: () => { checked = null; $("link").value = ""; renderAdding(); } }))));
+}
+
+// --- Children and their videos ---------------------------------------------
+
+function render() {
+  $("kids").replaceChildren(
+    ...library.children.map((c) => el("button", {
+      className: "kid" + (c.id === selected ? " on" : ""),
+      onclick: () => {
+        if (c.id === selected) return childSheet(c);
+        selected = c.id;
+        localStorage.setItem("wonderbox_child", selected);
+        render();
+      },
+    }, face(c), c.name)),
+    el("button", { className: "kid add ghost", textContent: "+ Add a child", onclick: () => childSheet(null) }));
+
+  const c = child(selected);
+  $("videosHeading").textContent = c ? `${c.name.toUpperCase()}'S VIDEOS` : "VIDEOS";
+  const list = c ? library.videos.filter((v) => v.children.includes(c.id)) : [];
+  $("videos").replaceChildren(...(list.length ? list.map((v, i) => el("div", { className: "video" },
+    el("img", { src: v.thumbnail, alt: "", loading: "lazy" }),
+    el("div", { className: "grow", onclick: () => whoSheet(v) },
+      el("div", { className: "t", textContent: v.title || v.youtubeId }),
+      el("div", { className: "who" }, ...v.children.map(child).filter(Boolean).map((k) => face(k, "span", "")))),
+    el("div", { className: "tools" },
+      el("button", { className: "ghost", textContent: "↑", disabled: i === 0, onclick: () => edit("/api/wonder/videos/move", { id: v.id, delta: -1, child: c.id }) }),
+      el("button", { className: "ghost", textContent: "↓", disabled: i === list.length - 1, onclick: () => edit("/api/wonder/videos/move", { id: v.id, delta: 1, child: c.id }) }),
+      el("button", { className: "ghost", textContent: "👥", title: "Who it's for", onclick: () => whoSheet(v) }),
+      el("button", { className: "ghost", textContent: "✕", title: "Remove", onclick: () => removeVideo(v, c) })),
+  )) : [el("div", { className: "empty", textContent: c
+    ? `No videos for ${c.name} yet. Paste a YouTube link above.`
+    : "Add a child first, then their videos." })]));
+  renderAdding();
+}
+
+async function removeVideo(v, c) {
+  const others = v.children.filter((id) => id !== c.id);
+  if (!confirm(others.length ? `Remove "${v.title}" from ${c.name}'s videos?` : `Remove "${v.title}"?`)) return;
+  await edit("/api/wonder/videos/update", { id: v.id, children: others });
+}
+
+function closeSheet() { $("sheet").hidden = true; $("sheet").replaceChildren(); }
+
+function openSheet(...content) {
+  $("sheet").replaceChildren(el("div", { className: "scrim", onclick: closeSheet }), el("div", { className: "sheet stack" }, ...content));
+  $("sheet").hidden = false;
+}
+
+/** Add a child (c null) or change one: name, avatar, colour. */
+function childSheet(c) {
+  const draft = c ? { ...c } : { name: "", avatar: AVATARS[library.children.length % AVATARS.length], color: COLORS[library.children.length % COLORS.length] };
+  const name = el("input", { type: "text", value: draft.name, placeholder: "Name", maxLength: 40 });
+  const draw = () => openSheet(
+    el("div", { style: "font-weight:800;font-size:20px", textContent: c ? `Change ${c.name}` : "Add a child" }),
+    name,
+    el("div", { className: "muted", textContent: "Their picture on the TV" }),
+    el("div", { className: "picker" }, ...AVATARS.map((a) => el("button", {
+      className: a === draft.avatar ? "on" : "", textContent: a, onclick: () => { draft.avatar = a; draft.name = name.value; draw(); },
+    }))),
+    el("div", { className: "swatches" }, ...COLORS.map((col) => el("button", {
+      className: col === draft.color ? "on" : "", style: `background:${col}`, onclick: () => { draft.color = col; draft.name = name.value; draw(); },
+    }))),
+    el("button", { textContent: c ? "Save" : "Add", onclick: async () => {
+      const data = await edit("/api/wonder/children/save", { id: c && c.id, name: name.value, avatar: draft.avatar, color: draft.color });
+      if (!data) return;
+      if (!c) { selected = data.saved; localStorage.setItem("wonderbox_child", selected); render(); }
+      closeSheet();
+    } }),
+    ...(c ? [
+      el("div", { className: "row" },
+        el("button", { className: "ghost grow", textContent: "Move left", onclick: async () => { await edit("/api/wonder/children/move", { id: c.id, delta: -1 }); closeSheet(); } }),
+        el("button", { className: "ghost grow", textContent: "Move right", onclick: async () => { await edit("/api/wonder/children/move", { id: c.id, delta: 1 }); closeSheet(); } })),
+      el("button", { className: "ghost", textContent: `Remove ${c.name}`, onclick: async () => {
+        if (!confirm(`Remove ${c.name}? Videos that are only theirs are removed too.`)) return;
+        await edit("/api/wonder/children/remove", { id: c.id });
+        closeSheet();
+      } }),
+    ] : []),
+    el("button", { className: "ghost", textContent: "Cancel", onclick: closeSheet }));
+  draw();
+  if (!c) setTimeout(() => name.focus(), 50);
+}
+
+/** Who a video is for. */
+function whoSheet(v) {
+  let kids = [...v.children];
+  const draw = () => openSheet(
+    el("div", { className: "preview" },
+      el("img", { src: v.thumbnail, alt: "" }),
+      el("div", { className: "grow" }, el("div", { className: "t", textContent: v.title }), el("div", { className: "muted", textContent: v.channel }))),
+    el("div", { style: "font-weight:700", textContent: "Who's it for?" }),
+    el("div", { className: "kids" }, ...library.children.map((c) => {
+      const on = kids.includes(c.id);
+      return el("button", { className: "kid" + (on ? " on" : ""), onclick: () => {
+        kids = on ? kids.filter((id) => id !== c.id) : [...kids, c.id];
+        draw();
+      } }, face(c), c.name);
+    })),
+    el("button", { textContent: kids.length ? "Save" : "Remove video", onclick: async () => {
+      await edit("/api/wonder/videos/update", { id: v.id, children: kids });
+      closeSheet();
+    } }),
+    el("button", { className: "ghost", textContent: "Cancel", onclick: closeSheet }));
+  draw();
+}
+
+// --- TVs --------------------------------------------------------------------
+
+// The TV's link code QR opens this app at /#pair=CODE.
+async function showPairing() {
+  const code = new URLSearchParams(location.hash.slice(1)).get("pair");
+  if (!code) return $("pairCard").replaceChildren();
+  const clear = () => { history.replaceState(null, "", "/"); $("pairCard").replaceChildren(); };
+  try {
+    const info = await api("/api/wonder/pair/info?code=" + encodeURIComponent(code));
+    $("pairCard").replaceChildren(el("div", { className: "card stack" },
+      el("div", { style: "font-weight:800;font-size:18px", textContent: `Link "${info.name}"?` }),
+      el("div", { className: "muted", textContent: `Code ${code.toUpperCase()}. The TV will show the children and videos you choose here.` }),
+      el("button", { textContent: "Link this TV", onclick: async () => {
+        try {
+          await api("/api/wonder/pair/approve", { code });
+          toast(`${info.name} is linked`);
+          clear();
+          loadTvs();
+        } catch (e) { showError(e); }
+      } }),
+      el("button", { className: "ghost", textContent: "Not now", onclick: clear })));
+  } catch (e) {
+    $("pairCard").replaceChildren(el("div", { className: "error", textContent: e.message }));
+    history.replaceState(null, "", "/");
+  }
+}
+window.addEventListener("hashchange", showPairing);
+
+async function loadTvs() {
+  try {
+    const tvs = await api("/api/wonder/devices");
+    $("tvs").replaceChildren(...(tvs.length ? tvs.map((tv) => el("div", { className: "tv" },
+      el("div", { className: "grow" },
+        el("div", { style: "font-weight:700", textContent: tv.name || "TV" }),
+        el("div", { className: "muted", textContent: tv.lastSeen ? "Last seen " + new Date(tv.lastSeen.replace(" ", "T")).toLocaleString() : "" })),
+      el("button", { className: "ghost small", textContent: "Unlink", onclick: async () => {
+        if (!confirm(`Unlink ${tv.name}? It will ask to be linked again.`)) return;
+        try { await api("/api/wonder/devices/remove", { id: tv.id }); loadTvs(); } catch (e) { showError(e); }
+      } }),
+    )) : [el("div", { className: "muted", textContent: "No TVs linked yet. Open Wonder Box on the TV and scan the code it shows." })]));
+  } catch (e) {
+    showError(e);
+  }
+}
+
+// --- Start ------------------------------------------------------------------
+
+(async () => {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if (!token) return signedOut();
+  try {
+    // Refreshing extends the sign-in, so regular use never has to sign in again.
+    const auth = await api("/api/collections/users/auth-refresh", {});
+    token = auth.token;
+    localStorage.setItem(TOKEN, token);
+    start(auth.record);
+  } catch (e) {
+    if (e instanceof AuthError) signedOut();
+    else { $("status").textContent = "Offline"; showError(e); }
+  }
+})();
+</script>
+</body>
+</html>
