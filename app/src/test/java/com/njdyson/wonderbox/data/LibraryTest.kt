@@ -38,7 +38,8 @@ class LibraryTest {
              "videos": [
                {"id": "v1", "youtubeId": "aaaaaaaaaaa", "children": ["c1"], "tier": "treat"},
                {"id": "v2", "youtubeId": "bbbbbbbbbbb", "children": ["c1"]},
-               {"id": "v3", "youtubeId": "ccccccccccc", "children": ["c1"], "section": "music"}
+               {"id": "v3", "youtubeId": "ccccccccccc", "children": ["c1"], "section": "music"},
+               {"id": "v4", "youtubeId": "hhhhhhhhhhh", "children": ["c1"], "section": "exercise"}
              ],
              "channels": [
                {"id": "ch1", "title": "Numberblocks", "children": ["c1"], "tier": "free",
@@ -46,17 +47,23 @@ class LibraryTest {
                {"id": "ch2", "title": "Bluey", "children": ["c1"], "tier": "treat",
                 "videos": [{"youtubeId": "eeeeeeeeeee"}, {"youtubeId": "fffffffffff"}]},
                {"id": "ch3", "title": "Empty", "children": ["c1"], "videos": []},
+               {"id": "ch5", "title": "Cosmic Kids Yoga", "children": ["c1"], "section": "exercise",
+                "videos": [{"youtubeId": "iiiiiiiiiii"}]},
                {"id": "ch4", "title": "Not Sam's", "children": ["c2"], "videos": [{"youtubeId": "ggggggggggg"}]}
              ]}
             """.trimIndent(),
         )
         assertEquals(GameSettings(3, 2, 5), library.children[0].games)
         val shelves = library.shelvesFor("c1")
-        assertEquals(listOf("My videos", "Music", "Numberblocks", "Treats", "Bluey"), shelves.map { it.title })
-        assertEquals(listOf(false, false, false, true, true), shelves.map { it.treat })
-        assertEquals(listOf("ddddddddddd"), shelves[2].videos.map { it.youtubeId })
+        assertEquals(listOf("My videos", "Music", "Exercise", "Numberblocks", "Cosmic Kids Yoga", "Treats", "Bluey"), shelves.map { it.title })
+        assertEquals(listOf(false, false, false, false, false, true, true), shelves.map { it.treat })
+        assertEquals(listOf("ddddddddddd"), shelves[3].videos.map { it.youtubeId })
         // Channel videos get their own IDs, so the same video in two channels doesn't clash.
-        assertEquals(listOf("ch2/eeeeeeeeeee", "ch2/fffffffffff"), shelves[4].videos.map { it.id })
-        assertTrue(shelves[4].videos.all { it.isTreat })
+        assertEquals(listOf("ch2/eeeeeeeeeee", "ch2/fffffffffff"), shelves[6].videos.map { it.id })
+        assertTrue(shelves[6].videos.all { it.isTreat })
+        // Each screen gets its own rows.
+        assertEquals(listOf("My videos", "Numberblocks"), library.videoShelvesFor("c1").map { it.title })
+        assertEquals(listOf("Music"), library.musicShelvesFor("c1").map { it.title })
+        assertEquals(listOf("Exercise", "Cosmic Kids Yoga"), library.exerciseShelvesFor("c1").map { it.title })
     }
 }

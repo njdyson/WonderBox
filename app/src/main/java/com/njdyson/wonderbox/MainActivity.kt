@@ -47,7 +47,7 @@ private sealed interface Screen {
     data class Home(val childId: String) : Screen
     /** Quizzes or Games. */
     data class Games(val childId: String, val category: Category) : Screen
-    /** Videos or Music. */
+    /** Videos, Music or Exercise. */
     data class Videos(val childId: String, val category: Category) : Screen
     /** The child's Treats section: the treats they've saved up, and any won but not picked yet. */
     data class Treats(val childId: String) : Screen
@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
                                         when (it) {
                                             Category.Treats -> Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
-                                            Category.Videos, Category.Music -> Screen.Videos(child.id, it)
+                                            Category.Videos, Category.Music, Category.Exercise -> Screen.Videos(child.id, it)
                                             Category.Photos -> Screen.PhotoGrid(child.id)
                                         },
                                     )
@@ -195,7 +195,11 @@ class MainActivity : ComponentActivity() {
                             if (child == null) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                val shelves = if (screen.category == Category.Music) app.library.musicShelvesFor(child.id) else app.library.videoShelvesFor(child.id)
+                                val shelves = when (screen.category) {
+                                    Category.Music -> app.library.musicShelvesFor(child.id)
+                                    Category.Exercise -> app.library.exerciseShelvesFor(child.id)
+                                    else -> app.library.videoShelvesFor(child.id)
+                                }
                                 VideosScreen(app, child, screen.category.title, shelves, onPlay = { play(it, child.id) })
                             }
                         }

@@ -56,6 +56,7 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
     Games("Games", "🎮", listOf(Color(0xFFA259FF), Color(0xFF6A2BD9))),
     Videos("Videos", "📺", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
     Music("Music", "🎵", listOf(Color(0xFF2EC4B6), Color(0xFF13867C))),
+    Exercise("Exercise", "🤸", listOf(Color(0xFFFF9F43), Color(0xFFE0612B))),
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
     /** The treats they've saved up, and any won but not picked yet. Last, so learning comes first. */
     Treats("Treats", "⭐", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
@@ -72,6 +73,7 @@ fun AppState.categoriesFor(child: Child): List<Category> {
         if (games.any { !it.isQuiz }) add(Category.Games)
         if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Videos)
         if (library.musicShelvesFor(child.id).isNotEmpty()) add(Category.Music)
+        if (library.exerciseShelvesFor(child.id).isNotEmpty()) add(Category.Exercise)
         if (photosFor(child.id).isNotEmpty()) add(Category.Photos)
         // Always there once the parent has added treats, empty or not: it's where treats are saved up.
         if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Treats)
