@@ -13,14 +13,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
+import com.njdyson.wonderbox.games.MEMORY
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.GameScreen
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
+import com.njdyson.wonderbox.ui.HangmanScreen
 import com.njdyson.wonderbox.ui.JigsawScreen
 import com.njdyson.wonderbox.ui.LinkScreen
+import com.njdyson.wonderbox.ui.MemoryScreen
 import com.njdyson.wonderbox.ui.PhotosScreen
 import com.njdyson.wonderbox.ui.ProfileScreen
 import com.njdyson.wonderbox.ui.WonderBoxTheme
@@ -36,6 +40,8 @@ private sealed interface Screen {
     /** [game] is a [com.njdyson.wonderbox.games.GameEntry] key: "maths", "spelling" or "quiz/<id>". */
     data class Playing(val childId: String, val game: String) : Screen
     data class Jigsaw(val childId: String) : Screen
+    data class Hangman(val childId: String) : Screen
+    data class Memory(val childId: String) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -68,6 +74,21 @@ class MainActivity : ComponentActivity() {
             }
 
             fun open(screen: Screen) { stack.add(screen) }
+
+            /** Whether finishing [game] wins [child] a treat: they have treats, and the phone app says it should. */
+            fun earnsTreat(childId: String, game: String): Boolean {
+                val child = app.library.children.firstOrNull { it.id == childId } ?: return false
+                return child.games.earnsTreat(game) && app.library.shelvesFor(childId).any { it.treat }
+            }
+
+            fun winTreat(childId: String, reason: String, game: String) {
+                app.earnTreat(childId)
+                // A treat to pick; reward.unlock is logged when it's picked.
+                EventLog.log("reward.earn", childId, subject = "treat") {
+                    put("reason", reason)
+                    put("game", game)
+                }
+            }
             fun back() { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
             BackHandler(enabled = stack.size > 1) { back() }
 
@@ -104,7 +125,14 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onPhoto = { open(Screen.Photos(child.id, it)) },
                                 onGame = {
-                                    if (it.key == JIGSAW) open(Screen.Jigsaw(child.id)) else open(Screen.Playing(child.id, it.key))
+                                    open(
+                                        when (it.key) {
+                                            JIGSAW -> Screen.Jigsaw(child.id)
+                                            HANGMAN -> Screen.Hangman(child.id)
+                                            MEMORY -> Screen.Memory(child.id)
+                                            else -> Screen.Playing(child.id, it.key)
+                                        },
+                                    )
                                 },
                                 focusTreats = pickingTreat,
                                 onTreatsFocused = { pickingTreat = false },
@@ -161,6 +189,44 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 },
+                                onPickTreat = {
+                                    pickingTreat = true
+                                    back()
+                                },
+                                onBack = { back() },
+                            )
+                        }
+                    }
+                    is Screen.Hangman -> {
+                        val child = app.library.children.firstOrNull { it.id == screen.childId }
+                        if (child == null || !child.games.hangman.on) {
+                            LaunchedEffect(Unit) { back() }
+                        } else {
+                            val treat = earnsTreat(child.id, HANGMAN)
+                            HangmanScreen(
+                                app,
+                                child,
+                                hasTreats = treat,
+                                onFinished = { if (treat) winTreat(child.id, "hangman.finish", HANGMAN) },
+                                onPickTreat = {
+                                    pickingTreat = true
+                                    back()
+                                },
+                                onBack = { back() },
+                            )
+                        }
+                    }
+                    is Screen.Memory -> {
+                        val child = app.library.children.firstOrNull { it.id == screen.childId }
+                        if (child == null || !child.games.memory.on) {
+                            LaunchedEffect(Unit) { back() }
+                        } else {
+                            val treat = earnsTreat(child.id, MEMORY)
+                            MemoryScreen(
+                                app,
+                                child,
+                                hasTreats = treat,
+                                onFinished = { if (treat) winTreat(child.id, "memory.finish", MEMORY) },
                                 onPickTreat = {
                                     pickingTreat = true
                                     back()

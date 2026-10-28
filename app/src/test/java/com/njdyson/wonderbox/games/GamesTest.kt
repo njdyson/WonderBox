@@ -19,13 +19,24 @@ class GamesTest {
 
     @Test
     fun gamesOnAChildsScreen() {
-        val sam = Child("sam", "Sam", games = GameSettings(maths = 2, spellingSetup = SpellingSetup(on = false)))
+        val sam = Child(
+            "sam", "Sam",
+            games = GameSettings(maths = 2, spellingSetup = SpellingSetup(on = false), hangman = HangmanSetup(on = false), memory = MemorySetup(on = false)),
+        )
         val jo = Child("jo", "Jo")
         val library = Library(children = listOf(sam, jo), quizzes = listOf(quiz, quiz.copy(id = "q2", children = listOf("jo"))))
         assertEquals(listOf("maths", "quiz/q1"), library.gamesFor(sam).map { it.key })
         assertEquals("Level 2", library.gamesFor(sam)[0].subtitle)
         assertEquals("3 questions", library.gamesFor(sam)[1].subtitle)
-        assertEquals(listOf("maths", "spelling", "quiz/q2"), library.gamesFor(jo).map { it.key })
+        assertEquals(listOf("maths", "spelling", "hangman", "memory", "quiz/q2"), library.gamesFor(jo).map { it.key })
+        assertEquals(listOf("maths", "spelling", "hangman", "jigsaw", "memory", "quiz/q2"), library.gamesFor(jo, photos = true).map { it.key })
+    }
+
+    @Test
+    fun easyGamesDoNotWinTreatsUnlessTheParentSaysSo() {
+        val games = GameSettings()
+        assertEquals(listOf(true, true, true, true, false, false), listOf("maths", "spelling", "hangman", "quiz/q1", "memory", "jigsaw").map(games::earnsTreat))
+        assertEquals(true, GameSettings(treatGames = listOf("memory")).earnsTreat("memory"))
     }
 
     @Test

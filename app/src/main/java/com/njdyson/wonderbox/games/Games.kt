@@ -9,8 +9,9 @@ const val JIGSAW = "jigsaw"
 
 /**
  * A game on a child's screen: maths, spelling (unless the parent turned it off), a photo
- * jigsaw or one of the parent's quizzes for them. [key] is also the activity log's subject:
- * "maths", "spelling" or "quiz/<id>" ([JIGSAW] logs its own events).
+ * jigsaw, hangman, memory pairs or one of the parent's quizzes for them. [key] is also the
+ * activity log's subject: "maths", "spelling" or "quiz/<id>" ([JIGSAW], [HANGMAN] and
+ * [MEMORY] log their own events).
  */
 data class GameEntry(
     val key: String,
@@ -58,19 +59,22 @@ class RecentTopics(private val window: Int = WINDOW) {
      * A question from [make] whose topic hasn't come up recently. When everything has (counting
      * to 5, three of the parent's own words), the one asked longest ago.
      */
-    fun fresh(make: () -> Question): Question {
+    fun fresh(make: () -> Question): Question = fresh(make) { it.topic }
+
+    /** The same for anything with a topic, such as hangman's words. */
+    fun <T> fresh(make: () -> T, topicOf: (T) -> String): T {
         var best = make()
-        var bestAge = age(best.topic)
+        var bestAge = age(topicOf(best))
         var tries = 0
         while (bestAge < Int.MAX_VALUE && tries++ < 80) {
             val q = make()
-            val a = age(q.topic)
+            val a = age(topicOf(q))
             if (a > bestAge) {
                 best = q
                 bestAge = a
             }
         }
-        topics.add(best.topic)
+        topics.add(topicOf(best))
         while (topics.size > window) topics.removeAt(0)
         return best
     }
@@ -111,18 +115,22 @@ fun QuizQuestion.toQuestion(random: Random = Random): Question {
 }
 
 /**
- * The games on [child]'s screen, in order: maths, spelling, a jigsaw (when there are
- * [photos] and the child has jigsaws on), then the parent's quizzes.
+ * The games on [child]'s screen, in order: maths, spelling, hangman, a jigsaw (when there are
+ * [photos] and the child has jigsaws on), memory pairs, then the parent's quizzes.
  */
 fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = buildList {
     val maths = child.games.maths()
     if (maths.on) add(GameEntry("maths", Game.Maths.title, Game.Maths.icon, subtitle(maths.level()), Game.Maths))
     val spelling = child.games.spelling()
     if (spelling.on) add(GameEntry("spelling", Game.Spelling.title, Game.Spelling.icon, subtitle(spelling.level()), Game.Spelling))
+    val hangman = child.games.hangman
+    if (hangman.on) add(GameEntry(HANGMAN, "Hangman", "🎈", "Save the balloons!"))
     if (photos && child.games.jigsaw > 0) {
         val size = child.games.jigsaw.coerceIn(JIGSAW_SIZES.first, JIGSAW_SIZES.last)
         add(GameEntry(JIGSAW, "Jigsaw", "🧩", "$size × $size pieces"))
     }
+    val memory = child.games.memory
+    if (memory.on) add(GameEntry(MEMORY, "Pairs", "🃏", "${memory.pairs.coerceIn(MemorySetup.PAIRS.first(), MemorySetup.PAIRS.last())} pairs to find"))
     quizzes.filter { child.id in it.children && it.questions.any { q -> q.answers.size >= 2 } }.forEach { quiz ->
         val count = quiz.questions.size
         add(GameEntry("quiz/${quiz.id}", quiz.title.ifBlank { "Quiz" }, quiz.icon.ifBlank { "❓" }, "$count question${if (count == 1) "" else "s"}", quiz = quiz))

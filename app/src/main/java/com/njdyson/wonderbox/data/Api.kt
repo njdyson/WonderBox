@@ -1,6 +1,8 @@
 package com.njdyson.wonderbox.data
 
+import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.MathsSetup
+import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.Quiz
 import com.njdyson.wonderbox.games.SpellingSetup
 import kotlinx.serialization.Serializable
@@ -32,7 +34,8 @@ data class Child(
  * How hard a child's games are (set in the phone app), and how many right answers earn a treat.
  * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
- * 3 x 3), or 0 for no jigsaws.
+ * 3 x 3), or 0 for no jigsaws. [treatGames] are the game keys that win a treat ("quizzes" for
+ * every quiz); an older server doesn't send it, and then the easy games (jigsaw, memory) don't.
  */
 @Serializable
 data class GameSettings(
@@ -43,9 +46,15 @@ data class GameSettings(
     val spellingSetup: SpellingSetup? = null,
     val jigsaw: Int = 3,
     val sounds: String = "silly",
+    val hangman: HangmanSetup = HangmanSetup(),
+    val memory: MemorySetup = MemorySetup(),
+    val treatGames: List<String> = listOf("maths", "spelling", "clock", "quizzes", "hangman"),
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
+
+    /** Whether finishing the game [key] ("maths", "quiz/<id>", "memory"...) wins a treat. */
+    fun earnsTreat(key: String) = (if (key.startsWith("quiz/")) "quizzes" else key) in treatGames
 }
 
 /** "free" videos are always there; "treat" ones are unlocked by finishing a game. */
