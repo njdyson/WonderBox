@@ -51,9 +51,13 @@ about it.
 | `jigsaw.finish` | photo id | number of pieces | `size`, `moves` (swaps), `seconds` | A photo jigsaw is finished. |
 | `hangman.word` | the word | 1 found, 0 out of balloons | `wrong` (letters), `balloons`, `letters` (to pick from), `said` (word read out) | One hangman word is over. |
 | `hangman.finish` | `hangman` | words found | `missed` (words the balloons ran out on), `seconds` | A game of hangman is finished. |
+| `scramble.word` | the word | 1 put right, 0 shown after 3 tries | `misses` (tries with every gap filled but wrong), `level` (1 or 2), `said` (word read out) | One jumbled word is over (word game levels 1 and 2). |
+| `scramble.found` | the word | its length | `letters` (the letters it was made from) | A word made from the letters (levels 3 to 5). |
+| `scramble.skip` | the letters | words found | | The child asked for new letters. |
+| `scramble.finish` | `scramble` | words found | `level`, `seconds`; `missed` (levels 1 and 2), `letters` and `longest` (found a word using every letter, levels 3 to 5) | A game of the word game is finished. |
 | `memory.start` | `memory` | | `pairs`, `pictures` (`clipart`, `photos` or `both`) | A game of memory pairs starts. |
 | `memory.finish` | `memory` | pairs | `pairs`, `flips` (cards turned), `pictures`, `seconds` | Every pair is found. |
-| `points.earn` | the game id (`maths`, `quiz/<id>`, `jigsaw`, ...) or YouTube ID | stars (a whole number, 1 to 1000) | `reason` (`quiz.answer`, `jigsaw.finish`, `hangman.finish`, `memory.finish`, `video.watch` (with `seconds` played) or `treats.convert` (old saved treats, 5 stars each)) | A child earns stars: each right answer, a finished jigsaw, hangman or pairs game, or minutes of a learning video (up to the daily cap). Only what the parent chose earns. The server adds `value` to the child's `points`. |
+| `points.earn` | the game id (`maths`, `quiz/<id>`, `jigsaw`, ...) or YouTube ID | stars (a whole number, 1 to 1000) | `reason` (`quiz.answer`, `jigsaw.finish`, `hangman.finish`, `scramble.finish` (the game's stars plus 1 for a word using every letter), `memory.finish`, `video.watch` (with `seconds` played) or `treats.convert` (old saved treats, 5 stars each)) | A child earns stars: each right answer, a finished jigsaw, hangman, word game or pairs game, or minutes of a learning video (up to the daily cap). Only what the parent chose earns. The server adds `value` to the child's `points`. |
 | `points.spend` | YouTube ID | stars (a whole number) | `reason` (`video.play`), `seconds` (the video's length) | A treat or music video starts playing and its price is taken. The server takes `value` from the child's `points` (never below 0). |
 | `points.adjust` | | stars, + to give or - to take | `reason` (`parent`) | A parent gives or takes stars in the phone app. Phone app only: one from a TV is skipped. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |

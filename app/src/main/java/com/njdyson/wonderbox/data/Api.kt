@@ -6,6 +6,7 @@ import com.njdyson.wonderbox.games.FlagSetup
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.Quiz
+import com.njdyson.wonderbox.games.ScrambleSetup
 import com.njdyson.wonderbox.games.SpellingSetup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -39,9 +40,9 @@ data class Child(
  * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
  * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
- * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "memory", "jigsaw",
- * and "videos" (watching a whole free video, not music, for the first time).
- * [hangman] and [memory] are those games' setups.
+ * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "scramble" (the
+ * word game), "memory", "jigsaw", and "videos" (watching a whole free video, not music, for the
+ * first time). [hangman], [memory] and [scramble] are those games' setups.
  */
 @Serializable
 data class GameSettings(
@@ -60,6 +61,7 @@ data class GameSettings(
     val flags: Int = 1,
     val flagSetup: FlagSetup? = null,
     val points: PointsSetup = PointsSetup(),
+    val scramble: ScrambleSetup = ScrambleSetup(),
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
@@ -71,7 +73,7 @@ data class GameSettings(
 
     companion object {
         // The same as the server's, for an older server that doesn't send them.
-        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "quizzes", "hangman", VIDEOS)
+        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", VIDEOS)
 
         /** The [treatGames] key for watching whole videos. */
         const val VIDEOS = "videos"
@@ -258,8 +260,8 @@ object Pairing {
 
 /**
  * A child's star rates, set in the phone app. Stars are earned: [answer] for each question
- * answered in a quiz that earns, [game] for finishing a game that earns (hangman, pairs, a
- * jigsaw), and one for each [videoMinutes] minutes of a learning video actually played, up
+ * answered in a quiz that earns, [game] for finishing a game that earns (hangman, the word
+ * game, pairs, a jigsaw), and one for each [videoMinutes] minutes of a learning video actually played, up
  * to [videoCap] a day (0 for no limit). Treat and music videos cost one star for each
  * [treatMinutes] minutes they last, rounded up.
  */

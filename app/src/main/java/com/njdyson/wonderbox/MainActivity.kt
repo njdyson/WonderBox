@@ -22,6 +22,7 @@ import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.Category
@@ -40,6 +41,7 @@ import com.njdyson.wonderbox.ui.ProfileScreen
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.VideosScreen
+import com.njdyson.wonderbox.ui.WordGameScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -57,6 +59,7 @@ private sealed interface Screen {
     data class Playing(val childId: String, val game: String) : Screen
     data class Jigsaw(val childId: String) : Screen
     data class Hangman(val childId: String) : Screen
+    data class WordGame(val childId: String) : Screen
     data class Memory(val childId: String) : Screen
     data object Gate : Screen
     data object Settings : Screen
@@ -185,6 +188,7 @@ class MainActivity : ComponentActivity() {
                                         when (it.key) {
                                             JIGSAW -> Screen.Jigsaw(child.id)
                                             HANGMAN -> Screen.Hangman(child.id)
+                                            SCRAMBLE -> Screen.WordGame(child.id)
                                             MEMORY -> Screen.Memory(child.id)
                                             else -> Screen.Playing(child.id, it.key)
                                         },
@@ -258,6 +262,21 @@ class MainActivity : ComponentActivity() {
                                     child,
                                     stars = stars,
                                     onFinished = { Points.earn(child.id, stars, "hangman.finish", HANGMAN) },
+                                    onBack = { back() },
+                                )
+                            }
+                        }
+                        is Screen.WordGame -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            if (child == null || !child.games.scramble.on) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                WordGameScreen(
+                                    app,
+                                    child,
+                                    stars = starsFrom(child.id, SCRAMBLE, perAnswer = false),
+                                    // The stars, plus one for a word that uses every letter.
+                                    onFinished = { earned -> Points.earn(child.id, earned, "scramble.finish", SCRAMBLE) },
                                     onBack = { back() },
                                 )
                             }

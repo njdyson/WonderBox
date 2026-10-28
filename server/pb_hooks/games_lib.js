@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Settings for the TV's hangman and memory pairs (app/.../games/Hangman.kt and Memory.kt),
-// loaded with require(). Each child's are kept in children.game_setup next to maths and
-// spelling; anything missing or odd gets the default.
+// Settings for the TV's hangman, word game and memory pairs (app/.../games/Hangman.kt,
+// WordGame.kt and Memory.kt), loaded with require(). Each child's are kept in
+// children.game_setup next to maths and spelling; anything missing or odd gets the default.
 
 const WORD_LISTS = ["short", "long", "mine"]
 const HANGMAN_LETTERS = [8, 12, 26]
@@ -12,6 +12,10 @@ const MEMORY_PICTURES = ["clipart", "photos", "both"]
 
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true }
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" }
+// The word game: levels 1 and 2 unjumble a word (from these lists), 3 to 5 make words from 5, 6 or 7 letters.
+const SCRAMBLE_LISTS = ["phase2", "short", "long", "mine"]
+const SCRAMBLE_LEVELS = 5
+const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true }
 
 /** The nearest of [allowed] to [value], or [fallback] when it isn't a number. */
 function nearest(value, allowed, fallback) {
@@ -35,6 +39,21 @@ function hangmanSetup(value) {
   }
 }
 
+/** A child's word game: {on, level, lists, words, say}. */
+function scrambleSetup(value) {
+  const v = value && typeof value === "object" ? value : {}
+  const lists = Array.isArray(v.lists) ? SCRAMBLE_LISTS.filter((l) => v.lists.includes(l)) : []
+  const level = Math.round(Number(v.level))
+  const words = Math.round(Number(v.words))
+  return {
+    on: v.on === undefined ? SCRAMBLE_DEFAULT.on : !!v.on,
+    level: Number.isFinite(level) ? Math.min(SCRAMBLE_LEVELS, Math.max(1, level)) : SCRAMBLE_DEFAULT.level,
+    lists: lists.length ? lists : SCRAMBLE_DEFAULT.lists,
+    words: Number.isFinite(words) ? Math.min(10, Math.max(1, words)) : SCRAMBLE_DEFAULT.words,
+    say: v.say === undefined ? SCRAMBLE_DEFAULT.say : !!v.say,
+  }
+}
+
 /** A child's memory pairs: {on, pairs, pictures}. */
 function memorySetup(value) {
   const v = value && typeof value === "object" ? value : {}
@@ -45,9 +64,9 @@ function memorySetup(value) {
   }
 }
 
-// Stars (app/.../data/Api.kt PointsSetup): per right answer, per finished jigsaw, hangman or
-// pairs game, minutes of a learning video per star (with a daily cap, 0 for none), and
-// minutes of a treat or music video one star buys.
+// Stars (app/.../data/Api.kt PointsSetup): per right answer, per finished jigsaw, hangman,
+// word game or pairs game, minutes of a learning video per star (with a daily cap, 0 for
+// none), and minutes of a treat or music video one star buys.
 const POINTS_DEFAULT = { answer: 1, game: 3, videoMinutes: 3, videoCap: 10, treatMinutes: 1 }
 const POINTS_LIMITS = { answer: [0, 10], game: [0, 20], videoMinutes: [1, 30], videoCap: [0, 100], treatMinutes: [1, 10] }
 
@@ -63,4 +82,4 @@ function pointsSetup(value) {
   return out
 }
 
-module.exports = { hangmanSetup, memorySetup, pointsSetup }
+module.exports = { hangmanSetup, scrambleSetup, memorySetup, pointsSetup }

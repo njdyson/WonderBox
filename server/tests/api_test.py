@@ -223,7 +223,7 @@ try:
     assert lib["children"][0]["games"]["points"]["answer"] == 2
 
     # Which games earn stars: the learning ones until set; unknown ones dropped; none is allowed.
-    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "bogus"]}, token)
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 2}, token)
@@ -251,6 +251,13 @@ try:
     g = lib["children"][0]["games"]
     assert g["memory"] == {"on": False, "pairs": 6, "pictures": "photos"}, g["memory"]
     assert g["hangman"]["lists"] == ["long"] and g["mathsSetup"] == maths_before
+
+    # The word game: level 1, phonics words until set; the level and words are kept in range.
+    assert g["scramble"] == {"on": True, "level": 1, "lists": ["phase2"], "words": 3, "say": True}, g["scramble"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "scramble": {"on": True, "level": 9, "lists": ["long", "nope"], "words": 0, "say": False}}, token)
+    g = lib["children"][0]["games"]
+    assert g["scramble"] == {"on": True, "level": 5, "lists": ["long"], "words": 1, "say": False}, g["scramble"]
+    assert g["hangman"]["lists"] == ["long"] and g["treatGames"] == []
 
     # The server's voice (Piper): a WAV for a linked TV or the parent, 404 when there's none.
     lib = call("GET", "/api/wonder/library", None, token)

@@ -20,16 +20,18 @@ Family photos from the phone show on the TV as a slideshow.
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
 - **A child's home page:** big tiles on a screen of their own colour so they can tell it's
-  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws),
+  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (hangman,
+  the word jumble, jigsaws, pairs),
   Learning (the free videos), Music, Exercise (kids' yoga and workouts), Photos and Videos
   (the treat videos), always in that
   order, leaving out any with nothing in them. Each opens its own screen; the video ones
   are rows, like a TV app (their own videos, then a row for each channel). Videos watched
   all the way through (at least 80% actually playing) get a tick and fade back.
 - **Stars:** the header shows how many stars each child has. Right answers (1 each), finished
-  jigsaws, hangman or pairs (3), and learning and exercise videos (a star per 3 minutes actually played,
-  up to 10 a day) earn them, for the games the parent chose (maths, spelling, the clock,
-  flags, quizzes, hangman and learning videos until changed; those have a star on their
+  jigsaws, hangman, word jumbles or pairs (3, plus 1 for a word using every letter), and
+  learning and exercise videos (a star per 3 minutes actually played, up to 10 a day) earn
+  them, for the games the parent chose (maths, spelling, the clock, flags, quizzes, hangman,
+  the word jumble and learning videos until changed; those have a star on their
   tile). Treat and music videos cost them, a star per minute, shown on each card (the
   server gets every video's length from YouTube); without enough, the TV says how many are needed. The server keeps each
   child's balance, so the phone app shows it and can give or take stars, and sets the rates.
@@ -52,6 +54,12 @@ Family photos from the phone show on the TV as a slideshow.
 - **Flags:** see a flag and pick the country (names are read out as they're focused), or
   hear a country and pick its flag. Five levels: the UK's nations and Ireland, well-known
   flags, both ways round, Europe, then the whole world; or the parent's own mix of regions.
+- **Word jumble:** levels 1 and 2 jumble a word's letters (phonics, short, longer or the
+  parent's own words); the word is said and its picture shown, and the child picks the
+  letters back into order (level 1 only takes the right next letter, and it glows after two
+  wrong tries). Levels 3 to 5 are like Scrabble: make words from 5, 6 or 7 letters, with a
+  bonus star for one that uses them all. Words come from a bundled British word list
+  (`tools/make_words.py`: a kid word list plus SCOWL's everyday words, rude ones left out).
 - **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
   with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
   emoji) or both. Each quiz is a tile next to Maths and Spelling, under Quizzes, for the children it's for;

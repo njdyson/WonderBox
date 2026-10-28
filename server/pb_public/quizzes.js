@@ -57,6 +57,16 @@ const JIGSAW_SIZES = [2, 3, 4, 5];
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true };
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
 const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
+// The word game (app/.../games/WordGame.kt, pb_hooks/games_lib.js): levels 1 and 2 unjumble a
+// word, 3 to 5 make words from 5, 6 or 7 letters.
+const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true };
+const SCRAMBLE_LEVELS = [
+  ["Unjumble, letter by letter", "Letters only go in in the right order, and the next one glows after two wrong tries. Good for starting out."],
+  ["Unjumble a word", "Letters go in any order; when the word's full, the right start stays and the rest go back."],
+  ["Make words from 5 letters", "Like Scrabble: find 4 words of 3 letters or more. A bonus star for one that uses all 5."],
+  ["Make words from 6 letters", "Find 6 words. A bonus star for one that uses all 6."],
+  ["Make words from 7 letters", "Find 8 words. A bonus star for one that uses all 7."],
+];
 
 // The TV's levels: the same setups as pb_hooks/quizzes_lib.js and app/.../games/Setup.kt.
 const MATHS_LEVELS = [
@@ -96,7 +106,7 @@ const FLAG_LEVELS = [
 const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
 const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
 // The games that can earn stars (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Learning and exercise videos"]];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Learning and exercise videos"]];
 // Star rates (pb_hooks/games_lib.js pointsSetup) and the choices for each.
 const POINTS_DEFAULT = { answer: 1, game: 3, videoMinutes: 3, videoCap: 10, treatMinutes: 1 };
 const POINTS_CHOICES = {
@@ -106,7 +116,7 @@ const POINTS_CHOICES = {
   videoCap: [0, 5, 10, 20, 30],
   treatMinutes: [1, 2, 3, 5],
 };
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"];
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
 const sameList = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -362,6 +372,32 @@ function renderGames(c) {
       el("div", { className: "muted", textContent: myWordCount ? "My words are the spelling words above." : "Add your own words under Spelling to use them here too." }));
   }
 
+  // The word game: unjumble a word, or make words from letters
+  const scramble = { ...SCRAMBLE_DEFAULT, ...(g.scramble || {}) };
+  const saveScramble = (change) => save({ scramble: { ...scramble, ...change } });
+  const scramblePart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔠 Word jumble" }),
+      toggle(scramble.on, (on) => saveScramble({ on }), "Show the word game on the TV")));
+  if (scramble.on) {
+    const level = Math.min(SCRAMBLE_LEVELS.length, Math.max(1, scramble.level || 1));
+    scramblePart.append(
+      select(SCRAMBLE_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`]), level, (v) => saveScramble({ level: v })),
+      el("div", { className: "muted", textContent: SCRAMBLE_LEVELS[level - 1][1] }));
+    if (level <= 2) {
+      scramblePart.append(
+        el("div", { className: "row" }, el("span", { className: "grow", textContent: "Say the word and show its picture" }),
+          toggle(scramble.say, (say) => saveScramble({ say }))),
+        el("div", { className: "sub-h", textContent: "Which words" }),
+        chips([["phase2", "Phonics Phase 2 (sat, pin)"], ["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"],
+          ...(myWordCount ? [["mine", `My words (${myWordCount})`]] : [])],
+        scramble.lists, (lists) => lists.length && saveScramble({ lists })),
+        el("div", { className: "sub-h", textContent: "Words to unjumble in a game" }),
+        seg([1, 2, 3, 5].map((n) => [n, String(n)]), scramble.words, (words) => saveScramble({ words })));
+    } else {
+      scramblePart.append(el("div", { className: "muted", textContent: "Any everyday word counts, British spellings, rude ones left out. At the end it says the longest word there was." }));
+    }
+  }
+
   // Memory pairs
   const memory = { ...MEMORY_DEFAULT, ...(g.memory || {}) };
   const saveMemory = (change) => save({ memory: { ...memory, ...change } });
@@ -408,7 +444,7 @@ function renderGames(c) {
     el("div", { className: "sub-h", textContent: "What earns stars" }),
     chips(TREAT_GAMES, treatGames, (list) => save({ treatGames: list })),
     rate("Stars for each right answer", "answer", (n) => `${n}`),
-    rate("Stars for finishing a jigsaw, hangman or pairs", "game", (n) => `${n}`),
+    rate("Stars for finishing a jigsaw, hangman, word jumble or pairs", "game", (n) => `${n}`),
     rate("Learning videos earn a star every", "videoMinutes", (n) => plural(n, "minute", "minutes")),
     rate("Most stars from learning videos a day", "videoCap", (n) => n ? `${n}` : "No limit"),
     el("div", { className: "sub-h", textContent: "What stars buy" }),
@@ -424,6 +460,7 @@ function renderGames(c) {
     flagsPart);
   $("playGames").replaceChildren(
     hangmanPart,
+    scramblePart,
     jigsawPart,
     memoryPart);
   $("treatRules").replaceChildren(

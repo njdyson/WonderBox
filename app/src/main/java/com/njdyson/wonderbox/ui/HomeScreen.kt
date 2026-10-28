@@ -48,6 +48,7 @@ import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.gamesFor
 
 /** What a child can pick on their home page. */
@@ -254,6 +255,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         null -> when (game.key) {
             JIGSAW -> TILE_COLORS[2]
             HANGMAN -> TILE_COLORS[4]
+            SCRAMBLE -> TILE_COLORS[5]
             MEMORY -> TILE_COLORS[0]
             else -> TILE_COLORS[index % TILE_COLORS.size]
         }
