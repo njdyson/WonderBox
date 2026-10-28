@@ -77,6 +77,7 @@ function library(userId) {
     channels: channelRecords(userId).map((c) => ({
       id: c.id,
       channelId: c.getString("channel_id"),
+      kind: c.getString("kind") === "playlist" ? "playlist" : "channel",
       title: c.getString("title"),
       thumbnail: c.getString("thumbnail"),
       children: c.getStringSlice("children"),
@@ -359,6 +360,49 @@ function parseChannel(text) {
   return m[2] ? { id: m[2] } : { path: m[1] }
 }
 
+/** The playlist ID from a youtube.com/playlist link or a bare ID; null if it isn't one. Mixes (RD…) can't be listed. */
+function parsePlaylist(text) {
+  const s = String(text || "").trim()
+  if (/^(PL|OL|UU|FL)[A-Za-z0-9_-]{10,62}$/.test(s)) return s
+  const m = s.match(/(?:^|\/\/|\.)youtube\.com\/playlist\?(?:[^#]*&)?list=([A-Za-z0-9_-]{10,64})/)
+  if (!m) return null
+  if (m[1].startsWith("RD")) throw new BadRequestError("That's a YouTube mix, which changes for each viewer, so it can't be added. Add the songs, or a playlist, instead.")
+  return m[1]
+}
+
+/** A playlist's name and picture: from the API with a key, from its feed without. */
+function resolvePlaylist(id) {
+  const key = $os.getenv("YOUTUBE_API_KEY")
+  if (key) {
+    const res = $http.send({ url: `https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${id}&key=${encodeURIComponent(key)}`, timeout: 15 })
+    if (res.statusCode === 200 && res.json) {
+      const item = (res.json.items || [])[0]
+      if (!item) throw new BadRequestError("That playlist is private or has been deleted.")
+      const snippet = item.snippet || {}
+      const thumbs = snippet.thumbnails || {}
+      return {
+        channelId: id,
+        kind: "playlist",
+        title: snippet.title || "",
+        owner: snippet.channelTitle || "",
+        thumbnail: ((thumbs.high || thumbs.medium || thumbs.default) || {}).url || "",
+      }
+    }
+  }
+  const res = $http.send({ url: `https://www.youtube.com/feeds/videos.xml?playlist_id=${id}`, headers: YOUTUBE_HEADERS, timeout: 20 })
+  if (res.statusCode === 404 || res.statusCode === 400) throw new BadRequestError("That playlist is private or has been deleted.")
+  if (res.statusCode !== 200) throw new ApiError(502, "Couldn't reach YouTube to look up that playlist. Try again in a minute.")
+  const xml = bodyText(res)
+  const first = (xml.match(/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/) || [])[1]
+  return {
+    channelId: id,
+    kind: "playlist",
+    title: decodeEntities((xml.match(/<title>([^<]*)<\/title>/) || [])[1]),
+    owner: decodeEntities((xml.match(/<author>\s*<name>([^<]*)<\/name>/) || [])[1]),
+    thumbnail: first ? `https://i.ytimg.com/vi/${first}/hqdefault.jpg` : "",
+  }
+}
+
 /** The response body as text. */
 function bodyText(res) {
   if (typeof res.raw === "string" && res.raw) return res.raw
@@ -418,34 +462,38 @@ function resolveChannel(text) {
 }
 
 /**
- * The channel's latest videos, newest first, without Shorts. With YOUTUBE_API_KEY: up to 50,
- * each checked to play embedded on the TV. Without: the 15 in YouTube's feed, unchecked.
+ * A channel's latest videos (newest first, without Shorts) or a playlist's videos (in its
+ * order). With YOUTUBE_API_KEY: up to 50, each checked to play embedded on the TV. Without:
+ * the 15 in YouTube's feed, unchecked.
  */
-function fetchChannelVideos(channelId) {
+function fetchSourceVideos(id, kind) {
+  const playlist = kind === "playlist"
   const key = $os.getenv("YOUTUBE_API_KEY")
   if (key) {
-    const viaApi = channelVideosFromApi(channelId, key)
+    // UULF… is a channel's uploads without Shorts or live streams; UU… is every upload.
+    const lists = playlist ? [id] : ["UULF" + id.slice(2), "UU" + id.slice(2)]
+    const viaApi = playlistVideosFromApi(lists, key)
     if (viaApi) return { videos: viaApi, complete: true }
   }
-  const res = $http.send({ url: `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, headers: YOUTUBE_HEADERS, timeout: 20 })
-  if (res.statusCode === 404) throw new BadRequestError("That channel has no public videos.")
-  if (res.statusCode !== 200) throw new ApiError(502, "Couldn't reach YouTube to get that channel's videos. Try again in a minute.")
+  const res = $http.send({ url: `https://www.youtube.com/feeds/videos.xml?${playlist ? "playlist_id" : "channel_id"}=${id}`, headers: YOUTUBE_HEADERS, timeout: 20 })
+  if (res.statusCode === 404) throw new BadRequestError(playlist ? "That playlist is private or empty." : "That channel has no public videos.")
+  if (res.statusCode !== 200) throw new ApiError(502, "Couldn't reach YouTube to get those videos. Try again in a minute.")
   const videos = []
   for (const entry of bodyText(res).split("<entry>").slice(1)) {
-    const id = (entry.match(/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/) || [])[1]
-    if (!id || /href="https:\/\/www\.youtube\.com\/shorts\//.test(entry)) continue
-    videos.push({ youtubeId: id, title: decodeEntities((entry.match(/<title>([^<]*)<\/title>/) || [])[1]), thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })
+    const videoId = (entry.match(/<yt:videoId>([A-Za-z0-9_-]{11})<\/yt:videoId>/) || [])[1]
+    // A playlist is someone's choice, Shorts and all; a whole channel's Shorts are left out.
+    if (!videoId || (!playlist && /href="https:\/\/www\.youtube\.com\/shorts\//.test(entry))) continue
+    videos.push({ youtubeId: videoId, title: decodeEntities((entry.match(/<title>([^<]*)<\/title>/) || [])[1]), thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` })
   }
   return { videos, complete: false }
 }
 
-/** Null if the API fails (quota, bad key), so the feed can be used instead. */
-function channelVideosFromApi(channelId, key) {
-  // UULF… is the channel's uploads without Shorts or live streams; UU… is every upload.
+/** The videos of the first of [playlistIds] that exists. Null if the API fails (quota, bad key), so the feed can be used instead. */
+function playlistVideosFromApi(playlistIds, key) {
   let items = null
-  for (const prefix of ["UULF", "UU"]) {
+  for (const playlistId of playlistIds) {
     const res = $http.send({
-      url: `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=${CHANNEL_VIDEO_LIMIT}&playlistId=${prefix}${channelId.slice(2)}&key=${encodeURIComponent(key)}`,
+      url: `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=${CHANNEL_VIDEO_LIMIT}&playlistId=${playlistId}&key=${encodeURIComponent(key)}`,
       timeout: 15,
     })
     if (res.statusCode === 200 && res.json) {
@@ -485,7 +533,7 @@ function channelVideosFromApi(channelId, key) {
  * latest 15, so videos seen before are kept (up to 50) and the list grows over time.
  */
 function refreshChannel(record) {
-  const fetched = fetchChannelVideos(record.getString("channel_id"))
+  const fetched = fetchSourceVideos(record.getString("channel_id"), record.getString("kind"))
   let list = fetched.videos
   if (!fetched.complete) {
     const seen = new Set(list.map((v) => v.youtubeId))
@@ -509,21 +557,83 @@ function refreshAllChannels() {
   }
 }
 
-/** A video or channel link: its details, with kind "video" or "channel". Errors say why it can't be added. */
-function checkLink(text) {
-  if (parseYouTubeId(text) || !parseChannel(text)) return { kind: "video", ...checkVideo(text) }
-  const channel = resolveChannel(text)
-  const { videos } = fetchChannelVideos(channel.channelId)
-  if (!videos.length) throw new BadRequestError("That channel has no videos that will play on the TV.")
-  return { kind: "channel", ...channel, videos: videos.slice(0, 8), videoCount: videos.length }
+// --- Searching YouTube ---------------------------------------------------------
+
+const SEARCH_TYPES = ["video", "channel", "playlist"]
+const SEARCH_CACHE_MS = 60 * 60 * 1000
+
+/**
+ * Searches YouTube for [type] ("video", "channel" or "playlist") with SafeSearch on strict.
+ * Needs YOUTUBE_API_KEY; each search costs 100 of the key's 10,000 free daily units, so
+ * answers are kept for an hour and repeating a search is free.
+ */
+function search(text, type) {
+  const q = String(text || "").trim().slice(0, 100)
+  if (!q) throw new BadRequestError("Type something to search for.")
+  if (!SEARCH_TYPES.includes(type)) type = "video"
+  const key = $os.getenv("YOUTUBE_API_KEY")
+  if (!key) throw new BadRequestError("Searching needs a YouTube API key on the server. Paste a link instead.")
+
+  const cacheKey = `wonderbox_search:${type}:${q.toLowerCase()}`
+  const cached = $app.store().get(cacheKey)
+  if (cached && Date.now() - cached.at < SEARCH_CACHE_MS) return cached.results
+
+  const extra = type === "video" ? "&videoEmbeddable=true&videoSyndicated=true" : ""
+  const res = $http.send({
+    url: `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&safeSearch=strict&regionCode=GB&relevanceLanguage=en&type=${type}${extra}&q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`,
+    timeout: 15,
+  })
+  if (res.statusCode === 403) throw new ApiError(503, "YouTube's search limit for today is used up. Paste a link instead, or try again tomorrow.")
+  if (res.statusCode !== 200 || !res.json) throw new ApiError(502, "Couldn't reach YouTube to search. Try again in a minute.")
+  const results = []
+  for (const item of res.json.items || []) {
+    const id = item.id || {}
+    const snippet = item.snippet || {}
+    const thumbs = snippet.thumbnails || {}
+    const result = {
+      kind: type,
+      title: decodeEntities(snippet.title),
+      channel: decodeEntities(snippet.channelTitle),
+      thumbnail: ((thumbs.high || thumbs.medium || thumbs.default) || {}).url || "",
+    }
+    if (type === "video" && id.videoId) result.url = `https://www.youtube.com/watch?v=${id.videoId}`
+    else if (type === "channel" && id.channelId) result.url = `https://www.youtube.com/channel/${id.channelId}`
+    else if (type === "playlist" && id.playlistId) result.url = `https://www.youtube.com/playlist?list=${id.playlistId}`
+    else continue
+    if (type === "video" && snippet.liveBroadcastContent && snippet.liveBroadcastContent !== "none") continue
+    results.push(result)
+  }
+  $app.store().set(cacheKey, { at: Date.now(), results })
+  return results
 }
 
-/** Adds a channel for [childIds], or updates who it's for if it's already there. New ones go first. */
+/** A channel or playlist link's details, or null if it's neither. */
+function resolveSource(text) {
+  const playlist = parsePlaylist(text)
+  if (playlist) return resolvePlaylist(playlist)
+  const channel = resolveChannel(text)
+  return channel && { ...channel, kind: "channel" }
+}
+
+/**
+ * A video, channel or playlist link: its details, with kind "video", "channel" or "playlist".
+ * A video link with a playlist attached (from a playlist's page) is just the video.
+ * Errors say why it can't be added.
+ */
+function checkLink(text) {
+  if (parseYouTubeId(text) || !(parsePlaylist(text) || parseChannel(text))) return { kind: "video", ...checkVideo(text) }
+  const source = resolveSource(text)
+  const { videos } = fetchSourceVideos(source.channelId, source.kind)
+  if (!videos.length) throw new BadRequestError(`That ${source.kind} has no videos that will play on the TV.`)
+  return { ...source, videos: videos.slice(0, 8), videoCount: videos.length }
+}
+
+/** Adds a channel or playlist for [childIds], or updates who it's for if it's already there. New ones go first. */
 function addChannel(userId, text, childIds, tierValue, sectionValue) {
   const kids = ownChildIds(childIds, userId)
   if (!kids.length) throw new BadRequestError("Choose who it's for.")
-  const info = resolveChannel(text)
-  if (!info) throw new BadRequestError("That doesn't look like a YouTube channel link.")
+  const info = resolveSource(text)
+  if (!info) throw new BadRequestError("That doesn't look like a YouTube channel or playlist link.")
   let record = null
   try {
     record = $app.findFirstRecordByFilter("channels", "user = {:u} && channel_id = {:c}", { u: userId, c: info.channelId })
@@ -534,6 +644,7 @@ function addChannel(userId, text, childIds, tierValue, sectionValue) {
     record = new Record($app.findCollectionByNameOrId("channels"))
     record.set("user", userId)
     record.set("channel_id", info.channelId)
+    record.set("kind", info.kind === "playlist" ? "playlist" : "")
     const first = channelRecords(userId)[0]
     record.set("sort", first ? first.getInt("sort") - 1 : 0)
     record.set("children", kids)
@@ -594,7 +705,7 @@ function cleanupPairings() {
 
 module.exports = {
   caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, removeChild,
-  saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, checkLink, addChannel,
-  refreshChannel, refreshAllChannels, updateItem, newPairingCode, findPairing, cleanupPairings,
+  saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
+  refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,
 }
