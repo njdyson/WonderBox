@@ -20,7 +20,8 @@ Family photos from the phone show on the TV as a slideshow.
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
 - **A child's home page:** big tiles on a screen of their own colour so they can tell it's
-  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (jigsaws), Learning,
+  theirs: Quizzes (Maths, Spelling, Clock, Flags and the parent's quizzes), Games (hangman, the word
+  jumble, jigsaws, pairs), Learning,
   Music, Exercise and Photos, always in that order, leaving out any with nothing in them, then Treats. Each
   opens its own screen; Learning, Music and Exercise are rows, like a TV app (their own videos, then a
   row for each channel). Treat videos never show there: finishing a game (10 right answers
@@ -31,7 +32,8 @@ Family photos from the phone show on the TV as a slideshow.
   time a learning or exercise video is watched through without skipping (at least 80% of it
   actually playing), it wins a treat too, unless the parent turned "Watching a whole learning or exercise video"
   off in the phone app. The parent chooses which
-  games win a treat: maths, spelling, the clock, flags, quizzes and hangman until changed, not
+  games win a treat: maths, spelling, the clock, flags, quizzes, hangman and the word jumble
+  until changed, not
   jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
@@ -52,6 +54,12 @@ Family photos from the phone show on the TV as a slideshow.
 - **Flags:** see a flag and pick the country (names are read out as they're focused), or
   hear a country and pick its flag. Five levels: the UK's nations and Ireland, well-known
   flags, both ways round, Europe, then the whole world; or the parent's own mix of regions.
+- **Word jumble:** levels 1 and 2 jumble a word's letters (phonics, short, longer or the
+  parent's own words); the word is said and its picture shown, and the child picks the
+  letters back into order (level 1 only takes the right next letter, and it glows after two
+  wrong tries). Levels 3 to 5 are like Scrabble: make words from 5, 6 or 7 letters, with a
+  cheer for one that uses them all. Finishing a game wins a treat, like hangman. Words come from a bundled British word list
+  (`tools/make_words.py`: a kid word list plus SCOWL's everyday words, rude ones left out).
 - **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
   with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
   emoji) or both. Each quiz is a tile next to Maths and Spelling, under Quizzes, for the children it's for;

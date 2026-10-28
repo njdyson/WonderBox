@@ -20,6 +20,7 @@ import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.Category
@@ -38,6 +39,7 @@ import com.njdyson.wonderbox.ui.ProfileScreen
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.VideosScreen
+import com.njdyson.wonderbox.ui.WordGameScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
@@ -60,6 +62,7 @@ private sealed interface Screen {
     data class Playing(val childId: String, val game: String) : Screen
     data class Jigsaw(val childId: String) : Screen
     data class Hangman(val childId: String) : Screen
+    data class WordGame(val childId: String) : Screen
     data class Memory(val childId: String) : Screen
     data object Gate : Screen
     data object Settings : Screen
@@ -194,6 +197,7 @@ class MainActivity : ComponentActivity() {
                                         when (it.key) {
                                             JIGSAW -> Screen.Jigsaw(child.id)
                                             HANGMAN -> Screen.Hangman(child.id)
+                                            SCRAMBLE -> Screen.WordGame(child.id)
                                             MEMORY -> Screen.Memory(child.id)
                                             else -> Screen.Playing(child.id, it.key)
                                         },
@@ -325,6 +329,22 @@ class MainActivity : ComponentActivity() {
                                     child,
                                     hasTreats = treat,
                                     onFinished = { if (treat) winTreat(child.id, "hangman.finish", HANGMAN) },
+                                    onPickTreat = { pickTreat(child.id) },
+                                    onBack = { back() },
+                                )
+                            }
+                        }
+                        is Screen.WordGame -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            if (child == null || !child.games.scramble.on) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                val treat = earnsTreat(child.id, SCRAMBLE)
+                                WordGameScreen(
+                                    app,
+                                    child,
+                                    hasTreats = treat,
+                                    onFinished = { if (treat) winTreat(child.id, "scramble.finish", SCRAMBLE) },
                                     onPickTreat = { pickTreat(child.id) },
                                     onBack = { back() },
                                 )

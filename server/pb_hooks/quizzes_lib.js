@@ -15,10 +15,13 @@
 const MATHS_TYPES = ["count", "add", "sub", "add3", "missing", "bonds", "double", "half", "more", "bigger", "times"]
 const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"]
 const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
-// The games that can win a treat on the TV ("quizzes" is all the parent's quizzes), and the
-// ones that do until the parent changes it: the learning ones, not the jigsaw or memory pairs.
-const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "videos"]
+
+// The games that can win a treat on the TV ("quizzes" is all the parent's quizzes, "videos" the
+// learning and exercise videos), and the ones that do until the parent changes it: not the jigsaw or pairs.
+const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "memory", "jigsaw", "videos"]
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"]
+// The games a parent could tick before the word game came, for children saved without treatsOffered.
+const TREAT_GAMES_BEFORE_SCRAMBLE = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]
 const FLAG_REGIONS = ["uk", "famous", "europe", "asia", "africa", "americas", "oceania"]
 const FLAG_TYPES = ["name", "flag"]
 const WORD_LISTS = ["short", "long", "phase2", "mine"]
@@ -174,9 +177,15 @@ function clockSetup(input, level) {
   }
 }
 
-/** The games that win a treat, checked; the default ones if it's never been set. */
-function treatGames(input) {
-  return Array.isArray(input) ? pick(input, TREAT_GAMES) : [...TREAT_DEFAULT]
+/**
+ * The games that win a treat, checked; the default ones if it's never been set. A game added
+ * since the parent chose (not in [offered], the games there were then) wins if it does by
+ * default, so a new game isn't left out just because the parent once changed the list.
+ */
+function treatGames(input, offered) {
+  if (!Array.isArray(input)) return [...TREAT_DEFAULT]
+  const known = Array.isArray(offered) ? offered : TREAT_GAMES_BEFORE_SCRAMBLE
+  return pick([...input, ...TREAT_DEFAULT.filter((g) => !known.includes(g))], TREAT_GAMES)
 }
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
@@ -296,7 +305,7 @@ function cleanupImages(userId) {
 
 module.exports = {
   jsonField, mathsSetup, spellingSetup, mathsPreset, spellingPreset, mathsLevelOf, spellingLevelOf,
-  clockSetup, clockPreset, clockLevelOf, treatGames, CLOCK_PRESETS,
+  clockSetup, clockPreset, clockLevelOf, treatGames, TREAT_GAMES, CLOCK_PRESETS,
   flagSetup, flagPreset, flagLevelOf, FLAG_PRESETS,
   quizRecords, quizList, cleanQuiz, cleanupImages, IMAGE_PATH,
 }

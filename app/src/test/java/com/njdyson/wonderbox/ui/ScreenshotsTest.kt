@@ -25,6 +25,7 @@ import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.Jigsaw
 import com.njdyson.wonderbox.games.Memory
 import com.njdyson.wonderbox.games.MemorySetup
+import com.njdyson.wonderbox.games.ScrambleSetup
 import kotlin.random.Random
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -286,6 +287,33 @@ class ScreenshotsTest {
         settle()
         compose.mainClock.advanceTimeBy(600)
         shoot("hangman-all-letters")
+    }
+
+    @Test fun wordJumble() {
+        val app = app()
+        val child = summer.copy(games = summer.games.copy(scramble = ScrambleSetup(lists = listOf("short"))))
+        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, true, {}, {}, {}, random = Random(3)) } }
+        settle()
+        compose.mainClock.advanceTimeBy(600)
+        shoot("word-jumble")
+    }
+
+    @Test fun wordJumbleLonger() {
+        val app = app()
+        val child = jesse.copy(games = GameSettings(scramble = ScrambleSetup(level = 2, lists = listOf("long"))))
+        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, true, {}, {}, {}, random = Random(5), startPicks = listOf(1, 3)) } }
+        settle()
+        compose.mainClock.advanceTimeBy(600)
+        shoot("word-jumble-longer")
+    }
+
+    @Test fun makeWords() {
+        val app = app()
+        val child = jesse.copy(games = GameSettings(scramble = ScrambleSetup(level = 4)))
+        compose.setContent { WonderBoxTheme { WordGameScreen(app, child, true, {}, {}, {}, random = Random(7), startPicks = listOf(0, 2), startFound = 3) } }
+        settle()
+        compose.mainClock.advanceTimeBy(600)
+        shoot("make-words")
     }
 
     @Test fun memory() = memory(summer, 6, "memory")

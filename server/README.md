@@ -58,7 +58,7 @@ Each child's `games` in the library has their levels and round size, plus `maths
 in the phone app sets that level's setup; changing any part makes it the child's own mix.
 `POST /api/wonder/children/games` takes any of `{id, maths, spelling, clock, flags, roundSize,
 mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames, jigsaw, sounds}`. `treatGames` lists the
-games that win a treat (`maths`, `spelling`, `clock`, `flags`, `quizzes`, `hangman`, `memory`,
+games that win a treat (`maths`, `spelling`, `clock`, `flags`, `quizzes`, `hangman`, `scramble`, `memory`,
 `jigsaw`); until it's set, all but memory pairs and jigsaws. The clock and `treatGames` are
 kept in `children.game_setup` (as `clock`, `clockLevel`, `flags`, `flagLevel` and `treats`). The TV makes the questions up from the setup. `jigsaw` is the
 photo jigsaw's pieces along each side, 2 to 5 (3 by default), or 0 for none; it's stored in
