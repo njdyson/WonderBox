@@ -61,12 +61,12 @@ private const val SLIDE_MS = 6_000L
  * The family photos, one at a time, filling the screen, starting from [start]. Left and right
  * flip through them (wrapping round at the ends), OK starts or stops the slideshow, Back goes
  * back to the child's screen. The next and previous photos load in the background so flipping
- * is instant. Every child sees the same photos; [childId] is who's looking.
+ * is instant. Only [childId]'s photos are shown.
  */
 @Composable
 fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
     val context = LocalContext.current
-    val photos = app.photos
+    val photos = app.photosFor(childId)
     var index by rememberSaveable { mutableStateOf(start) }
     var playing by rememberSaveable { mutableStateOf(false) }
     // The counter and hint show for a few seconds after each key press, then get out of the way.
@@ -171,7 +171,7 @@ private fun photoRequest(context: Context, app: AppState, photo: Photo, crossfad
         .build()
 
 /**
- * "Photos": a row of thumbnails, newest first, for a child's screen. OK on one opens the
+ * "Photos": a row of [photos] thumbnails (a child's own, newest first) for a child's screen. OK on one opens the
  * slideshow there ([onOpen] gets its index). [onFocus] gets the focused photo's ID, and
  * [focusModifier] goes on the photo [focusedId], so focus can come back to it.
  * Shows nothing until there are photos.
@@ -179,13 +179,13 @@ private fun photoRequest(context: Context, app: AppState, photo: Photo, crossfad
 @Composable
 fun PhotosRow(
     app: AppState,
+    photos: List<Photo>,
     onOpen: (Int) -> Unit,
     onFocus: (String) -> Unit = {},
     focusedId: String? = null,
     focusModifier: Modifier = Modifier,
     ink: Color = Color.White,
 ) {
-    val photos = app.photos
     if (photos.isEmpty()) return
     Column {
         Text(

@@ -293,7 +293,7 @@ try:
     upload("/api/wonder/photos/add", {}, {}, token, expect=400)
     upload("/api/wonder/photos/add", {"image": b"not a picture"}, {}, token, expect=400)
     first = upload("/api/wonder/photos/add", {"image": JPEG}, {"width": 2, "height": 2}, token)["saved"]
-    photos = upload("/api/wonder/photos/add", {"image": JPEG, "thumb": JPEG}, {"width": 2, "height": 2}, token)
+    photos = upload("/api/wonder/photos/add", {"image": JPEG, "thumb": JPEG}, {"width": 2, "height": 2, "children": json.dumps([sam])}, token)
     second = photos["saved"]
     assert [p["id"] for p in photos["photos"]] == [second, first], photos
     assert photos["photos"][0]["width"] == 2
@@ -306,6 +306,22 @@ try:
     fetch(f"/api/collections/photos/records/{second}", token=token, expect=403)
     photos = call("POST", "/api/wonder/photos/remove", {"id": first}, token)
     assert [p["id"] for p in photos["photos"]] == [second]
+    # Who each photo is for: left out, everyone; otherwise only the parent's own children.
+    kim = call("POST", "/api/wonder/children/save", {"name": "Kim"}, token)["saved"]
+    assert call("GET", "/api/wonder/photos", token=token)["photos"][0]["children"] == [sam]
+    everyone = upload("/api/wonder/photos/add", {"image": JPEG}, {}, token)
+    assert sorted(everyone["photos"][0]["children"]) == sorted([sam, kim])
+    upload("/api/wonder/photos/add", {"image": JPEG}, {"children": json.dumps(["nope"])}, token, expect=400)
+    third = upload("/api/wonder/photos/add", {"image": JPEG}, {"children": json.dumps([kim, "nope"])}, token)
+    assert third["photos"][0]["children"] == [kim]
+    photos = call("POST", "/api/wonder/photos/update", {"id": second, "children": [sam, kim, "nope"]}, token)["photos"]
+    assert sorted(next(p for p in photos if p["id"] == second)["children"]) == sorted([sam, kim])
+    photos = call("POST", "/api/wonder/photos/update", {"id": everyone["saved"], "children": []}, token)["photos"]
+    assert everyone["saved"] not in [p["id"] for p in photos]
+    # Removing a child removes the photos that were only theirs.
+    call("POST", "/api/wonder/children/remove", {"id": kim}, token)
+    photos = call("GET", "/api/wonder/photos", token=token)["photos"]
+    assert [(p["id"], p["children"]) for p in photos] == [(second, [sam])], photos
 
     # Quizzes the parent writes, with pictures.
     upload("/api/wonder/quiz-images/add", {"image": b"not a picture"}, {}, token, expect=400)
