@@ -16,9 +16,20 @@ data class Question(
     val picture: String = "",
     /** Spell the whole of [answer] by picking its letters in order from [choices]. */
     val build: Boolean = false,
-)
+    /** A picture for each choice (an emoji or a quiz image's path), for the parent's quizzes. */
+    val choicePictures: List<String> = emptyList(),
+    /** Which choice is right, when choices aren't told apart by their words. -1: the one that's [answer]. */
+    val answerIndex: Int = -1,
+    /** What kind of question it is, for the activity log: "add", "first", "quiz"... */
+    val kind: String = "",
+) {
+    fun isRight(choice: Int) = if (answerIndex >= 0) choice == answerIndex else choices.getOrNull(choice) == answer
 
-/** The two games. Levels are 1-based; the phone app sets each child's level. */
+    /** A choice in words, for the activity log. */
+    fun describe(choice: Int) = choices.getOrNull(choice)?.ifBlank { null } ?: "picture ${choice + 1}"
+}
+
+/** The two made-up games. Levels are 1-based ready-made setups; the phone app sets each child's. */
 enum class Game(val title: String, val icon: String, val levels: List<String>) {
     Maths(
         "Maths", "🔢",
@@ -44,8 +55,8 @@ enum class Game(val title: String, val icon: String, val levels: List<String>) {
     ;
 
     fun question(level: Int, random: Random = Random): Question = when (this) {
-        Maths -> MathsQuestions.question(level.coerceIn(1, levels.size), random)
-        Spelling -> SpellingQuestions.question(level.coerceIn(1, levels.size), random)
+        Maths -> MathsQuestions.question(MathsSetup.preset(level), random)
+        Spelling -> SpellingQuestions.question(SpellingSetup.preset(level), random)
     }
 }
 
@@ -53,46 +64,56 @@ internal object MathsQuestions {
     // Things to count. Old emoji only, so they show on older Fire TV software.
     private val THINGS = listOf("🍎", "⭐", "🐟", "🎈", "🍓", "🐞", "🚗", "🌸")
 
-    fun question(level: Int, random: Random): Question = when (level) {
-        1 -> {
-            val n = random.nextInt(1, 6)
-            Question("How many?", "How many can you count?", choices(n, 3, 1..6, random), "$n", THINGS.random(random).repeat(n))
-        }
-        2 -> {
-            val a = random.nextInt(1, 5)
-            val b = random.nextInt(1, 6 - a)
-            val thing = THINGS.random(random)
-            add(a, b, 3, random, 6, picture = "${thing.repeat(a)} + ${thing.repeat(b)}")
-        }
-        3 -> {
-            val a = random.nextInt(1, 10)
-            add(a, random.nextInt(1, 11 - a), 4, random, 10)
-        }
-        4 -> addOrTakeAway(10, random)
-        5 -> addOrTakeAway(20, random)
-        else -> {
-            val table = listOf(2, 5, 10).random(random)
-            val n = random.nextInt(1, 13)
-            Question("$n × $table", "What is $n times $table?", choices(n * table, 4, 0..130, random), "${n * table}")
+    fun question(setup: MathsSetup, random: Random): Question {
+        val max = setup.max.coerceIn(5, 100)
+        val count = setup.choices.coerceIn(2, 4)
+        val type = setup.types.filter { it in TYPES }.ifEmpty { listOf("add") }.random(random)
+        val thing = THINGS.random(random)
+        // Pictures only while there are few enough things to count.
+        val draw = setup.pictures && max <= 10
+        return when (type) {
+            "count" -> {
+                val n = random.nextInt(1, minOf(max, 10) + 1)
+                Question("How many?", "How many can you count?", choices(n, count, 1..maxOf(n + 3, 6), random), "$n", thing.repeat(n), kind = type)
+            }
+            "add" -> {
+                val a = random.nextInt(1, max)
+                val b = random.nextInt(1, max - a + 1)
+                Question(
+                    "$a + $b", "What is $a plus $b?", choices(a + b, count, 0..max, random), "${a + b}",
+                    if (draw) "${thing.repeat(a)} + ${thing.repeat(b)}" else "", kind = type,
+                )
+            }
+            "sub" -> {
+                val a = random.nextInt(2, max + 1)
+                val b = random.nextInt(1, a)
+                Question("$a − $b", "What is $a take away $b?", choices(a - b, count, 0..max, random), "${a - b}", if (draw) thing.repeat(a) else "", kind = type)
+            }
+            "missing" -> {
+                val total = random.nextInt(2, max + 1)
+                val a = random.nextInt(1, total)
+                Question("$a + _ = $total", "$a plus what makes $total?", choices(total - a, count, 1..max, random), "${total - a}", kind = type)
+            }
+            "bigger" -> {
+                val numbers = (0..max).shuffled(random).take(count)
+                Question("", "Which number is the biggest?", numbers.map { "$it" }, "${numbers.max()}", kind = type)
+            }
+            else -> {
+                val table = setup.tables.filter { it in 1..12 }.ifEmpty { listOf(2) }.random(random)
+                val n = random.nextInt(1, 13)
+                Question("$n × $table", "What is $n times $table?", choices(n * table, count, 0..144, random), "${n * table}", kind = "times")
+            }
         }
     }
 
-    private fun addOrTakeAway(max: Int, random: Random): Question {
-        if (random.nextBoolean()) {
-            val a = random.nextInt(1, max)
-            return add(a, random.nextInt(1, max - a + 1), 4, random, max)
-        }
-        val a = random.nextInt(2, max + 1)
-        val b = random.nextInt(1, a)
-        return Question("$a − $b", "What is $a take away $b?", choices(a - b, 4, 0..max, random), "${a - b}")
-    }
-
-    private fun add(a: Int, b: Int, count: Int, random: Random, max: Int = a + b + 3, picture: String = "") =
-        Question("$a + $b", "What is $a plus $b?", choices(a + b, count, 0..max, random), "${a + b}", picture)
+    private val TYPES = setOf("count", "add", "sub", "missing", "bigger", "times")
 
     /** [answer] and [count] - 1 others near it, in a random order. */
     fun choices(answer: Int, count: Int, range: IntRange, random: Random): List<String> {
-        val others = (-3..3).map { answer + it }.filter { it != answer && it in range }.shuffled(random).take(count - 1)
+        val near = (-3..3).map { answer + it }.filter { it != answer && it in range }.shuffled(random)
+        // Near the edge of a small range there may not be enough close by.
+        val more = (-6..6).map { answer + it }.filter { it != answer && it >= 0 && it !in near }.shuffled(random)
+        val others = (near + more).take(count - 1)
         return (others + answer).shuffled(random).map { "$it" }
     }
 }
@@ -117,40 +138,45 @@ internal object SpellingQuestions {
     private const val VOWELS = "aeiou"
     private const val CONSONANTS = "bcdfghjklmnprstvwz"
 
-    fun question(level: Int, random: Random): Question = when (level) {
-        1 -> {
-            val (word, picture) = SHORT.random(random)
-            missing(word, 0, picture, 3, random, "Which letter does $word start with?")
-        }
-        2 -> {
-            val (word, picture) = SHORT.random(random)
-            missing(word, 1, picture, 3, random, "Which letter is missing from $word?")
-        }
-        3 -> {
-            val (word, picture) = LONG.random(random)
-            missing(word, random.nextInt(word.length), picture, 4, random, "Which letter is missing from $word?")
-        }
-        4 -> {
-            val (word, picture) = (SHORT + LONG).random(random)
-            val wrong = misspellings(word, random).take(2)
-            Question("", "Which one spells $word?", (wrong + word).shuffled(random), word, picture)
-        }
-        else -> {
-            val (word, picture) = LONG.random(random)
-            var letters = word.map { "$it" }.shuffled(random)
-            // Never already in order: that's no puzzle.
-            while (letters.joinToString("") == word) letters = letters.shuffled(random)
-            Question(word.map { "_" }.joinToString(""), "Spell $word", letters, word, picture, build = true)
+    /** Words longer than this aren't spelt letter by letter: too many buttons for the screen. */
+    const val LONGEST_BUILD = 8
+
+    fun question(setup: SpellingSetup, random: Random): Question {
+        val words = buildList {
+            if ("short" in setup.lists) addAll(SHORT)
+            if ("long" in setup.lists) addAll(LONG)
+            if ("mine" in setup.lists) setup.myWords.forEach { add(it.word.lowercase() to it.picture) }
+        }.filter { (word, _) -> word.length >= 2 && word.all { it in 'a'..'z' } }.ifEmpty { SHORT }
+        val count = setup.choices.coerceIn(2, 4)
+        val (word, picture) = words.random(random)
+        var type = setup.types.filter { it in TYPES }.ifEmpty { listOf("first") }.random(random)
+        if (type == "build" && word.length > LONGEST_BUILD) type = "missing"
+        return when (type) {
+            "first" -> missing(word, 0, picture, count, random, "Which letter does $word start with?", type)
+            // In a three-letter word, the middle one.
+            "missing" -> missing(word, if (word.length == 3) 1 else random.nextInt(1, word.length), picture, count, random, "Which letter is missing from $word?", type)
+            "pick" -> {
+                val wrong = misspellings(word, random).take(count - 1)
+                Question("", "Which one spells $word?", (wrong + word).shuffled(random), word, picture, kind = type)
+            }
+            else -> {
+                var letters = word.map { "$it" }.shuffled(random)
+                // Never already in order: that's no puzzle (unless every letter is the same).
+                while (letters.joinToString("") == word && word.toSet().size > 1) letters = letters.shuffled(random)
+                Question(word.map { "_" }.joinToString(""), "Spell $word", letters, word, picture, build = true, kind = "build")
+            }
         }
     }
 
+    private val TYPES = setOf("first", "missing", "pick", "build")
+
     /** [word] with the letter at [index] hidden, and letters to choose from. */
-    private fun missing(word: String, index: Int, picture: String, count: Int, random: Random, spoken: String): Question {
+    private fun missing(word: String, index: Int, picture: String, count: Int, random: Random, spoken: String, kind: String): Question {
         val letter = word[index]
         val pool = if (letter in VOWELS) VOWELS else CONSONANTS
         val others = pool.filter { it != letter }.toList().shuffled(random).take(count - 1)
         val prompt = word.substring(0, index) + "_" + word.substring(index + 1)
-        return Question(prompt, "$spoken $word.", (others + letter).shuffled(random).map { "$it" }, "$letter", picture)
+        return Question(prompt, "$spoken $word.", (others + letter).shuffled(random).map { "$it" }, "$letter", picture, kind = kind)
     }
 
     /** Believable wrong spellings of [word], all different, none of them [word]. */

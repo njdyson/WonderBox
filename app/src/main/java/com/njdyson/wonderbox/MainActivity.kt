@@ -12,7 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.njdyson.wonderbox.data.EventLog
-import com.njdyson.wonderbox.games.Game
+import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.GameScreen
 import com.njdyson.wonderbox.ui.AppState
@@ -30,7 +30,8 @@ private sealed interface Screen {
     data object Profiles : Screen
     data class Videos(val childId: String) : Screen
     data class Photos(val childId: String, val start: Int) : Screen
-    data class Playing(val childId: String, val game: Game) : Screen
+    /** [game] is a [com.njdyson.wonderbox.games.GameEntry] key: "maths", "spelling" or "quiz/<id>". */
+    data class Playing(val childId: String, val game: String) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -97,7 +98,7 @@ class MainActivity : ComponentActivity() {
                                     startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title, it.channel, child.id))
                                 },
                                 onPhoto = { open(Screen.Photos(child.id, it)) },
-                                onGame = { open(Screen.Playing(child.id, it)) },
+                                onGame = { open(Screen.Playing(child.id, it.key)) },
                                 focusTreats = pickingTreat,
                                 onTreatsFocused = { pickingTreat = false },
                             )
@@ -105,14 +106,16 @@ class MainActivity : ComponentActivity() {
                     }
                     is Screen.Playing -> {
                         val child = app.library.children.firstOrNull { it.id == screen.childId }
-                        if (child == null) {
+                        // The game may have been turned off, or the quiz removed, from the phone.
+                        val entry = child?.let { c -> app.library.gamesFor(c).firstOrNull { it.key == screen.game } }
+                        if (child == null || entry == null) {
                             LaunchedEffect(Unit) { back() }
                         } else {
                             val hasTreats = app.library.shelvesFor(child.id).any { it.treat }
                             GameScreen(
                                 app,
                                 child,
-                                screen.game,
+                                entry,
                                 hasTreats = hasTreats,
                                 onFinished = {
                                     if (hasTreats) {
@@ -120,7 +123,7 @@ class MainActivity : ComponentActivity() {
                                         // A treat to pick; reward.unlock is logged when it's picked.
                                         EventLog.log("reward.earn", child.id, subject = "treat") {
                                             put("reason", "quiz.finish")
-                                            put("game", screen.game.name.lowercase())
+                                            put("game", screen.game)
                                         }
                                     }
                                 },

@@ -1,0 +1,41 @@
+package com.njdyson.wonderbox.ui
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+
+/** True for a quiz image on the server, false for an emoji. */
+fun isImagePath(picture: String) = picture.startsWith("/")
+
+/**
+ * A quiz picture, [size] square: an emoji, or a quiz image fetched from the server with this
+ * TV's key (the files are protected, like the photos).
+ */
+@Composable
+fun QuizPicture(app: AppState, picture: String, size: Dp, modifier: Modifier = Modifier) {
+    if (isImagePath(picture)) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(app.photoUrl(picture))
+                .addHeader("X-Device-Key", app.deviceKey.orEmpty())
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = modifier.size(size),
+        )
+    } else {
+        Box(modifier.size(size), contentAlignment = Alignment.Center) {
+            Text(picture, fontSize = (size.value * 0.72f).sp, textAlign = TextAlign.Center)
+        }
+    }
+}
