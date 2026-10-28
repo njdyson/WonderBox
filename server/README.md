@@ -5,9 +5,9 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 
 | Folder | What it is |
 |---|---|
-| `pb_migrations/` | Database setup: `children`, `videos`, `devices` (linked TVs), `pairings` (link codes). No public sign-up. |
+| `pb_migrations/` | Database setup: `children`, `videos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
 | `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos, linking TVs. |
-| `pb_public/` | The phone app (PWA): sign in, paste a YouTube link, choose who it's for, order and remove videos, linked TVs. |
+| `pb_public/` | The phone app (PWA): sign in, paste a YouTube link, choose who it's for, order and remove videos, stats (`stats.js`), linked TVs. |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
 
