@@ -64,6 +64,7 @@ function library(userId) {
       color: c.getString("color"),
       games: games(c),
     })),
+    quizzes: require(`${__hooks}/quizzes_lib.js`).quizList(userId),
     videos: videoRecords(userId).map((v) => ({
       id: v.id,
       youtubeId: v.getString("youtube_id"),
@@ -102,24 +103,52 @@ const GAME_DEFAULTS = { maths: 1, spelling: 1, roundSize: 10 }
 
 /** A child's game settings, with defaults for anything not set yet. */
 function games(child) {
+  const quiz = require(`${__hooks}/quizzes_lib.js`)
+  const maths = child.getInt("maths_level") || GAME_DEFAULTS.maths
+  const spelling = child.getInt("spelling_level") || GAME_DEFAULTS.spelling
+  const stored = quiz.jsonField(child, "game_setup") || {}
   return {
-    maths: child.getInt("maths_level") || GAME_DEFAULTS.maths,
-    spelling: child.getInt("spelling_level") || GAME_DEFAULTS.spelling,
+    maths,
+    spelling,
     roundSize: child.getInt("round_size") || GAME_DEFAULTS.roundSize,
+    // What each game asks; a child set up before these existed gets their level's.
+    mathsSetup: quiz.mathsSetup(stored.maths, maths),
+    spellingSetup: quiz.spellingSetup(stored.spelling, spelling),
   }
 }
 
-/** {id, maths, spelling, roundSize}: how hard a child's games are. */
+/**
+ * {id, maths, spelling, roundSize, mathsSetup, spellingSetup}: how hard a child's games are.
+ * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
+ * it to the level whose setup it matches. Anything left out stays as it was.
+ */
 function saveGames(userId, body) {
+  const quiz = require(`${__hooks}/quizzes_lib.js`)
   const child = own("children", body.id, userId)
   const clamp = (value, min, max, fallback) => {
     const n = Math.round(Number(value))
-    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
+    return value !== undefined && value !== null && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
   }
   const current = games(child)
-  child.set("maths_level", clamp(body.maths, 1, MATHS_LEVELS, current.maths))
-  child.set("spelling_level", clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling))
+  const setup = { maths: current.mathsSetup, spelling: current.spellingSetup }
+  let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
+  let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
+  if (body.mathsSetup) {
+    setup.maths = quiz.mathsSetup(body.mathsSetup, maths)
+    maths = quiz.mathsLevelOf(setup.maths) || maths
+  } else if (maths !== current.maths) {
+    setup.maths = quiz.mathsPreset(maths)
+  }
+  if (body.spellingSetup) {
+    setup.spelling = quiz.spellingSetup(body.spellingSetup, spelling)
+    spelling = quiz.spellingLevelOf(setup.spelling) || spelling
+  } else if (spelling !== current.spelling) {
+    setup.spelling = quiz.spellingPreset(spelling, current.spellingSetup)
+  }
+  child.set("maths_level", maths)
+  child.set("spelling_level", spelling)
   child.set("round_size", clamp(body.roundSize, 3, 30, current.roundSize))
+  child.set("game_setup", setup)
   $app.save(child)
 }
 

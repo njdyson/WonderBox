@@ -101,7 +101,7 @@ try:
     # No public sign-up, and the API needs a sign-in.
     call("POST", "/api/collections/users/records", {"email": "x@example.com", "password": password, "passwordConfirm": password}, expect=403)
     call("GET", "/api/wonder/library", expect=401)
-    assert call("GET", "/api/wonder/library", token=token) == {"children": [], "videos": [], "channels": []}
+    assert call("GET", "/api/wonder/library", token=token) == {"children": [], "quizzes": [], "videos": [], "channels": []}
 
     # Children
     lib = call("POST", "/api/wonder/children/save", {"name": "Sam", "avatar": "🦊", "color": "#FF6B9A"}, token)
@@ -116,12 +116,37 @@ try:
     lib = call("POST", "/api/wonder/children/save", {"id": jo, "name": "Joanna", "avatar": "🐢"}, token)
     assert lib["children"][0]["name"] == "Joanna"
 
-    # Game settings: defaults, then clamped to the levels the TV has.
-    assert lib["children"][0]["games"] == {"maths": 1, "spelling": 1, "roundSize": 10}
+    # Game settings: defaults, then clamped to the levels the TV has. Each level is a setup.
+    g = lib["children"][0]["games"]
+    assert (g["maths"], g["spelling"], g["roundSize"]) == (1, 1, 10)
+    assert g["mathsSetup"] == {"on": True, "types": ["count"], "max": 5, "tables": [2, 5, 10], "choices": 3, "pictures": True}, g
+    assert g["spellingSetup"] == {"on": True, "types": ["first"], "lists": ["short"], "choices": 3, "myWords": []}, g
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "maths": 3, "spelling": 99, "roundSize": 1}, token)
-    assert lib["children"][0]["games"] == {"maths": 3, "spelling": 5, "roundSize": 3}, lib["children"][0]
+    g = lib["children"][0]["games"]
+    assert (g["maths"], g["spelling"], g["roundSize"]) == (3, 5, 3), g
+    assert g["mathsSetup"]["types"] == ["add"] and g["mathsSetup"]["max"] == 10
+    assert g["spellingSetup"]["types"] == ["build"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "roundSize": 12}, token)
-    assert lib["children"][0]["games"] == {"maths": 3, "spelling": 5, "roundSize": 12}
+    g = lib["children"][0]["games"]
+    assert (g["maths"], g["spelling"], g["roundSize"], g["mathsSetup"]["types"]) == (3, 5, 12, ["add"])
+    # A setup of its own: checked, and the level follows when it matches one.
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {
+        "types": ["times", "nonsense", "add"], "max": 7, "tables": [3, 99, 3, 0, 12], "choices": 9, "pictures": 1, "on": False}}, token)
+    m = lib["children"][0]["games"]["mathsSetup"]
+    assert m == {"on": False, "types": ["add", "times"], "max": 10, "tables": [3, 12], "choices": 4, "pictures": True}, m
+    assert lib["children"][0]["games"]["maths"] == 3  # not a level's setup: the level stays
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {"types": ["add", "sub"], "max": 20, "choices": 4, "pictures": False}}, token)
+    assert lib["children"][0]["games"]["maths"] == 5
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spellingSetup": {
+        "types": ["first", "pick"], "lists": ["mine", "short"], "choices": 2,
+        "myWords": [{"word": " Rabbit ", "picture": "🐰"}, {"word": "rabbit"}, {"word": "no way"}, "school", {"word": "x"}]}}, token)
+    sp = lib["children"][0]["games"]["spellingSetup"]
+    assert sp["myWords"] == [{"word": "rabbit", "picture": "🐰"}, {"word": "school", "picture": ""}], sp
+    assert sp["lists"] == ["short", "mine"] and sp["types"] == ["first", "pick"] and sp["choices"] == 2, sp
+    # Picking a level again keeps the child's own words.
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "spelling": 2}, token)
+    sp = lib["children"][0]["games"]["spellingSetup"]
+    assert sp["types"] == ["missing"] and len(sp["myWords"]) == 2, sp
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)
@@ -211,6 +236,37 @@ try:
     photos = call("POST", "/api/wonder/photos/remove", {"id": first}, token)
     assert [p["id"] for p in photos["photos"]] == [second]
 
+    # Quizzes the parent writes, with pictures.
+    upload("/api/wonder/quiz-images/add", {"image": b"not a picture"}, {}, token, expect=400)
+    pic = upload("/api/wonder/quiz-images/add", {"image": JPEG}, {"source": "fluent:Dog"}, token)
+    assert pic["path"] == f"/api/wonder/quiz-images/{pic['id']}", pic
+    # The same clipart again is the same picture, without sending it.
+    assert upload("/api/wonder/quiz-images/add", {}, {"source": "fluent:Dog"}, token)["id"] == pic["id"]
+    assert fetch(pic["path"], token=token) == JPEG
+    fetch(pic["path"], expect=401)
+    fetch(f"/api/collections/quiz_images/records/{pic['id']}", token=token, expect=403)
+    question = {"text": "Which one says woof?", "answers": [{"text": "Dog", "picture": pic["path"]}, {"text": "Cat", "picture": "🐱"}], "correct": 0}
+    call("POST", "/api/wonder/quizzes/save", {"title": "", "questions": [question]}, token, expect=400)
+    call("POST", "/api/wonder/quizzes/save", {"title": "Animals", "questions": []}, token, expect=400)
+    call("POST", "/api/wonder/quizzes/save", {"title": "Animals", "questions": [{"text": "?", "answers": [{"text": "one"}]}]}, token, expect=400)
+    call("POST", "/api/wonder/quizzes/save", {"title": "Animals", "questions": [{"text": "?", "answers": [{"text": "a"}, {}]}]}, token, expect=400)
+    lib = call("POST", "/api/wonder/quizzes/save", {"title": " Animals ", "icon": pic["id"], "children": [sam, "nope"], "questions": [question, {
+        "picture": "🦁", "answers": [{"text": "Lion"}, {"text": "Tiger"}, {"text": "Bear"}, {"text": "Cow"}, {"text": "Five"}], "correct": 7}]}, token)
+    animals = lib["saved"]
+    q = lib["quizzes"][0]
+    assert q["title"] == "Animals" and q["children"] == [sam] and q["shuffle"] is True and q["icon"] == pic["path"], q
+    assert q["questions"][0] == {"text": "Which one says woof?", "picture": "", "answers": [{"text": "Dog", "picture": pic["path"]}, {"text": "Cat", "picture": "🐱"}], "correct": 0}
+    assert len(q["questions"][1]["answers"]) == 4 and q["questions"][1]["correct"] == 3, q["questions"][1]
+    lib = call("POST", "/api/wonder/quizzes/save", {"title": "Colours", "shuffle": False, "questions": [question]}, token)
+    colours = lib["saved"]
+    assert [x["title"] for x in lib["quizzes"]] == ["Animals", "Colours"] and lib["quizzes"][1]["shuffle"] is False
+    lib = call("POST", "/api/wonder/quizzes/move", {"id": colours, "delta": -1}, token)
+    assert [x["title"] for x in lib["quizzes"]] == ["Colours", "Animals"]
+    lib = call("POST", "/api/wonder/quizzes/save", {"id": colours, "title": "Colours!", "questions": [question]}, token)
+    assert lib["quizzes"][0]["title"] == "Colours!"
+    lib = call("POST", "/api/wonder/quizzes/remove", {"id": colours}, token)
+    assert [x["id"] for x in lib["quizzes"]] == [animals]
+
     # Linking a TV
     start = call("POST", "/api/wonder/pair/start", {"name": "Living room"})
     code, secret = start["code"], start["secret"]
@@ -227,6 +283,10 @@ try:
     assert [p["id"] for p in tv_photos] == [second]
     assert fetch(tv_photos[0]["image"], device_key=key) == JPEG
     call("POST", "/api/wonder/photos/remove", {"id": second}, device_key=key, expect=401)
+    # The TV gets the quizzes and their pictures, but can't change them.
+    assert call("GET", "/api/wonder/library", device_key=key)["quizzes"][0]["id"] == animals
+    assert fetch(pic["path"], device_key=key) == JPEG
+    call("POST", "/api/wonder/quizzes/remove", {"id": animals}, device_key=key, expect=401)
 
     # The activity log: the TV sends events, the phone app reads stats.
     call("POST", "/api/wonder/events", {"events": [{"type": "video.play"}]}, expect=401)
@@ -236,13 +296,14 @@ try:
         {"type": "quiz.answer", "child": sam, "subject": "maths.add", "value": 1, "data": {"question": "2+2", "answer": "4"}},
         {"type": "quiz.answer", "child": sam, "subject": "maths.add", "value": 0},
         {"type": "quiz.finish", "child": sam, "subject": "maths.add", "value": 7, "data": {"total": 10}},
+        {"type": "quiz.answer", "child": sam, "subject": f"quiz/{animals}", "value": 1, "data": {"title": "Animals"}},
         {"type": "app.start"},
         {"type": "Bad Type", "child": sam},
         {"type": "video.play", "child": "notachild"},
     ]}
-    assert call("POST", "/api/wonder/events", batch, device_key=key) == {"saved": 6, "skipped": 2}
+    assert call("POST", "/api/wonder/events", batch, device_key=key) == {"saved": 7, "skipped": 2}
     # Sending the same batch again (a retry) saves only the events without ids.
-    assert call("POST", "/api/wonder/events", batch, device_key=key) == {"saved": 4, "skipped": 4}
+    assert call("POST", "/api/wonder/events", batch, device_key=key) == {"saved": 5, "skipped": 4}
     # One event on its own, from the phone app.
     assert call("POST", "/api/wonder/events", {"type": "photo.view", "child": sam, "subject": "p1", "value": 5}, token)["saved"] == 1
     call("GET", "/api/wonder/events", device_key=key, expect=401)
@@ -252,10 +313,13 @@ try:
     stats = call("GET", "/api/wonder/stats?days=7&tz=0", token=token)
     s = stats["children"][0]
     assert s["id"] == sam and s["plays"] == 1 and s["watchSeconds"] == 20, s
-    assert s["answers"] == 4 and s["correct"] == 2, s
+    assert s["answers"] == 6 and s["correct"] == 4, s
     assert s["topVideos"][0]["title"] == "Zoo" and s["topVideos"][0]["finished"] == 1
     assert s["topChannels"][0]["channel"] == "jawed"
-    assert s["games"] == [{"game": "maths.add", "answers": 4, "correct": 2, "rounds": 2, "bestScore": 7}], s["games"]
+    assert s["games"] == [
+        {"game": "maths.add", "answers": 4, "correct": 2, "rounds": 2, "bestScore": 7},
+        {"game": f"quiz/{animals}", "answers": 2, "correct": 2, "rounds": 0, "bestScore": 0, "title": "Animals"},
+    ], s["games"]
     assert s["byType"]["photo.view"] == {"count": 1, "total": 5}
     assert len(s["daily"]) == 7 and s["daily"][-1]["plays"] == 1
     assert stats["other"]["byType"]["app.start"]["count"] == 2
