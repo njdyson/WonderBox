@@ -60,7 +60,7 @@ class ScreenshotsTest {
 
     @Test fun videos() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}, {}) } }
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}, {}, {}) } }
         shoot("videos-summer")
     }
 
@@ -83,7 +83,7 @@ class ScreenshotsTest {
 
     @Test fun videosJesse() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, jesse, {}, {}) } }
+        compose.setContent { WonderBoxTheme { VideosScreen(app, jesse, {}, {}, {}) } }
         shoot("videos-jesse")
     }
 }

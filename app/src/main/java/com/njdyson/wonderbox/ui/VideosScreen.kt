@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -65,7 +66,7 @@ import kotlinx.serialization.json.put
 
 /**
  * One child's screen: the games first, then rows of videos (their own, their music, each
- * channel), then the treats. Treats are locked until a game is finished; each finished game
+ * channel), then the family photos, then the treats. Treats are locked until a game is finished; each finished game
  * unlocks one. The focused video's title is read aloud, and after a moment its player starts
  * loading in the background so it starts quickly when chosen.
  */
@@ -75,6 +76,7 @@ fun VideosScreen(
     child: Child,
     onPlay: (Video) -> Unit,
     onGame: (Game) -> Unit,
+    onPhoto: (Int) -> Unit,
     focusTreats: Boolean = false,
     onTreatsFocused: () -> Unit = {},
 ) {
@@ -84,7 +86,7 @@ fun VideosScreen(
     val hasTreats = shelves.any { it.treat }
     val color = parseColor(child.color)
     val ink = color.onColor()
-    // The focused card ("games/Maths", or a video's ID), so focus comes back to it after a video.
+    // The focused card ("games/Maths", "photos/<id>" or a video's ID), so focus comes back to it after a video.
     var focusedKey by rememberSaveable(child.id) { mutableStateOf<String?>(null) }
     var focusedVideo by remember { mutableStateOf<Video?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -94,6 +96,26 @@ fun VideosScreen(
 
     // Rows below the games row, in order; the first treat row's index in the column.
     val firstTreatRow = shelves.indexOfFirst { it.treat }.let { if (it < 0) -1 else it + 1 }
+    // The photos row (when there are photos) sits just before the treats, pushing them down one.
+    val hasPhotos = app.photos.isNotEmpty()
+    val treatsIndex = firstTreatRow + if (hasPhotos && firstTreatRow > 0) 1 else 0
+    val photosRow: LazyListScope.() -> Unit = {
+        if (hasPhotos) {
+            item(key = "photos") {
+                PhotosRow(
+                    app,
+                    onOpen = onPhoto,
+                    onFocus = {
+                        focusedKey = "photos/$it"
+                        focusedVideo = null
+                    },
+                    focusedId = focusedKey?.removePrefix("photos/").takeIf { focusedKey?.startsWith("photos/") == true && !focusTreats },
+                    focusModifier = Modifier.focusRequester(restore),
+                    ink = ink,
+                )
+            }
+        }
+    }
 
     PlayBackground(color) {
         Column(Modifier.fillMaxSize()) {
@@ -145,6 +167,7 @@ fun VideosScreen(
                     }
                 }
                 shelves.forEachIndexed { row, shelf ->
+                    if (row + 1 == firstTreatRow) photosRow()
                     item(key = shelf.key) {
                         val locked = shelf.treat && treatsLeft == 0
                         Column {
@@ -195,6 +218,7 @@ fun VideosScreen(
                         }
                     }
                 }
+                if (firstTreatRow < 0) photosRow()
                 if (shelves.isEmpty()) {
                     item(key = "empty") {
                         Text(
@@ -211,7 +235,7 @@ fun VideosScreen(
 
     LaunchedEffect(shelves.size, focusTreats) {
         if (focusTreats && firstTreatRow > 0) {
-            list.scrollToItem(firstTreatRow)
+            list.scrollToItem(treatsIndex)
             restore.requestFocusWhenReady()
             app.say("Pick a treat!")
             onTreatsFocused()

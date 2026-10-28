@@ -22,6 +22,11 @@ class Store(context: Context) {
             if (value == null) remove("library") else putString("library", json.encodeToString(Library.serializer(), value))
         }.apply()
 
+    /** The last photo list fetched; the pictures themselves are cached on disk by Coil. */
+    var photos: List<Photo>
+        get() = prefs.getString("photos", null)?.let { runCatching { json.decodeFromString(Photos.serializer(), it).photos }.getOrNull() }.orEmpty()
+        set(value) = prefs.edit().putString("photos", json.encodeToString(Photos.serializer(), Photos(value))).apply()
+
     /** Treats each child has earned in games and not yet picked, by child ID. */
     var treats: Map<String, Int>
         get() = prefs.getString("treats", null)?.let {

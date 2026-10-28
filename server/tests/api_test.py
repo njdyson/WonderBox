@@ -4,9 +4,10 @@
     python3 tests/api_test.py http://127.0.0.1:8090 admin@example.com somepassword
 
 Creates a throwaway parent account through the superuser API, exercises every route
-(children, videos, channels, linking a TV), then deletes the account. Checking videos and
-channels needs the server to reach YouTube.
+(children, videos, channels, photos, linking a TV), then deletes the account. Checking videos
+and channels needs the server to reach YouTube.
 """
+import base64
 import json
 import sys
 import urllib.error
@@ -23,6 +24,18 @@ POP = "https://www.youtube.com/watch?v=ekr2nIex040&list=RDekr2nIex040&start_radi
 # A children's channel, by handle and by ID.
 NUMBERBLOCKS = "https://www.youtube.com/@Numberblocks"
 NUMBERBLOCKS_ID = "UCPlwvN0w4qFSP1FllALB92w"
+
+# A 2x2 yellow JPEG, standing in for a photo the phone app has shrunk.
+JPEG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxl"
+    "Z2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAACAAIDASIAAhEB"
+    "AxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS"
+    "0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKz"
+    "tLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgEC"
+    "BAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpj"
+    "ZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6"
+    "/9oADAMBAAIRAxEAPwDqKKKK+ZPQP//Z"
+)
 
 
 def call(method, path, body=None, token=None, device_key=None, expect=200):
@@ -45,15 +58,18 @@ def call(method, path, body=None, token=None, device_key=None, expect=200):
         raise AssertionError(f"{method} {path} returned no JSON (are the hooks loaded?): {text[:120]}")
 
 
-def upload(path, fields, file_field, filename, content, token=None, expect=200):
-    """A multipart POST, as the phone app sends a picture."""
+def upload(path, files, fields, token, expect=200):
+    """A multipart POST, as the phone app sends photos."""
     boundary = uuid.uuid4().hex
-    parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items()]
-    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{file_field}"; filename="{filename}"\r\n'
-                 f"Content-Type: image/png\r\n\r\n".encode() + content + b"\r\n")
-    data = b"".join(parts) + f"--{boundary}--\r\n".encode()
-    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}", **({"Authorization": token} if token else {})}
-    req = urllib.request.Request(BASE + path, data=data, headers=headers, method="POST")
+    parts = []
+    for name, value in fields.items():
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
+    for name, data in files.items():
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{name}.jpg"\r\n'
+                     f"Content-Type: image/jpeg\r\n\r\n".encode() + data + b"\r\n")
+    body = b"".join(parts) + f"--{boundary}--\r\n".encode()
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}", "Authorization": token}
+    req = urllib.request.Request(BASE + path, data=body, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=30) as res:
             status, text = res.status, res.read().decode()
@@ -68,6 +84,20 @@ TINY_PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
     "0000000d49444154789c6360000002000005000165ea4e400000000049454e44ae426082"
 )
+
+
+def fetch(path, token=None, device_key=None, expect=200):
+    """Raw bytes, for the photo files."""
+    headers = {"Authorization": token} if token else {"X-Device-Key": device_key} if device_key else {}
+    req = urllib.request.Request(BASE + path, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            status, data = res.status, res.read()
+    except urllib.error.HTTPError as e:
+        status, data = e.code, e.read()
+    assert status == expect, f"GET {path}: expected {expect}, got {status}: {data[:200]}"
+    return data
+
 
 admin = call("POST", "/api/collections/_superusers/auth-with-password", {"identity": ADMIN, "password": ADMIN_PASSWORD})["token"]
 email, password = f"test-{uuid.uuid4().hex[:8]}@example.com", "test-password-123"
@@ -94,7 +124,7 @@ try:
     assert lib["children"][0]["name"] == "Joanna"
 
     # A child's picture: uploaded, kept when their details change, then removed.
-    lib = upload("/api/wonder/children/picture", {"id": jo}, "picture", "jo.png", TINY_PNG, token)
+    lib = upload("/api/wonder/children/picture", {"picture": TINY_PNG}, {"id": jo}, token)
     picture = lib["children"][0]["picture"]
     assert picture.startswith(f"/api/files/children/{jo}/"), picture
     with urllib.request.urlopen(BASE + picture, timeout=30) as res:
@@ -102,7 +132,7 @@ try:
     lib = call("POST", "/api/wonder/children/save", {"id": jo, "name": "Joanna", "avatar": "🐢"}, token)
     assert lib["children"][0]["picture"] == picture
     call("POST", "/api/wonder/children/picture", {"id": jo}, token, expect=400)
-    upload("/api/wonder/children/picture", {"id": jo}, "picture", "jo.png", TINY_PNG, expect=401)
+    upload("/api/wonder/children/picture", {"picture": TINY_PNG}, {"id": jo}, "", expect=401)
     lib = call("POST", "/api/wonder/children/picture", {"id": jo, "remove": True}, token)
     assert lib["children"][0]["picture"] == ""
 
@@ -181,6 +211,26 @@ try:
     lib = call("POST", "/api/wonder/videos/remove", {"id": bunny}, token)
     assert lib["videos"] == []
 
+    # Photos: the phone uploads a shrunk picture and a thumbnail; newest first.
+    call("GET", "/api/wonder/photos", expect=401)
+    assert call("GET", "/api/wonder/photos", token=token) == {"photos": []}
+    upload("/api/wonder/photos/add", {}, {}, token, expect=400)
+    upload("/api/wonder/photos/add", {"image": b"not a picture"}, {}, token, expect=400)
+    first = upload("/api/wonder/photos/add", {"image": JPEG}, {"width": 2, "height": 2}, token)["saved"]
+    photos = upload("/api/wonder/photos/add", {"image": JPEG, "thumb": JPEG}, {"width": 2, "height": 2}, token)
+    second = photos["saved"]
+    assert [p["id"] for p in photos["photos"]] == [second, first], photos
+    assert photos["photos"][0]["width"] == 2
+    assert fetch(photos["photos"][0]["image"], token=token) == JPEG
+    assert fetch(photos["photos"][0]["thumb"], token=token) == JPEG
+    assert fetch(photos["photos"][1]["thumb"], token=token) == JPEG  # no thumb: the image instead
+    fetch(photos["photos"][0]["image"], expect=401)
+    fetch(f"/api/wonder/photos/{second}/other", token=token, expect=404)
+    # PocketBase's own file and record APIs don't hand them out either.
+    fetch(f"/api/collections/photos/records/{second}", token=token, expect=403)
+    photos = call("POST", "/api/wonder/photos/remove", {"id": first}, token)
+    assert [p["id"] for p in photos["photos"]] == [second]
+
     # Linking a TV
     start = call("POST", "/api/wonder/pair/start", {"name": "Living room"})
     code, secret = start["code"], start["secret"]
@@ -193,6 +243,10 @@ try:
     assert call("GET", "/api/wonder/library", device_key=key)["children"][0]["name"] == "Sam"
     # A TV can read but not edit.
     call("POST", "/api/wonder/children/save", {"name": "X"}, device_key=key, expect=401)
+    tv_photos = call("GET", "/api/wonder/photos", device_key=key)["photos"]
+    assert [p["id"] for p in tv_photos] == [second]
+    assert fetch(tv_photos[0]["image"], device_key=key) == JPEG
+    call("POST", "/api/wonder/photos/remove", {"id": second}, device_key=key, expect=401)
 
     # The activity log: the TV sends events, the phone app reads stats.
     call("POST", "/api/wonder/events", {"events": [{"type": "video.play"}]}, expect=401)
@@ -231,6 +285,7 @@ try:
     assert [t["name"] for t in tvs] == ["Living room"]
     call("POST", "/api/wonder/devices/remove", {"id": tvs[0]["id"]}, token)
     call("GET", "/api/wonder/library", device_key=key, expect=401)
+    fetch(tv_photos[0]["image"], device_key=key, expect=401)
     print("All API checks passed.")
 finally:
     req = urllib.request.Request(f"{BASE}/api/collections/users/records/{user['id']}", headers={"Authorization": admin}, method="DELETE")

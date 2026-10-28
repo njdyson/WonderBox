@@ -4,6 +4,7 @@ A Fire TV Stick app for two children, with a phone app for the parent. The paren
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
 YouTube can be reached. Whole channels can be added, music gets its own row, and "treat"
 videos are unlocked by finishing a maths or spelling game.
+Family photos from the phone show on the TV as a slideshow.
 
 | Folder | What it is |
 |---|---|
@@ -26,6 +27,9 @@ videos are unlocked by finishing a maths or spelling game.
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
   to the 2, 5 and 10 times tables), spelling five (first letter up to spelling the whole
   word); each child's levels and round length are set in the phone app.
+- **Photos** (a row on each child's screen, before the treats, once there are any; every
+  child sees the same ones): OK on a photo shows it full screen. Left and right flip through
+  them, OK plays or stops a slideshow, Back goes back to the child's screen.
 - **Player:** full screen. OK pauses, left and right skip 10 seconds, Back closes. Paused
   and finished videos are covered, so YouTube's suggestions never show. A video that won't
   play gets a friendly screen; it never opens the YouTube app.
