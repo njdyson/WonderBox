@@ -39,7 +39,7 @@ function hangmanSetup(value) {
   }
 }
 
-/** A child's word game: {on, level, lists, words, say}. */
+/** A child's word game: {on, level, lists, words, say, auto} (auto: the level moves with how the child does). */
 function scrambleSetup(value) {
   const v = value && typeof value === "object" ? value : {}
   const lists = Array.isArray(v.lists) ? SCRAMBLE_LISTS.filter((l) => v.lists.includes(l)) : []
@@ -51,6 +51,7 @@ function scrambleSetup(value) {
     lists: lists.length ? lists : SCRAMBLE_DEFAULT.lists,
     words: Number.isFinite(words) ? Math.min(10, Math.max(1, words)) : SCRAMBLE_DEFAULT.words,
     say: v.say === undefined ? SCRAMBLE_DEFAULT.say : !!v.say,
+    auto: !!v.auto,
   }
 }
 
@@ -64,4 +65,4 @@ function memorySetup(value) {
   }
 }
 
-module.exports = { hangmanSetup, scrambleSetup, memorySetup }
+module.exports = { hangmanSetup, scrambleSetup, memorySetup, SCRAMBLE_LEVELS }

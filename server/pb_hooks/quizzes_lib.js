@@ -92,10 +92,14 @@ function spellingPreset(level, keep) {
   return { on: true, types: [...p.types], lists: [...p.lists], choices: p.choices, myWords: (keep && keep.myWords) || [] }
 }
 
-/** A maths setup from the phone (or stored), checked; falls back to [level]'s for anything missing. */
+/**
+ * A maths setup from the phone (or stored), checked; falls back to [level]'s for anything missing.
+ * On "auto" (the level moves with how the child does, app/.../games/AutoLevel.kt) it's [level]'s.
+ */
 function mathsSetup(input, level) {
   const base = mathsPreset(level)
   if (!input || typeof input !== "object") return base
+  if (input.auto) return Object.assign(base, { on: input.on !== false, auto: true })
   const types = pick(input.types, MATHS_TYPES)
   const tables = [...new Set((Array.isArray(input.tables) ? input.tables : []).map(Number).filter((t) => Number.isInteger(t) && t >= 1 && t <= 12))].sort((a, b) => a - b)
   return {
@@ -121,6 +125,8 @@ function spellingSetup(input, level) {
     myWords.push({ word, picture: picture(w && w.picture) })
     if (myWords.length >= 300) break
   }
+  // On auto it's [level]'s, keeping the parent's own words for the other games.
+  if (input.auto) return Object.assign(base, { on: input.on !== false, myWords, auto: true })
   const types = pick(input.types, SPELLING_TYPES)
   let lists = pick(input.lists, WORD_LISTS)
   if (!myWords.length) lists = lists.filter((l) => l !== "mine")
@@ -150,6 +156,7 @@ function flagPreset(level) {
 function flagSetup(input, level) {
   const base = flagPreset(level)
   if (!input || typeof input !== "object") return base
+  if (input.auto) return Object.assign(base, { on: input.on !== false, auto: true })
   const regions = pick(input.regions, FLAG_REGIONS)
   const types = pick(input.types, FLAG_TYPES)
   return {
@@ -169,6 +176,7 @@ function clockPreset(level) {
 function clockSetup(input, level) {
   const base = clockPreset(level)
   if (!input || typeof input !== "object") return base
+  if (input.auto) return Object.assign(base, { on: input.on !== false, auto: true })
   const types = pick(input.types, CLOCK_TYPES)
   return {
     on: input.on !== false,
@@ -305,7 +313,7 @@ function cleanupImages(userId) {
 
 module.exports = {
   jsonField, mathsSetup, spellingSetup, mathsPreset, spellingPreset, mathsLevelOf, spellingLevelOf,
-  clockSetup, clockPreset, clockLevelOf, treatGames, TREAT_GAMES, CLOCK_PRESETS,
+  clockSetup, clockPreset, clockLevelOf, treatGames, TREAT_GAMES, CLOCK_PRESETS, MATHS_PRESETS, SPELLING_PRESETS,
   flagSetup, flagPreset, flagLevelOf, FLAG_PRESETS,
   quizRecords, quizList, cleanQuiz, cleanupImages, IMAGE_PATH,
 }

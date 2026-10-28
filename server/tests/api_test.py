@@ -246,10 +246,10 @@ try:
     assert g["hangman"]["lists"] == ["long"] and g["mathsSetup"] == maths_before
 
     # The word game: level 1, phonics words until set; the level and words are kept in range.
-    assert g["scramble"] == {"on": True, "level": 1, "lists": ["phase2"], "words": 3, "say": True}, g["scramble"]
+    assert g["scramble"] == {"on": True, "level": 1, "lists": ["phase2"], "words": 3, "say": True, "auto": False}, g["scramble"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "scramble": {"on": True, "level": 9, "lists": ["long", "nope"], "words": 0, "say": False}}, token)
     g = lib["children"][0]["games"]
-    assert g["scramble"] == {"on": True, "level": 5, "lists": ["long"], "words": 1, "say": False}, g["scramble"]
+    assert g["scramble"] == {"on": True, "level": 5, "lists": ["long"], "words": 1, "say": False, "auto": False}, g["scramble"]
     assert g["hangman"]["lists"] == ["long"] and g["treatGames"] == []
 
     # The server's voice (Piper): a WAV for a linked TV or the parent, 404 when there's none.
@@ -492,6 +492,29 @@ try:
     assert len(s["daily"]) == 7 and s["daily"][-1]["plays"] == 1
     assert stats["other"]["byType"]["app.start"]["count"] == 2
     call("GET", "/api/wonder/stats", device_key=key, expect=401)
+
+    # Auto difficulty: on auto a game is always its level's setup, and the TV's level.change
+    # events move the level, only while the parent has it on auto, and only the first time sent.
+    lib = call("POST", "/api/wonder/children/games", {"id": sam, "maths": 3, "mathsSetup": {"types": ["bonds"], "max": 50, "auto": True},
+                                                       "spellingSetup": {"auto": True, "myWords": [{"word": "said"}]}, "clock": 2, "scramble": {"level": 2, "auto": True}}, token)
+    g = next(c for c in lib["children"] if c["id"] == sam)["games"]
+    assert g["maths"] == 3 and g["mathsSetup"] == {"on": True, "types": ["add"], "max": 10, "tables": [2, 5, 10], "choices": 4, "pictures": False, "auto": True}, g
+    assert g["spellingSetup"]["auto"] and g["spellingSetup"]["myWords"] == [{"word": "said", "picture": ""}] and g["spellingSetup"]["lists"] == ["short"], g
+    change = lambda game, to, id=None: {**({"id": id} if id else {}), "type": "level.change", "child": sam, "subject": game, "value": to, "data": {"to": to}}
+    ups = {"events": [change("maths", 4, "bbbbbbbbbbbbbb1"), change("spelling", 2), change("clock", 3), change("scramble", 3), change("maths", 99, "bbbbbbbbbbbbbb2")]}
+    assert call("POST", "/api/wonder/events", ups, device_key=key)["saved"] == 5
+    g = next(c for c in call("GET", "/api/wonder/library", device_key=key)["children"] if c["id"] == sam)["games"]
+    assert g["maths"] == 6 and g["mathsSetup"]["types"] == ["times"] and g["mathsSetup"]["auto"], g["mathsSetup"]
+    assert g["spelling"] == 2 and g["spellingSetup"]["types"] == ["missing"] and g["spellingSetup"]["myWords"][0]["word"] == "said", g["spellingSetup"]
+    assert g["clock"] == 2, "the clock isn't on auto"
+    assert g["scramble"]["level"] == 3 and g["scramble"]["auto"], g["scramble"]
+    # A retry of an event already saved changes nothing; picking a level turns auto off.
+    lib = call("POST", "/api/wonder/children/games", {"id": sam, "mathsSetup": {"types": ["add"], "max": 5, "choices": 3, "pictures": True}}, token)
+    g = next(c for c in lib["children"] if c["id"] == sam)["games"]
+    assert g["maths"] == 2 and not g["mathsSetup"].get("auto"), g
+    call("POST", "/api/wonder/events", ups, device_key=key)
+    call("POST", "/api/wonder/events", {"events": [change("maths", 5)]}, device_key=key)
+    assert next(c for c in call("GET", "/api/wonder/library", token=token)["children"] if c["id"] == sam)["games"]["maths"] == 2
 
     tvs = call("GET", "/api/wonder/devices", token=token)
     assert [t["name"] for t in tvs] == ["Living room"]

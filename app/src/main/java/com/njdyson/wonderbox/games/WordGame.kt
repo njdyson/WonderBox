@@ -23,6 +23,8 @@ data class ScrambleSetup(
     /** Jumbled words to put right to finish a game (levels 1 and 2). */
     val words: Int = 3,
     val say: Boolean = true,
+    /** "Auto" in the phone app: [level] moves up and down with how the child does ([AutoLevel]). */
+    val auto: Boolean = false,
 ) {
     val makeWords get() = level >= 3
 
@@ -79,6 +81,9 @@ class Unjumble(val word: String, val picture: String, val tiles: List<Char>, val
     /** Tries that filled every gap but weren't the word. */
     var misses = 0
         private set
+    /** Letters picked out of order ([inOrder] only). */
+    var wrongs = 0
+        private set
 
     enum class Pick { Placed, Solved, Wrong, Missed, Again }
 
@@ -102,7 +107,10 @@ class Unjumble(val word: String, val picture: String, val tiles: List<Char>, val
             takeOut(placed, tile)
             return Pick.Again
         }
-        if (inOrder && tiles[tile] != word[placed.size]) return Pick.Wrong
+        if (inOrder && tiles[tile] != word[placed.size]) {
+            wrongs++
+            return Pick.Wrong
+        }
         placed += tile
         if (placed.size < word.length) return Pick.Placed
         if (solved) return Pick.Solved

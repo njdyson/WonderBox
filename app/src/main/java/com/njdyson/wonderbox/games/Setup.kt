@@ -22,6 +22,8 @@ data class MathsSetup(
     val choices: Int = 3,
     /** Things to count drawn above small sums. */
     val pictures: Boolean = true,
+    /** "Auto" in the phone app: the level moves up and down with how the child does ([AutoLevel]); the setup is always a level's. */
+    val auto: Boolean = false,
 ) {
     companion object {
         // The same levels as the server (pb_hooks/quizzes_lib.js) and the phone app.
@@ -57,6 +59,8 @@ data class SpellingSetup(
     val lists: List<String> = listOf("short"),
     val choices: Int = 3,
     val myWords: List<MyWord> = emptyList(),
+    /** "Auto" in the phone app: the level moves up and down with how the child does ([AutoLevel]); the setup is always a level's. */
+    val auto: Boolean = false,
 ) {
     companion object {
         val PRESETS = listOf(
@@ -84,6 +88,8 @@ data class ClockSetup(
     /** Any of "oclock", "half" (past), "quarter" (past and to), "five" (minutes), "minute" (any). */
     val types: List<String> = listOf("oclock"),
     val choices: Int = 3,
+    /** "Auto" in the phone app: the level moves up and down with how the child does ([AutoLevel]); the setup is always a level's. */
+    val auto: Boolean = false,
 ) {
     companion object {
         val PRESETS = listOf(
@@ -109,6 +115,8 @@ data class FlagSetup(
     /** "name" (see a flag, pick the country) and "flag" (hear a country, pick its flag). */
     val types: List<String> = listOf("name"),
     val choices: Int = 3,
+    /** "Auto" in the phone app: the level moves up and down with how the child does ([AutoLevel]); the setup is always a level's. */
+    val auto: Boolean = false,
 ) {
     companion object {
         val PRESETS = listOf(

@@ -229,6 +229,43 @@ function saveGames(userId, body) {
   $app.save(child)
 }
 
+/**
+ * A TV's `level.change` event: [game] ("maths", "spelling", "clock", "flags" or "scramble") moved
+ * to [level] because the child found it easy or hard (app/.../games/AutoLevel.kt). Only saved
+ * while the parent still has that game on auto. True if it changed anything.
+ */
+function autoLevel(userId, childId, game, level) {
+  const quiz = require(`${__hooks}/quizzes_lib.js`)
+  const extra = require(`${__hooks}/games_lib.js`)
+  let child = null
+  try { child = own("children", childId, userId) } catch (_) { return false }
+  const current = games(child)
+  const n = Math.round(Number(level))
+  if (!Number.isFinite(n)) return false
+  const setup = Object.assign({}, quiz.jsonField(child, "game_setup") || {})
+  const fit = (max) => Math.min(max, Math.max(1, n))
+  if (game === "maths" && current.mathsSetup.auto) {
+    child.set("maths_level", fit(MATHS_LEVELS))
+    setup.maths = quiz.mathsSetup(current.mathsSetup, fit(MATHS_LEVELS))
+  } else if (game === "spelling" && current.spellingSetup.auto) {
+    child.set("spelling_level", fit(SPELLING_LEVELS))
+    setup.spelling = quiz.spellingSetup(current.spellingSetup, fit(SPELLING_LEVELS))
+  } else if (game === "clock" && current.clockSetup.auto) {
+    setup.clockLevel = fit(quiz.CLOCK_PRESETS.length)
+    setup.clock = quiz.clockSetup(current.clockSetup, setup.clockLevel)
+  } else if (game === "flags" && current.flagSetup.auto) {
+    setup.flagLevel = fit(quiz.FLAG_PRESETS.length)
+    setup.flags = quiz.flagSetup(current.flagSetup, setup.flagLevel)
+  } else if (game === "scramble" && current.scramble.auto) {
+    setup.scramble = extra.scrambleSetup(Object.assign({}, current.scramble, { level: fit(extra.SCRAMBLE_LEVELS) }))
+  } else {
+    return false
+  }
+  child.set("game_setup", setup)
+  $app.save(child)
+  return true
+}
+
 // The TV app has this many levels of each game (app/.../games).
 const MATHS_LEVELS = 6
 const SPELLING_LEVELS = 5
@@ -838,7 +875,7 @@ function cleanupPairings() {
 
 module.exports = {
   caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
-  saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
+  saveGames, autoLevel, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
   refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,
 }

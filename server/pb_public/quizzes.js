@@ -59,7 +59,9 @@ const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
 const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
 // The word game (app/.../games/WordGame.kt, pb_hooks/games_lib.js): levels 1 and 2 unjumble a
 // word, 3 to 5 make words from 5, 6 or 7 letters.
-const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true };
+const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true, auto: false };
+// The level pickers' "Auto" option: the TV moves the level up and down (app/.../games/AutoLevel.kt).
+const AUTO = -1;
 const SCRAMBLE_LEVELS = [
   ["Unjumble, letter by letter", "Letters only go in in the right order, and the next one glows after two wrong tries. Good for starting out."],
   ["Unjumble a word", "Letters go in any order; when the word's full, the right start stays and the rest go back."],
@@ -178,14 +180,23 @@ function renderGames(c) {
   const clock = g.clockSetup || { on: true, ...CLOCK_LEVELS[(g.clock || 1) - 1][1] };
   const flags = g.flagSetup || { on: true, ...FLAG_LEVELS[(g.flags || 1) - 1][1] };
   const save = (change) => edit("/api/wonder/children/games", { id: c.id, ...change }).then((d) => d && toast("Saved"));
-  const saveMaths = (change) => save({ mathsSetup: { ...maths, ...change } });
-  const saveSpelling = (change) => save({ spellingSetup: { ...spelling, ...change } });
-  const saveClock = (change) => save({ clockSetup: { ...clock, ...change } });
-  const saveFlags = (change) => save({ flagSetup: { ...flags, ...change } });
+  // Changing what a game asks takes it off auto; turning it on or off doesn't.
+  const saveMaths = (change) => save({ mathsSetup: { ...maths, auto: false, ...change } });
+  const saveSpelling = (change) => save({ spellingSetup: { ...spelling, auto: false, ...change } });
+  const saveClock = (change) => save({ clockSetup: { ...clock, auto: false, ...change } });
+  const saveFlags = (change) => save({ flagSetup: { ...flags, auto: false, ...change } });
   const select = (options, value, onChange) => {
     const s = el("select", { onchange: () => onChange(Number(s.value)) }, ...options.map(([v, label]) => el("option", { value: v, textContent: label, selected: v === value })));
     return s;
   };
+  // A game's level picker: Auto (AUTO), each level, and "Your own mix" when it's none of them.
+  const levelSelect = (levels, level, auto, onLevel, onAuto) => select([
+    [AUTO, auto ? `Auto (now Level ${level})` : "Auto: moves up and down by itself"],
+    ...(level || auto ? [] : [[0, "Your own mix"]]),
+    ...levels.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], auto ? AUTO : level,
+  (v) => (v === AUTO ? onAuto() : v && onLevel(v)));
+  const autoNote = (auto, more = " Changing what it asks turns Auto off.") => auto ? el("div", { className: "muted", textContent:
+    `Goes up a level after two easy rounds in a row, and back down when ${c.name} is struggling.${more}` }) : "";
   const hasTreats = library.videos.concat(library.channels).some((i) => i.tier === "treat" && i.children.includes(c.id));
 
   // Maths
@@ -194,11 +205,12 @@ function renderGames(c) {
   const mathsOpen = openSetups.has(mathsKey) || !mathsLevel;
   const mathsPart = el("div", { className: "game" },
     el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔢 Maths" }),
-      toggle(maths.on, (on) => saveMaths({ on }), "Show Maths on the TV")));
+      toggle(maths.on, (on) => saveMaths({ on, auto: !!maths.auto }), "Show Maths on the TV")));
   if (maths.on) {
     mathsPart.append(
-      select([...(mathsLevel ? [] : [[0, "Your own mix"]]), ...MATHS_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], mathsLevel,
-        (v) => v && saveMaths({ ...MATHS_LEVELS[v - 1][1], tables: MATHS_LEVELS[v - 1][1].tables || maths.tables })),
+      levelSelect(MATHS_LEVELS, mathsLevel, maths.auto, (v) => saveMaths({ ...MATHS_LEVELS[v - 1][1], tables: MATHS_LEVELS[v - 1][1].tables || maths.tables }),
+        () => saveMaths({ auto: true })),
+      autoNote(maths.auto),
       el("button", { type: "button", className: "more", textContent: mathsOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
         openSetups[mathsOpen ? "delete" : "add"](mathsKey);
         renderGames(c);
@@ -230,24 +242,28 @@ function renderGames(c) {
   const spellingOpen = openSetups.has(spellingKey) || !spellingLevel;
   const spellingPart = el("div", { className: "game" },
     el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔤 Spelling" }),
-      toggle(spelling.on, (on) => saveSpelling({ on }), "Show Spelling on the TV")));
+      toggle(spelling.on, (on) => saveSpelling({ on, auto: !!spelling.auto }), "Show Spelling on the TV")));
   if (spelling.on) {
     const words = spelling.myWords || [];
     spellingPart.append(
-      select([...(spellingLevel ? [] : [[0, "Your own mix"]]), ...SPELLING_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], spellingLevel,
-        (v) => v && saveSpelling({ ...SPELLING_LEVELS[v - 1][1] })),
+      levelSelect(SPELLING_LEVELS, spellingLevel, spelling.auto, (v) => saveSpelling({ ...SPELLING_LEVELS[v - 1][1] }),
+        () => saveSpelling({ auto: true })),
+      autoNote(spelling.auto),
       el("button", { type: "button", className: "more", textContent: spellingOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
         openSetups[spellingOpen ? "delete" : "add"](spellingKey);
         renderGames(c);
       } }));
     if (spellingOpen) {
+      const saveWords = (change) => saveSpelling({ ...change, auto: !!spelling.auto });
       const wordInput = el("input", { type: "text", placeholder: "Add words, e.g. said, because, friend", autocapitalize: "off", autocomplete: "off", enterkeyhint: "done" });
       const addWords = () => {
         const fresh = wordInput.value.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 2 && w.length <= 12 && !words.some((x) => x.word === w));
         if (!fresh.length) return;
-        // The first words added switch "My words" on.
+        const myWords = [...words, ...fresh.map((word) => ({ word, picture: "" }))];
+        // On auto they're kept for hangman and the word game; otherwise the first words added switch "My words" on.
+        if (spelling.auto) return saveWords({ myWords });
         const lists = spelling.lists.includes("mine") ? spelling.lists : [...spelling.lists, "mine"];
-        saveSpelling({ myWords: [...words, ...fresh.map((word) => ({ word, picture: "" }))], lists });
+        saveSpelling({ myWords, lists });
       };
       wordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addWords(); } });
       spellingPart.append(
@@ -264,9 +280,9 @@ function renderGames(c) {
         words.length ? el("div", { className: "words" }, ...words.map((w) => el("span", { className: "word" },
           w.picture ? pic(w.picture) : "",
           el("span", { textContent: w.word, onclick: () => pickPicture(w.word, (picture) =>
-            saveSpelling({ myWords: words.map((x) => (x.word === w.word ? { ...x, picture } : x)) }), w.picture) }),
+            saveWords({ myWords: words.map((x) => (x.word === w.word ? { ...x, picture } : x)) }), w.picture) }),
           el("button", { type: "button", textContent: "✕", title: `Remove ${w.word}`, onclick: () =>
-            saveSpelling({ myWords: words.filter((x) => x.word !== w.word) }) })))) : "",
+            saveWords({ myWords: words.filter((x) => x.word !== w.word) }) })))) : "",
         el("div", { className: "row" }, wordInput, el("button", { type: "button", textContent: "Add", onclick: addWords })),
         words.length > 8 && words.some((w) => w.word.length > 8)
           ? el("div", { className: "muted", textContent: "Words longer than 8 letters are asked as a missing letter instead of spelt letter by letter." })
@@ -280,11 +296,11 @@ function renderGames(c) {
   const clockOpen = openSetups.has(clockKey) || !clockLevel;
   const clockPart = el("div", { className: "game" },
     el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🕒 Clock" }),
-      toggle(clock.on, (on) => saveClock({ on }), "Show the clock game on the TV")));
+      toggle(clock.on, (on) => saveClock({ on, auto: !!clock.auto }), "Show the clock game on the TV")));
   if (clock.on) {
     clockPart.append(
-      select([...(clockLevel ? [] : [[0, "Your own mix"]]), ...CLOCK_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], clockLevel,
-        (v) => v && saveClock({ ...CLOCK_LEVELS[v - 1][1] })),
+      levelSelect(CLOCK_LEVELS, clockLevel, clock.auto, (v) => saveClock({ ...CLOCK_LEVELS[v - 1][1] }), () => saveClock({ auto: true })),
+      autoNote(clock.auto),
       el("button", { type: "button", className: "more", textContent: clockOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
         openSetups[clockOpen ? "delete" : "add"](clockKey);
         renderGames(c);
@@ -305,11 +321,11 @@ function renderGames(c) {
   const flagOpen = openSetups.has(flagKey) || !flagLevel;
   const flagsPart = el("div", { className: "game" },
     el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🏳️ Flags" }),
-      toggle(flags.on, (on) => saveFlags({ on }), "Show the flag game on the TV")));
+      toggle(flags.on, (on) => saveFlags({ on, auto: !!flags.auto }), "Show the flag game on the TV")));
   if (flags.on) {
     flagsPart.append(
-      select([...(flagLevel ? [] : [[0, "Your own mix"]]), ...FLAG_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], flagLevel,
-        (v) => v && saveFlags({ ...FLAG_LEVELS[v - 1][1] })),
+      levelSelect(FLAG_LEVELS, flagLevel, flags.auto, (v) => saveFlags({ ...FLAG_LEVELS[v - 1][1] }), () => saveFlags({ auto: true })),
+      autoNote(flags.auto),
       el("button", { type: "button", className: "more", textContent: flagOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
         openSetups[flagOpen ? "delete" : "add"](flagKey);
         renderGames(c);
@@ -373,8 +389,9 @@ function renderGames(c) {
   if (scramble.on) {
     const level = Math.min(SCRAMBLE_LEVELS.length, Math.max(1, scramble.level || 1));
     scramblePart.append(
-      select(SCRAMBLE_LEVELS.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`]), level, (v) => saveScramble({ level: v })),
-      el("div", { className: "muted", textContent: SCRAMBLE_LEVELS[level - 1][1] }));
+      levelSelect(SCRAMBLE_LEVELS, level, scramble.auto, (v) => saveScramble({ level: v, auto: false }), () => saveScramble({ auto: true })),
+      el("div", { className: "muted", textContent: SCRAMBLE_LEVELS[level - 1][1] }),
+      autoNote(scramble.auto, ""));
     if (level <= 2) {
       scramblePart.append(
         el("div", { className: "row" }, el("span", { className: "grow", textContent: "Say the word and show its picture" }),
