@@ -45,6 +45,11 @@ jobs:
         with:
           name: WonderBox-apk
           path: WonderBox.apk
+      # Pictures of the TV screens, rendered by ScreenshotsTest, to see a change without a TV.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tv-screenshots
+          path: app/build/screenshots/
       - name: Publish to apk-latest release
         if: github.event_name != 'pull_request'
         env:

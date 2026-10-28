@@ -14,13 +14,17 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-/** A child, picked by their avatar when the app opens. */
+/**
+ * A child, picked by their face when the app opens. [picture] is a server path to their own
+ * picture, or "" to use [avatar] (an emoji). [color] is their screen's background.
+ */
 @Serializable
 data class Child(
     val id: String,
     val name: String,
     val avatar: String = "",
     val color: String = "#FFD23F",
+    val picture: String = "",
     val games: GameSettings = GameSettings(),
 )
 

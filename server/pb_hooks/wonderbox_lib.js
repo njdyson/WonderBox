@@ -62,6 +62,7 @@ function library(userId) {
       name: c.getString("name"),
       avatar: c.getString("avatar"),
       color: c.getString("color"),
+      picture: pictureUrl(c),
       games: games(c),
     })),
     quizzes: require(`${__hooks}/quizzes_lib.js`).quizList(userId),
@@ -217,6 +218,29 @@ function saveChild(userId, body) {
   record.set("color", /^#[0-9a-fA-F]{6}$/.test(body.color || "") ? body.color : "#FFD23F")
   $app.save(record)
   return record
+}
+
+/** Where a child's picture is served from (relative to the server), or "" if they have none. */
+function pictureUrl(child) {
+  const file = child.getString("picture")
+  return file ? `/api/files/children/${child.id}/${file}` : ""
+}
+
+/** Sets or removes a child's picture (see the /children/picture route). */
+function setPicture(userId, e) {
+  const body = e.requestInfo().body
+  const record = own("children", body.id, userId)
+  if (body.remove) {
+    record.set("picture", null)
+  } else {
+    let files = []
+    try {
+      files = e.findUploadedFiles("picture")
+    } catch (_) {}
+    if (!files.length) throw new BadRequestError("Choose a picture.")
+    record.set("picture", files[0])
+  }
+  $app.save(record)
 }
 
 /** Removes a child. Videos and channels that were only theirs go too; shared ones stay for the others. */
@@ -733,7 +757,7 @@ function cleanupPairings() {
 }
 
 module.exports = {
-  caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, removeChild,
+  caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
   saveGames, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
   refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,

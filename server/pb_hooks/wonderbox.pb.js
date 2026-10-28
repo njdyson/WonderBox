@@ -27,6 +27,15 @@ routerAdd("POST", "/api/wonder/children/remove", (e) => {
   return e.json(200, lib.library(user.id))
 })
 
+// A child's picture: multipart with "id" and a "picture" file (the phone app shrinks it
+// first), or {id, remove: true} to go back to their avatar.
+routerAdd("POST", "/api/wonder/children/picture", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  lib.setPicture(user.id, e)
+  return e.json(200, lib.library(user.id))
+})
+
 // {id, delta: -1 or 1}: the order of the faces on the TV.
 routerAdd("POST", "/api/wonder/children/move", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)

@@ -82,6 +82,13 @@ def upload(path, files, fields, token, expect=200):
     return json.loads(text)
 
 
+# A 1x1 transparent PNG.
+TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c6360000002000005000165ea4e400000000049454e44ae426082"
+)
+
+
 def fetch(path, token=None, device_key=None, expect=200):
     """Raw bytes, for the photo files."""
     headers = {"Authorization": token} if token else {"X-Device-Key": device_key} if device_key else {}
@@ -118,6 +125,19 @@ try:
     assert [c["name"] for c in lib["children"]] == ["Jo", "Sam"]
     lib = call("POST", "/api/wonder/children/save", {"id": jo, "name": "Joanna", "avatar": "🐢"}, token)
     assert lib["children"][0]["name"] == "Joanna"
+
+    # A child's picture: uploaded, kept when their details change, then removed.
+    lib = upload("/api/wonder/children/picture", {"picture": TINY_PNG}, {"id": jo}, token)
+    picture = lib["children"][0]["picture"]
+    assert picture.startswith(f"/api/files/children/{jo}/"), picture
+    with urllib.request.urlopen(BASE + picture, timeout=30) as res:
+        assert res.read() == TINY_PNG
+    lib = call("POST", "/api/wonder/children/save", {"id": jo, "name": "Joanna", "avatar": "🐢"}, token)
+    assert lib["children"][0]["picture"] == picture
+    call("POST", "/api/wonder/children/picture", {"id": jo}, token, expect=400)
+    upload("/api/wonder/children/picture", {"picture": TINY_PNG}, {"id": jo}, "", expect=401)
+    lib = call("POST", "/api/wonder/children/picture", {"id": jo, "remove": True}, token)
+    assert lib["children"][0]["picture"] == ""
 
     # Game settings: defaults, then clamped to the levels the TV has. Each level is a setup.
     g = lib["children"][0]["games"]
