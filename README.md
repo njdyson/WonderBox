@@ -2,8 +2,8 @@
 
 A Fire TV Stick app for two children, with a phone app for the parent. The parent picks
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
-YouTube can be reached. Whole channels can be added, music gets its own row, and "treat"
-videos are unlocked by finishing a maths or spelling game.
+YouTube can be reached. Whole channels can be added, music gets its own screen, and "treat"
+videos stay hidden until a game is won, then the child picks one.
 Family photos from the phone show on the TV as a slideshow.
 
 | Folder | What it is |
@@ -19,11 +19,13 @@ Family photos from the phone show on the TV as a slideshow.
 - **Who's watching?** one big, bobbing face per child: their own picture (uploaded in the
   phone app) or an animal. The screen turns the focused child's colour and their name is
   read aloud.
-- **A child's screen:** rows, like a TV app, on a screen of their own colour so they can tell
-  it's theirs. First the games (Maths, Spelling and any quizzes the parent wrote for them),
-  then
-  their videos, their music, and a row for each channel. Treats come last, locked: finishing
-  a game (10 right answers by default) unlocks one, and the child picks any treat.
+- **A child's home page:** big tiles on a screen of their own colour so they can tell it's
+  theirs: Quizzes (Maths, Spelling and the parent's quizzes), Games (jigsaws), Videos, Music
+  and Photos, always in that order, leaving out any with nothing in them. Each opens its own
+  screen; Videos and Music are rows, like a TV app (their own videos, then a row for each
+  channel). Treat videos never show there: finishing a game (10 right answers by default)
+  wins a treat and goes straight to a "Pick a treat!" screen of them. A treat not picked yet
+  shows as a Treats tile, first on the home page, until it is.
 - **Games:** answers are big buttons picked with the remote, and every question is read
   aloud. A wrong answer greys out and they try again. Maths has six levels (counting to 5 up
   to the 2, 5 and 10 times tables), spelling five (first letter up to spelling the whole
@@ -34,18 +36,18 @@ Family photos from the phone show on the TV as a slideshow.
   names) with pictures. Maths or spelling can be turned off for a child.
 - **Quizzes:** the parent writes multiple-choice quizzes in the phone app, each question
   with 2 to 4 answers in words, pictures (Fluent Emoji clipart, an uploaded picture, or an
-  emoji) or both. Each quiz is a tile next to Maths and Spelling for the children it's for;
+  emoji) or both. Each quiz is a tile next to Maths and Spelling, under Quizzes, for the children it's for;
   answering every question wins it (and a treat). Answers are shuffled and read out as
   they're focused.
-- **Jigsaws:** a Jigsaw tile (once there are family photos) turns a photo the child picks
+- **Jigsaws:** a Jigsaw tile under Games (once there are family photos) turns a photo the child picks
   into a jumbled jigsaw, 2 x 2 up to 5 x 5 pieces (set per child in the phone app, 3 x 3 by
   default, or off). Played with just the arrows and OK: OK picks a piece up, the arrows carry
   it, OK puts it down and it swaps with the piece there. Pieces click into place with a soft
   chime and stay put, the whole picture is shown alongside, and after a while a carried
   piece's place is hinted. Finishing one wins a treat. Back puts a carried piece down.
-- **Photos** (a row on each child's screen, before the treats, once there are any; every
-  child sees the same ones): OK on a photo shows it full screen. Left and right flip through
-  them, OK plays or stops a slideshow, Back goes back to the child's screen.
+- **Photos** (a tile on each child's home page once they have any; each photo is for one or
+  more children): a grid of them, and OK on one shows it full screen. Left and right flip
+  through them, OK plays or stops a slideshow, Back goes back to the grid.
 - **Player:** full screen. OK pauses, left and right skip 10 seconds, Back closes. Paused
   and finished videos are covered, so YouTube's suggestions never show. A video that won't
   play gets a friendly screen; it never opens the YouTube app.
