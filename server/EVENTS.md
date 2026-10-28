@@ -44,8 +44,8 @@ about it.
 | `video.play` | YouTube ID | | `title`, `channel` | A video starts playing. |
 | `video.watch` | YouTube ID | seconds actually playing | `title`, `channel`, `position`, `duration` (seconds), `finished` (true/false) | The player closes. |
 | `channel.open` | channel id | | `name` | A channel is opened. |
-| `quiz.answer` | game id, e.g. `maths.add`, `spelling` | 1 right, 0 wrong | `question`, `answer`, `expected`, `level` | Each answer. |
-| `quiz.finish` | game id | score (number right) | `total`, `seconds`, `level` | A round ends. |
+| `quiz.answer` | game id: `maths`, `spelling`, or `quiz/<id>` for a parent's quiz | 1 right, 0 wrong | `question`, `answer`, `expected`, `level` (0 for the parent's own setup or a quiz), `kind` (`add`, `sub`, `missing`, `bigger`, `times`, `count`, `first`, `pick`, `build`, `quiz`), `title` (quizzes) | Each answer. |
+| `quiz.finish` | game id | score (number right) | `total`, `wrong`, `seconds`, `level`, `title` (quizzes) | A round ends. |
 | `reward.earn` | `treat` | | `reason`, `game` | A finished game round wins a treat to pick. |
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason`, `tier` | A treat or reward is unlocked. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
@@ -62,5 +62,5 @@ All under `/api/wonder`. TVs send their `X-Device-Key`; the phone app its sign-i
   (with the dot) means every `video.*` event. Phone app only.
 - `GET /stats?days=7&tz=<Date.getTimezoneOffset()>` totals per child over the last few
   days: watch time, plays, answers and right answers, a day-by-day list, top videos and
-  channels, each game's answers, rounds and best score, and `byType` (count and total
+  channels, each game's answers, rounds and best score (with a quiz's `title`), and `byType` (count and total
   `value` of every event type). Phone app only.

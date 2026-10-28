@@ -1,5 +1,8 @@
 package com.njdyson.wonderbox.data
 
+import com.njdyson.wonderbox.games.MathsSetup
+import com.njdyson.wonderbox.games.Quiz
+import com.njdyson.wonderbox.games.SpellingSetup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -21,9 +24,22 @@ data class Child(
     val games: GameSettings = GameSettings(),
 )
 
-/** How hard a child's games are (set in the phone app), and how many right answers earn a treat. */
+/**
+ * How hard a child's games are (set in the phone app), and how many right answers earn a treat.
+ * [maths] and [spelling] are levels; the setups say exactly what each game asks (an older
+ * server sends only the levels).
+ */
 @Serializable
-data class GameSettings(val maths: Int = 1, val spelling: Int = 1, val roundSize: Int = 10)
+data class GameSettings(
+    val maths: Int = 1,
+    val spelling: Int = 1,
+    val roundSize: Int = 10,
+    val mathsSetup: MathsSetup? = null,
+    val spellingSetup: SpellingSetup? = null,
+) {
+    fun maths() = mathsSetup ?: MathsSetup.preset(maths)
+    fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
+}
 
 /** "free" videos are always there; "treat" ones are unlocked by finishing a game. */
 const val TREAT = "treat"
@@ -69,6 +85,7 @@ data class Shelf(val key: String, val title: String, val treat: Boolean, val vid
 @Serializable
 data class Library(
     val children: List<Child> = emptyList(),
+    val quizzes: List<Quiz> = emptyList(),
     val videos: List<Video> = emptyList(),
     val channels: List<Channel> = emptyList(),
 ) {

@@ -54,6 +54,8 @@ import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.Game
+import com.njdyson.wonderbox.games.GameEntry
+import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerWebView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,7 +72,7 @@ fun VideosScreen(
     app: AppState,
     child: Child,
     onPlay: (Video) -> Unit,
-    onGame: (Game) -> Unit,
+    onGame: (GameEntry) -> Unit,
     onPhoto: (Int) -> Unit,
     focusTreats: Boolean = false,
     onTreatsFocused: () -> Unit = {},
@@ -80,6 +82,8 @@ fun VideosScreen(
     val treatsLeft = app.treatsFor(child.id)
     val hasTreats = shelves.any { it.treat }
     val color = parseColor(child.color)
+    val games = app.library.gamesFor(child)
+    val firstGame = "games/${games.firstOrNull()?.key}"
     // The focused card ("games/Maths", "photos/<id>" or a video's ID), so focus comes back to it after a video.
     var focusedKey by rememberSaveable(child.id) { mutableStateOf<String?>(null) }
     var focusedVideo by remember { mutableStateOf<Video?>(null) }
@@ -92,7 +96,7 @@ fun VideosScreen(
     val firstTreatRow = shelves.indexOfFirst { it.treat }.let { if (it < 0) -1 else it + 1 }
     // The photos row (when there are photos) sits just before the treats, pushing them down one.
     val hasPhotos = app.photos.isNotEmpty()
-    val treatsIndex = firstTreatRow + if (hasPhotos && firstTreatRow > 0) 1 else 0
+    val treatsIndex = firstTreatRow + (if (hasPhotos && firstTreatRow > 0) 1 else 0) - (if (games.isEmpty()) 1 else 0)
     val photosRow: LazyListScope.() -> Unit = {
         if (hasPhotos) {
             item(key = "photos") {
@@ -132,20 +136,24 @@ fun VideosScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            item(key = "games") {
+            if (games.isNotEmpty()) item(key = "games") {
                 RowTitle(if (hasTreats) "Play a game to win a treat" else "Games")
-                Row(Modifier.padding(start = 48.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                    Game.entries.forEach { game ->
-                        val key = "games/${game.name}"
+                LazyRow(
+                    contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 6.dp, bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                ) {
+                    itemsIndexed(games, key = { _, g -> g.key }) { i, game ->
+                        val key = "games/${game.key}"
                         GameTile(
+                            app,
                             game,
-                            level = if (game == Game.Maths) child.games.maths else child.games.spelling,
+                            index = i,
                             onClick = { onGame(game) },
                             onFocus = {
                                 focusedKey = key
                                 focusedVideo = null
                             },
-                            modifier = if (key == (focusedKey ?: "games/${Game.Maths.name}")) Modifier.focusRequester(restore) else Modifier,
+                            modifier = if (key == (focusedKey ?: firstGame)) Modifier.focusRequester(restore) else Modifier,
                         )
                     }
                 }
@@ -180,7 +188,7 @@ fun VideosScreen(
                                                 app.say("Play a game to unlock a treat!")
                                                 message = "🔒 Play a game to unlock a treat!"
                                                 scope.launch {
-                                                    focusedKey = "games/${Game.Maths.name}"
+                                                    focusedKey = firstGame
                                                     list.animateScrollToItem(0)
                                                     restore.requestFocusWhenReady()
                                                     delay(3_000)
@@ -268,9 +276,22 @@ private fun TreatCount(count: Int) {
     )
 }
 
+// Each quiz tile gets the next colour along.
+private val TILE_COLORS = listOf(
+    listOf(Sky, Color(0xFF2C7DA0)),
+    listOf(Bubblegum, Color(0xFFC2185B)),
+    listOf(Color(0xFF7BD389), Color(0xFF2E8B57)),
+    listOf(Color(0xFFFF9F43), Color(0xFFD35400)),
+    listOf(Color(0xFFA78BFA), Color(0xFF6D28D9)),
+)
+
 @Composable
-private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = if (game == Game.Maths) listOf(Sky, Color(0xFF2C7DA0)) else listOf(Bubblegum, Color(0xFFC2185B))
+private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = when (game.game) {
+        Game.Maths -> TILE_COLORS[0]
+        Game.Spelling -> TILE_COLORS[1]
+        null -> TILE_COLORS[index % TILE_COLORS.size]
+    }
     Surface(
         onClick = onClick,
         modifier = modifier.width(280.dp).height(104.dp).onFocusChanged { if (it.isFocused) onFocus() },
@@ -284,10 +305,10 @@ private fun GameTile(game: Game, level: Int, onClick: () -> Unit, onFocus: () ->
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(game.icon, fontSize = 48.sp)
+            QuizPicture(app, game.icon, 60.dp)
             Column {
-                Text(game.title, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Black)
-                Text("Level $level", color = Color.White.copy(alpha = 0.85f), fontSize = 18.sp)
+                Text(game.title, color = Color.White, fontSize = if (game.title.length > 10) 24.sp else 32.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                Text(game.subtitle, color = Color.White.copy(alpha = 0.85f), fontSize = 18.sp)
             }
         }
     }
