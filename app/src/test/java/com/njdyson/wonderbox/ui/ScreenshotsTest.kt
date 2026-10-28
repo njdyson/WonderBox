@@ -85,7 +85,7 @@ class ScreenshotsTest {
         if (withPhotos) fakePhotos(context)
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo")
         val videos = titles.mapIndexed { i, title ->
-            Video("v$i", "aqz-KE-bpKQ", title, children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos")
+            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i >= 4) TREAT else "free", section = if (i == 3) MUSIC else "videos")
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
@@ -150,7 +150,9 @@ class ScreenshotsTest {
 
     @Test fun videos() {
         val app = app()
-        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Videos", app.library.videoShelvesFor(summer.id), {}) } }
+        // The first one watched all the way through: ticked and faded.
+        val watched = setOf(app.library.videoShelvesFor(summer.id)[0].videos[1].youtubeId)
+        compose.setContent { WonderBoxTheme { VideosScreen(app, summer, "Videos", app.library.videoShelvesFor(summer.id), {}, watched = watched) } }
         shoot("videos-summer")
     }
 

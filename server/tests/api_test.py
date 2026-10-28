@@ -202,8 +202,8 @@ try:
     assert lib["children"][0]["games"]["spellingSetup"]["lists"] == ["short", "phase2"]
 
     # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
-    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "quizzes", "hangman"]
-    lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "videos"]}, token)
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "quizzes", "hangman", "videos"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "bogus"]}, token)
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 2}, token)
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]

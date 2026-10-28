@@ -19,6 +19,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.data.Store
 import kotlinx.serialization.json.put
 
 /**
@@ -62,6 +63,10 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private var playingSince = 0L
     private var lastStateAt = 0L
     private var finishedVideo = false
+    // Watching this one all the way through wins a treat (the first time).
+    private var earnsTreat = false
+    // Already recorded as watched all the way through, so it isn't counted twice.
+    private var recorded = false
     // Times it stopped to buffer after it had started playing, not counting just after a skip.
     private var stalls = 0
     private var skippedAt = 0L
@@ -77,6 +82,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         childId = intent.getStringExtra(EXTRA_CHILD_ID)
+        earnsTreat = intent.getBooleanExtra(EXTRA_EARNS_TREAT, false)
         val dp = resources.displayMetrics.density
         // Nothing to draw behind the video: the WebView is opaque black. Saves the stick a full-screen layer every frame.
         window.setBackgroundDrawable(null)
@@ -214,6 +220,28 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         }
     }
 
+    /**
+     * Records the video as watched all the way through, if it really was: it got to the end
+     * and was actually playing for most of it, so skipping to the end doesn't count. The first
+     * time, if [earnsTreat], it wins a treat. True if it did.
+     */
+    private fun recordWatched(duration: Double): Boolean {
+        val child = childId ?: return false
+        if (recorded || duration <= 0) return false
+        val playing = (playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0L) / 1000.0
+        if (playing < duration * WATCHED_SHARE) return false
+        recorded = true
+        val store = Store(this)
+        if (!store.markWatched(child, videoId) || !earnsTreat) return false
+        store.addTreat(child)
+        EventLog.log("reward.earn", child, subject = "treat") {
+            put("reason", "video.finish")
+            put("game", "videos")
+            put("video", videoId)
+        }
+        return true
+    }
+
     /** One video.watch event when the player closes: seconds actually playing, and how far it got. */
     private fun logWatched() {
         if (!started) return
@@ -222,6 +250,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         val duration = PlayerWebView.duration
         // The position is from the last state change; add the playing since then.
         val position = PlayerWebView.position + if (stillPlaying) (System.currentTimeMillis() - lastStateAt) / 1000.0 else 0.0
+        // Closed with only the credits left: that counts as watched too.
+        if (duration > 0 && position >= duration * 0.95) recordWatched(duration)
         EventLog.log("video.watch", childId, videoId, value = playedMs / 1000.0) {
             put("title", title)
             put("channel", channel)
@@ -285,7 +315,11 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private fun finished() {
         done = true
         finishedVideo = true
-        showCover("⭐", "All done!", "Press OK to choose another")
+        if (recordWatched(PlayerWebView.duration)) {
+            showCover("🏆", "All done! You've won a treat!", "Press OK to pick it")
+        } else {
+            showCover("⭐", "All done!", "Press OK to choose another")
+        }
         // Back to the videos by itself if nobody presses anything.
         main.postDelayed({ finish() }, 8_000)
     }
@@ -317,11 +351,16 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         private val SUNSHINE = Color.rgb(0xFF, 0xD2, 0x3F)
         private val OK_KEYS = setOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER)
 
-        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null): Intent =
+        /** How much of a video has to have actually played for it to count as watched. */
+        private const val WATCHED_SHARE = 0.8
+        private const val EXTRA_EARNS_TREAT = "earnsTreat"
+
+        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earnsTreat: Boolean = false): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_VIDEO_ID, videoId)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_CHANNEL, channel)
                 .putExtra(EXTRA_CHILD_ID, childId)
+                .putExtra(EXTRA_EARNS_TREAT, earnsTreat)
     }
 }

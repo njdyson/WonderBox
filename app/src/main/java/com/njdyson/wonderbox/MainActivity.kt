@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import com.njdyson.wonderbox.data.EventLog
+import com.njdyson.wonderbox.data.GameSettings
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
@@ -127,7 +128,15 @@ class MainActivity : ComponentActivity() {
             }
             fun play(video: Video, childId: String) {
                 app.stopSpeaking()
-                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId))
+                // Watching a whole free video (not music, not a treat) can win a treat, if the parent chose that.
+                val earns = !video.isTreat && !video.isMusic && earnsTreat(childId, GameSettings.VIDEOS)
+                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns))
+            }
+            // Back from a video: tick it if it was watched all through, and pick the treat if that won one.
+            LaunchedEffect(resumeCount.intValue) {
+                val won = app.reloadFromPlayer()
+                val here = stack.last()
+                if (here is Screen.Videos && here.childId in won) open(Screen.PickTreat(here.childId))
             }
             BackHandler(enabled = stack.size > 1) { back() }
 
@@ -198,7 +207,7 @@ class MainActivity : ComponentActivity() {
                                 LaunchedEffect(Unit) { back() }
                             } else {
                                 val shelves = if (screen.category == Category.Music) app.library.musicShelvesFor(child.id) else app.library.videoShelvesFor(child.id)
-                                VideosScreen(app, child, screen.category.title, shelves, onPlay = { play(it, child.id) })
+                                VideosScreen(app, child, screen.category.title, shelves, watched = app.watchedFor(child.id), onPlay = { play(it, child.id) })
                             }
                         }
                         is Screen.Treats -> {

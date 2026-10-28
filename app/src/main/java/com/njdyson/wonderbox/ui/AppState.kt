@@ -45,6 +45,24 @@ class AppState(context: Context) {
 
     fun treatsFor(childId: String) = treats[childId] ?: 0
 
+    /** Videos each child has watched all the way through (YouTube IDs), recorded by the player. */
+    var watched by mutableStateOf(store.watched.mapValues { it.value.toSet() })
+        private set
+
+    fun watchedFor(childId: String): Set<String> = watched[childId].orEmpty()
+
+    /**
+     * Picks up what the player recorded while it was on top: videos watched, and treats won by
+     * watching them. Returns the children who won a treat since.
+     */
+    fun reloadFromPlayer(): Set<String> {
+        watched = store.watched.mapValues { it.value.toSet() }
+        val fresh = store.treats
+        val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
+        treats = fresh
+        return won
+    }
+
     fun earnTreat(childId: String) {
         treats = treats + (childId to treatsFor(childId) + 1)
         store.treats = treats

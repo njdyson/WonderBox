@@ -61,4 +61,17 @@ class TreatsTest {
         app.useSavedTreat("c1", app.savedTreatsFor("c1")[0])
         assertTrue(app.treatsSectionFor("c1").isEmpty())
     }
+
+    // What the player records while it's on top, picked up when the main screen comes back.
+    @Test fun aWatchedVideoIsTickedAndCanWinATreatOnce() {
+        val app = app()
+        val store = com.njdyson.wonderbox.data.Store(context)
+        assertTrue(store.markWatched("c1", "yt1"))
+        store.addTreat("c1")
+        assertFalse(store.markWatched("c1", "yt1"))
+        assertEquals(setOf("c1"), app.reloadFromPlayer())
+        assertEquals(1, app.treatsFor("c1"))
+        assertEquals(setOf("yt1"), app.watchedFor("c1"))
+        assertTrue(app.reloadFromPlayer().isEmpty())
+    }
 }

@@ -87,8 +87,8 @@ const SPELLING_TYPES = [["first", "First letter"], ["missing", "Missing letter"]
   ["hear", "Hear it, pick the spelling"], ["hearbuild", "Hear it, spell it"]];
 const CLOCK_TYPES = [["oclock", "O'clock"], ["half", "Half past"], ["quarter", "Quarter past and to"], ["five", "Five minutes"], ["minute", "Any minute"]];
 // The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"]];
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman"];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Watching a whole video"]];
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "quizzes", "hangman", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
 const sameList = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -342,10 +342,10 @@ function renderGames(c) {
   // Which games win a treat: the learning ones by default, so it isn't all jigsaws.
   const treatGames = g.treatGames || TREAT_DEFAULT;
   const treatsPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "⭐ Games that win a treat" })),
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "⭐ What wins a treat" })),
     chips(TREAT_GAMES, treatGames, (list) => save({ treatGames: list })),
     el("div", { className: "muted", textContent: treatGames.length
-      ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV."
+      ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV. A whole video (not music or a treat) wins one the first time it's watched all the way through, without skipping."
       : "No game wins a treat, so treats stay locked." }));
 
   $("games").replaceChildren(

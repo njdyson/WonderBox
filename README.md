@@ -27,7 +27,10 @@ Family photos from the phone show on the TV as a slideshow.
   by default) wins a treat, and the child picks one to save and carries on learning. The
   Treats section holds only the treats they've picked (its tile counts them), and watching
   one uses it up; a won treat left unpicked (Back from the picker) is picked when they next
-  open Treats. The parent chooses which
+  open Treats. Videos watched all the way through get a tick and fade back; the first
+  time a free video (not music) is watched through without skipping (at least 80% of it
+  actually playing), it wins a treat too, unless the parent turned "Watching a whole video"
+  off in the phone app. The parent chooses which
   games win a treat: maths, spelling, the clock, quizzes and hangman until changed, not
   jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read
