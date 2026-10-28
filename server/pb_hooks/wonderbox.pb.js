@@ -4,7 +4,7 @@
 // (Authorization header); linked TVs send their device key (X-Device-Key).
 // Every editing route returns the whole library, so the phone app just redraws.
 
-// The children and videos, for the TV or the phone app.
+// The children, videos and channels, for the TV or the phone app.
 routerAdd("GET", "/api/wonder/library", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   return e.json(200, lib.library(lib.caller(e).id))
@@ -36,37 +36,40 @@ routerAdd("POST", "/api/wonder/children/move", (e) => {
   return e.json(200, lib.library(user.id))
 })
 
+// {id, maths, spelling, roundSize}: how hard a child's games are on the TV.
+routerAdd("POST", "/api/wonder/children/games", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  lib.saveGames(user.id, e.requestInfo().body)
+  return e.json(200, lib.library(user.id))
+})
+
 // --- Videos ------------------------------------------------------------------
 
-// {url}: whether a video will play on the TV, and its title and thumbnail. Errors say why not.
+// {url}: a video or channel link. For a video, whether it will play on the TV, and its title
+// and thumbnail; for a channel, its name, picture and latest videos. Errors say why not.
+// The answer's kind is "video" or "channel".
 routerAdd("POST", "/api/wonder/videos/check", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   lib.requireUser(e)
-  return e.json(200, lib.checkVideo(e.requestInfo().body.url))
+  return e.json(200, lib.checkLink(e.requestInfo().body.url))
 })
 
-// {url, children: [ids]}: checks the video again, then adds it at the top.
+// {url, children: [ids], tier, section}: checks the video again, then adds it at the top.
 routerAdd("POST", "/api/wonder/videos/add", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const user = lib.requireUser(e)
   const body = e.requestInfo().body
-  const video = lib.addVideo(user.id, body.url, body.children)
+  const video = lib.addVideo(user.id, body.url, body.children, body.tier, body.section)
   return e.json(200, { ...lib.library(user.id), saved: video.id })
 })
 
-// {id, children: [ids]}: who a video is for. No one left removes it.
+// {id, children: [ids], tier: "free" or "treat", section: "videos" or "music"}: any of them.
+// No children left removes it.
 routerAdd("POST", "/api/wonder/videos/update", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const user = lib.requireUser(e)
-  const body = e.requestInfo().body
-  const video = lib.own("videos", body.id, user.id)
-  const kids = lib.ownChildIds(body.children, user.id)
-  if (kids.length) {
-    video.set("children", kids)
-    $app.save(video)
-  } else {
-    $app.delete(video)
-  }
+  lib.updateItem("videos", user.id, e.requestInfo().body)
   return e.json(200, lib.library(user.id))
 })
 
@@ -84,6 +87,54 @@ routerAdd("POST", "/api/wonder/videos/move", (e) => {
   const body = e.requestInfo().body
   lib.moveVideo(user.id, body.id, Number(body.delta) < 0 ? -1 : 1, body.child ? String(body.child) : null)
   return e.json(200, lib.library(user.id))
+})
+
+// --- Channels ----------------------------------------------------------------
+
+// {url, children: [ids], tier, section}: adds a whole channel at the top; its latest videos come with it.
+routerAdd("POST", "/api/wonder/channels/add", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  const body = e.requestInfo().body
+  const channel = lib.addChannel(user.id, body.url, body.children, body.tier, body.section)
+  return e.json(200, { ...lib.library(user.id), saved: channel.id })
+})
+
+// {id, children: [ids], tier, section}: as for videos.
+routerAdd("POST", "/api/wonder/channels/update", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  lib.updateItem("channels", user.id, e.requestInfo().body)
+  return e.json(200, lib.library(user.id))
+})
+
+routerAdd("POST", "/api/wonder/channels/remove", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  $app.delete(lib.own("channels", e.requestInfo().body.id, user.id))
+  return e.json(200, lib.library(user.id))
+})
+
+// {id}: fetches the channel's latest videos now, rather than waiting for the next refresh.
+routerAdd("POST", "/api/wonder/channels/refresh", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  lib.refreshChannel(lib.own("channels", e.requestInfo().body.id, user.id))
+  return e.json(200, lib.library(user.id))
+})
+
+// {id, delta: -1 or 1}: the order of the channels.
+routerAdd("POST", "/api/wonder/channels/move", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const user = lib.requireUser(e)
+  const body = e.requestInfo().body
+  lib.move(lib.channelRecords(user.id), lib.own("channels", body.id, user.id), Number(body.delta) < 0 ? -1 : 1)
+  return e.json(200, lib.library(user.id))
+})
+
+// New videos on every channel, four times a day.
+cronAdd("wonderbox_channels", "17 */6 * * *", () => {
+  require(`${__hooks}/wonderbox_lib.js`).refreshAllChannels()
 })
 
 // --- Linking a TV ------------------------------------------------------------

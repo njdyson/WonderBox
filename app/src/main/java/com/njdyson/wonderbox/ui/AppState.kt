@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-/** The TV app's state: whether it's linked, the children and videos, and the grown-ups' settings. */
+/** The TV app's state: whether it's linked, the children and videos, treats earned, and the grown-ups' settings. */
 class AppState(context: Context) {
     private val store = Store(context)
     val serverUrl = BuildConfig.SERVER_URL
@@ -32,6 +32,26 @@ class AppState(context: Context) {
 
     var speakTitles by mutableStateOf(store.speakTitles)
         private set
+
+    /** Treats earned by finishing a game and not yet picked, by child ID. Kept on this TV. */
+    var treats by mutableStateOf(store.treats)
+        private set
+
+    fun treatsFor(childId: String) = treats[childId] ?: 0
+
+    fun earnTreat(childId: String) {
+        treats = treats + (childId to treatsFor(childId) + 1)
+        store.treats = treats
+    }
+
+    /** Uses up one of the child's treats; false if they have none. */
+    fun spendTreat(childId: String): Boolean {
+        val have = treatsFor(childId)
+        if (have <= 0) return false
+        treats = treats + (childId to have - 1)
+        store.treats = treats
+        return true
+    }
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -88,7 +108,12 @@ class AppState(context: Context) {
 
     /** Reads [text] aloud (a 4-year-old can't read the titles), replacing anything still being said. */
     fun speak(text: String) {
-        if (speakTitles && ttsReady && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "focus")
+        if (speakTitles) say(text)
+    }
+
+    /** Reads [text] aloud even when titles aren't read: the games' questions need it. */
+    fun say(text: String) {
+        if (ttsReady && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "focus")
     }
 
     fun stopSpeaking() {
