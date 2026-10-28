@@ -102,6 +102,14 @@ data class Library(
     }
 }
 
+/** A family photo, shown to everyone in the slideshow. [image] and [thumb] are paths on the server. */
+@Serializable
+data class Photo(val id: String, val image: String, val thumb: String = "", val width: Int = 0, val height: Int = 0)
+
+/** GET /api/wonder/photos: newest first. */
+@Serializable
+data class Photos(val photos: List<Photo> = emptyList())
+
 /** Thrown when the server no longer accepts this TV's key (it was unlinked from the phone app). */
 class UnlinkedException : Exception("This TV was unlinked")
 
@@ -134,6 +142,7 @@ private fun request(baseUrl: String, path: String, body: JsonElement? = null, de
 class Server(private val baseUrl: String, private val deviceKey: String) {
     fun library(): Library = json.decodeFromString(request(baseUrl, "/api/wonder/library", deviceKey = deviceKey))
 
+    fun photos(): List<Photo> = json.decodeFromString(Photos.serializer(), request(baseUrl, "/api/wonder/photos", deviceKey = deviceKey)).photos
     /** Sends events from [EventLog]; the server skips any it already has. */
     fun sendEvents(events: List<LoggedEvent>) {
         val body = buildJsonObject { put("events", json.encodeToJsonElement(ListSerializer(LoggedEvent.serializer()), events)) }

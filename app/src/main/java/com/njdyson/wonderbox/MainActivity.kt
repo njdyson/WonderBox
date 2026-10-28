@@ -18,6 +18,7 @@ import com.njdyson.wonderbox.ui.GameScreen
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
 import com.njdyson.wonderbox.ui.LinkScreen
+import com.njdyson.wonderbox.ui.PhotosScreen
 import com.njdyson.wonderbox.ui.ProfileScreen
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
@@ -28,6 +29,7 @@ import kotlinx.serialization.json.put
 private sealed interface Screen {
     data object Profiles : Screen
     data class Videos(val childId: String) : Screen
+    data class Photos(val childId: String, val start: Int) : Screen
     data class Playing(val childId: String, val game: Game) : Screen
     data object Gate : Screen
     data object Settings : Screen
@@ -94,6 +96,7 @@ class MainActivity : ComponentActivity() {
                                     app.stopSpeaking()
                                     startActivity(PlayerActivity.intent(this@MainActivity, it.youtubeId, it.title, it.channel, child.id))
                                 },
+                                onPhoto = { open(Screen.Photos(child.id, it)) },
                                 onGame = { open(Screen.Playing(child.id, it)) },
                                 focusTreats = pickingTreat,
                                 onTreatsFocused = { pickingTreat = false },
@@ -129,6 +132,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    is Screen.Photos -> PhotosScreen(app, screen.childId, screen.start)
                     Screen.Gate -> GrownUpGate(onPassed = {
                         stack.removeAt(stack.lastIndex)
                         open(Screen.Settings)

@@ -5,9 +5,9 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 
 | Folder | What it is |
 |---|---|
-| `pb_migrations/` | Database setup: `children` (with game levels), `videos`, `channels`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
-| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
-| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, game levels, stats (`stats.js`), linked TVs. |
+| `pb_migrations/` | Database setup: `children` (with game levels), `videos`, `channels`, `photos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
+| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos (`photos.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
+| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, game levels, family photos, stats (`stats.js`), linked TVs. |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
 
@@ -41,6 +41,15 @@ phone app, with SafeSearch on strict; a result is checked and added like a paste
 Search needs the API key. Each search uses 100 of the key's 10,000 free daily units (about
 100 searches a day, fewer with channel refreshes), so the server keeps each search's results
 for an hour.
+
+## Family photos
+
+The phone app shrinks each photo before sending it: a JPEG at most 1920 pixels on its
+longest side (plenty for a 1080p TV) and a 400 pixel thumbnail, typically a few hundred KB
+in all instead of several MB. The originals stay on the phone. The files live in the data
+folder under `storage/` and are protected: they're only served through
+`/api/wonder/photos/{id}/image` to the signed-in parent and their linked TVs, never by a
+public link. Every child sees the same photos.
 
 ## Setting it up on the Plesk server
 

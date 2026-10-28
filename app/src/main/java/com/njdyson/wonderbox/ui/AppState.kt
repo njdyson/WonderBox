@@ -26,6 +26,10 @@ class AppState(context: Context) {
     var library by mutableStateOf(store.library ?: Library())
         private set
 
+    /** The family photos, newest first. */
+    var photos by mutableStateOf(store.photos)
+        private set
+
     /** Why the last sync failed, for the grown-ups' settings; null when it worked. */
     var syncError by mutableStateOf<String?>(null)
         private set
@@ -70,10 +74,16 @@ class AppState(context: Context) {
     suspend fun sync() {
         val key = deviceKey ?: return
         try {
-            val fresh = withContext(Dispatchers.IO) { Server(serverUrl, key).library() }
+            val server = Server(serverUrl, key)
+            val fresh = withContext(Dispatchers.IO) { server.library() }
             library = fresh
             store.library = fresh
             syncError = null
+            // Photos are extra: if they fail (say, a server without them yet) the videos still work.
+            runCatching { withContext(Dispatchers.IO) { server.photos() } }.onSuccess {
+                photos = it
+                store.photos = it
+            }
         } catch (e: UnlinkedException) {
             forgetLink()
         } catch (e: Exception) {
@@ -96,9 +106,14 @@ class AppState(context: Context) {
     private fun forgetLink() {
         store.deviceKey = null
         store.library = null
+        store.photos = emptyList()
         deviceKey = null
         library = Library()
+        photos = emptyList()
     }
+
+    /** The full address of a photo file; the server wants this TV's key with it ([deviceKey]). */
+    fun photoUrl(path: String) = serverUrl.trimEnd('/') + path
 
     fun chooseSpeakTitles(on: Boolean) {
         speakTitles = on
