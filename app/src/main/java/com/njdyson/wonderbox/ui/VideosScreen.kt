@@ -89,7 +89,8 @@ fun VideosScreen(
     val hasTreats = shelves.any { it.treat }
     val color = parseColor(child.color)
     val ink = color.onColor()
-    val games = app.library.gamesFor(child, photos = app.photos.isNotEmpty())
+    val photos = app.photosFor(child.id)
+    val games = app.library.gamesFor(child, photos = photos.isNotEmpty())
     val firstGame = "games/${games.firstOrNull()?.key}"
     // The focused card ("games/Maths", "photos/<id>" or a video's ID), so focus comes back to it after a video.
     var focusedKey by rememberSaveable(child.id) { mutableStateOf<String?>(null) }
@@ -102,13 +103,14 @@ fun VideosScreen(
     // Rows below the games row, in order; the first treat row's index in the column.
     val firstTreatRow = shelves.indexOfFirst { it.treat }.let { if (it < 0) -1 else it + 1 }
     // The photos row (when there are photos) sits just before the treats, pushing them down one.
-    val hasPhotos = app.photos.isNotEmpty()
+    val hasPhotos = photos.isNotEmpty()
     val treatsIndex = firstTreatRow + (if (hasPhotos && firstTreatRow > 0) 1 else 0) - (if (games.isEmpty()) 1 else 0)
     val photosRow: LazyListScope.() -> Unit = {
         if (hasPhotos) {
             item(key = "photos") {
                 PhotosRow(
                     app,
+                    photos,
                     onOpen = onPhoto,
                     onFocus = {
                         focusedKey = "photos/$it"

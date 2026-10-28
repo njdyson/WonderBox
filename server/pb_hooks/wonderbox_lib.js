@@ -259,7 +259,7 @@ function setPicture(userId, e) {
   $app.save(record)
 }
 
-/** Removes a child. Videos and channels that were only theirs go too; shared ones stay for the others. */
+/** Removes a child. Videos, channels and photos that were only theirs go too; shared ones stay for the others. */
 function removeChild(userId, id) {
   const child = own("children", id, userId)
   for (const video of videoRecords(userId)) {
@@ -273,15 +273,16 @@ function removeChild(userId, id) {
       $app.delete(video)
     }
   }
-  for (const channel of channelRecords(userId)) {
-    const kids = channel.getStringSlice("children")
+  const photos = toArray($app.findRecordsByFilter("photos", "user = {:u}", "", 0, 0, { u: userId }))
+  for (const record of [...channelRecords(userId), ...photos]) {
+    const kids = record.getStringSlice("children")
     if (!kids.includes(child.id)) continue
     const rest = kids.filter((k) => k !== child.id)
     if (rest.length) {
-      channel.set("children", rest)
-      $app.save(channel)
+      record.set("children", rest)
+      $app.save(record)
     } else {
-      $app.delete(channel)
+      $app.delete(record)
     }
   }
   $app.delete(child)

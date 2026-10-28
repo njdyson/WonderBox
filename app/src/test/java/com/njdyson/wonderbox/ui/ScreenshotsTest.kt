@@ -73,7 +73,9 @@ class ScreenshotsTest {
     )
     private val jesse = Child("c2", "Jesse", "🦖", "#4D96FF")
 
-    private val photos = (1..5).map { Photo("p$it", "/api/wonder/photos/p$it/image", "/api/wonder/photos/p$it/thumb", 1600, 1200) }
+    // Summer's photos; the last one is Jesse's only, so it never shows on her screens.
+    private val photos = (1..5).map { Photo("p$it", "/api/wonder/photos/p$it/image", "/api/wonder/photos/p$it/thumb", 1600, 1200, listOf(summer.id)) } +
+        Photo("p6", "/api/wonder/photos/p6/image", "/api/wonder/photos/p6/thumb", 1600, 1200, listOf(jesse.id))
 
     private fun app(withPhotos: Boolean = false): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -134,6 +136,13 @@ class ScreenshotsTest {
         val app = app(withPhotos = true)
         compose.setContent { WonderBoxTheme { VideosScreen(app, summer, {}, {}, {}) } }
         shoot("videos-jigsaw-tile")
+    }
+
+    // Jesse has one photo of his own; Summer's five don't show here.
+    @Test fun jigsawPickPhotoJesse() {
+        val app = app(withPhotos = true)
+        compose.setContent { WonderBoxTheme { JigsawScreen(app, jesse, true, {}, {}, {}) } }
+        shoot("jigsaw-pick-photo-jesse")
     }
 
     @Test fun jigsawPickPhoto() {
