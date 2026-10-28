@@ -130,6 +130,7 @@ fun PhotosScreen(app: AppState) {
         delay(SLIDE_MS)
         step(1)
     }
+    // TODO log photo.view (seconds on each photo) once the activity log lands.
     // Load the neighbours ahead of time.
     LaunchedEffect(current, photos.size) {
         for (delta in listOf(1, -1, 2)) {

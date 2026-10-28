@@ -2,7 +2,8 @@
 
 A Fire TV Stick app for two children, with a phone app for the parent. The parent picks
 YouTube videos on the phone; the children watch them on the TV, and nothing else from
-YouTube can be reached. Photos and simple learning games come later.
+YouTube can be reached. Family photos from the phone show as a slideshow on the TV.
+Simple learning games come later.
 
 | Folder | What it is |
 |---|---|
@@ -16,6 +17,8 @@ YouTube can be reached. Photos and simple learning games come later.
   to the phone app and approves it. Check for update is on this screen too.
 - **Who's watching?** one big face per child. The focused name is read aloud.
 - **Videos:** that child's videos as big thumbnails, three across. OK plays.
+- **Photos** (beside the faces, once there are any): the family photos full screen, newest
+  first. Left and right flip through them, OK plays or stops a slideshow, Back goes home.
 - **Player:** full screen. OK pauses, left and right skip 10 seconds, Back closes. Paused
   and finished videos are covered, so YouTube's suggestions never show. A video that won't
   play gets a friendly screen; it never opens the YouTube app.

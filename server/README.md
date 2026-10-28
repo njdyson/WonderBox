@@ -5,9 +5,9 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 
 | Folder | What it is |
 |---|---|
-| `pb_migrations/` | Database setup: `children`, `videos`, `devices` (linked TVs), `pairings` (link codes). No public sign-up. |
-| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos, linking TVs. |
-| `pb_public/` | The phone app (PWA): sign in, paste a YouTube link, choose who it's for, order and remove videos, linked TVs. |
+| `pb_migrations/` | Database setup: `children`, `videos`, `photos`, `devices` (linked TVs), `pairings` (link codes). No public sign-up. |
+| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos, family photos (`photos.pb.js`), linking TVs. |
+| `pb_public/` | The phone app (PWA): sign in, paste a YouTube link, choose who it's for, order and remove videos, add family photos, linked TVs. |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
 
@@ -20,6 +20,15 @@ UK-blocked videos and live streams that haven't started. To add one: Google Clou
 create a project, enable **YouTube Data API v3**, create an API key (restrict it to that
 API), then run the install task again with `YOUTUBE_API_KEY='…'` added (step 4). The key
 is kept in the data folder, not in Git.
+
+## Family photos
+
+The phone app shrinks each photo before sending it: a JPEG at most 1920 pixels on its
+longest side (plenty for a 1080p TV) and a 400 pixel thumbnail, typically a few hundred KB
+in all instead of several MB. The originals stay on the phone. The files live in the data
+folder under `storage/` and are protected: they're only served through
+`/api/wonder/photos/{id}/image` to the signed-in parent and their linked TVs, never by a
+public link. Every child sees the same photos.
 
 ## Setting it up on the Plesk server
 
