@@ -468,7 +468,7 @@ class ScreenshotsTest {
         val app = app(withPhotos = true)
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit().putString("stories", json.encodeToString(SavedStories.serializer(), SavedStories(saved))).commit()
         val withStories = AppState(context)
-        compose.setContent { WonderBoxTheme { StoryLibraryScreen(withStories, summer) } }
+        compose.setContent { WonderBoxTheme { StoryLibraryScreen(withStories, summer, canMake = true, onNew = {}) } }
         settle()
         shoot("story-library")
     }

@@ -40,13 +40,16 @@ function clean(text) {
   return String(text || "").replace(/\s+/g, " ").trim().slice(0, MAX_TEXT)
 }
 
-/** The path of a WAV file of [text] being read, made now if it isn't already. */
-function clip(text) {
+/**
+ * The path of a WAV file of [text] being read, made now if it isn't already. [slow] reads it
+ * more slowly, with longer pauses between sentences, for stories.
+ */
+function clip(text, slow) {
   const c = config()
   if (!c) throw new NotFoundError("This server has no voice.")
   const dir = `${$app.dataDir()}/speech`
   $os.mkdirAll(dir, 0o755)
-  const name = $security.sha256(`${c.voice}\n${text}`)
+  const name = $security.sha256(`${c.voice}\n${slow ? "slow\n" : ""}${text}`)
   const wav = `${dir}/${name}.wav`
   try {
     $os.stat(wav)
@@ -57,7 +60,8 @@ function clip(text) {
   $os.writeFile(input, text, 0o644)
   try {
     // The paths go in as arguments, never into the shell command, so no text can run as code.
-    $os.cmd("sh", "-c", '"$0" --model "$1" --output_file "$2" < "$3"', c.bin, c.voice, part, input).combinedOutput()
+    const pace = slow ? ["1.3", "0.6"] : ["1", "0.2"]
+    $os.cmd("sh", "-c", '"$0" --model "$1" --output_file "$2" --length_scale "$4" --sentence_silence "$5" < "$3"', c.bin, c.voice, part, input, pace[0], pace[1]).combinedOutput()
     $os.stat(part)
     $os.rename(part, wav)
   } catch (err) {

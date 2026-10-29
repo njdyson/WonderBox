@@ -520,9 +520,9 @@ try:
 
     # The story maker: settings, writing (needs a Gemini key: without one it's 503 and the TV
     # tells its own story), and the story library.
-    lib = call("POST", "/api/wonder/children/games", {"id": sam, "story": {"age": 6, "turns": 9}}, token)
+    lib = call("POST", "/api/wonder/children/games", {"id": sam, "story": {"age": 6, "turns": 12}}, token)
     g = next(c for c in lib["children"] if c["id"] == sam)["games"]
-    assert g["story"] == {"on": True, "age": 6, "turns": 6}, g["story"]
+    assert g["story"] == {"on": True, "age": 6, "turns": 10}, g["story"]
     assert "story" not in g["treatGames"], "the story maker doesn't win treats until the parent says"
     if not lib["stories"]:
         call("POST", "/api/wonder/story", {"child": sam, "story": [], "options": ["cat", "dog", "owl"]}, device_key=key, expect=503)

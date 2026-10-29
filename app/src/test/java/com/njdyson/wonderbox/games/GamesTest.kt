@@ -4,6 +4,7 @@ import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.GameSettings
 import com.njdyson.wonderbox.data.Library
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
@@ -30,7 +31,9 @@ class GamesTest {
         assertEquals("3 questions", library.gamesFor(sam)[3].subtitle)
         assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "memory", "story", "quiz/q2"), library.gamesFor(jo).map { it.key })
         assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "jigsaw", "memory", "story", "quiz/q2"), library.gamesFor(jo, photos = true).map { it.key })
-        assertEquals("stories", library.gamesFor(jo, stories = true).dropLast(1).last().key)
+        val noMaker = jo.copy(games = GameSettings(story = StorySetup(on = false)))
+        assertEquals("Hear your stories again", Library().gamesFor(noMaker, stories = true).first { it.key == "story" }.subtitle)
+        assertTrue(Library().gamesFor(noMaker).none { it.key == "story" })
         val noClock = Child("al", "Al", games = GameSettings(clockSetup = ClockSetup(on = false), flagSetup = FlagSetup(on = false), hangman = HangmanSetup(on = false), memory = MemorySetup(on = false), scramble = ScrambleSetup(on = false), story = StorySetup(on = false)))
         assertEquals(listOf("maths", "spelling"), Library(children = listOf(noClock)).gamesFor(noClock).map { it.key })
     }

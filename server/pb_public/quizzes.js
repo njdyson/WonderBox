@@ -438,7 +438,7 @@ function renderGames(c) {
       el("div", { className: "sub-h", textContent: `${c.name}'s age (sets how long and simple each part is)` }),
       seg([3, 4, 5, 6, 7, 8, 9].map((n) => [n, String(n)]), story.age, (age) => saveStory({ age })),
       el("div", { className: "sub-h", textContent: "Pictures to pick in a story" }),
-      seg([3, 4, 5, 6].map((n) => [n, String(n)]), story.turns, (turns) => saveStory({ turns })),
+      seg([3, 4, 5, 6, 7, 8, 9, 10].map((n) => [n, String(n)]), story.turns, (turns) => saveStory({ turns })),
       el("div", { className: "muted", textContent: library.stories
         ? `${c.name} picks a hero, a place, what happens and how it ends, and Gemini writes each part, read aloud. Finished stories are kept, with a picture Gemini draws.`
         : "The server has no Gemini key yet, so the TV tells a simple built-in story. Add GEMINI_API_KEY in the install task (server README) for real stories." }));

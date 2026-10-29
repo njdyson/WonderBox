@@ -164,14 +164,17 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     /** Called once when what's being said now has been said; dropped when something else is said or it's stopped. */
     private var onDone: (() -> Unit)? = null
 
-    /** Reads [text] aloud, replacing anything still being said. [onDone] once it's been said (not if it's cut short). */
-    fun say(text: String, onDone: (() -> Unit)? = null) {
+    /**
+     * Reads [text] aloud, replacing anything still being said. [onDone] once it's been said (not
+     * if it's cut short). [slow] reads it more slowly, with longer pauses, for stories.
+     */
+    fun say(text: String, onDone: (() -> Unit)? = null, slow: Boolean = false) {
         if (text.isBlank()) {
             onDone?.invoke()
             return
         }
         val address = server()
-        if (useServer && address != null) play(text, address) else sayHere(text)
+        if (useServer && address != null) play(text, address, slow) else sayHere(text, slow)
         this.onDone = onDone
     }
 
@@ -185,14 +188,14 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
      * Has the server's voice make clips of [texts] now, in the background, so they start
      * straight away when they're said (the server keeps each clip once made).
      */
-    fun prepare(texts: List<String>) {
+    fun prepare(texts: List<String>, slow: Boolean = false) {
         val address = server() ?: return
         if (!useServer) return
         val (baseUrl, key) = address
         Thread {
             texts.filter { it.isNotBlank() }.forEach { text ->
                 runCatching {
-                    val conn = URL(baseUrl.trimEnd('/') + "/api/wonder/speech?text=" + URLEncoder.encode(text, "UTF-8")).openConnection() as HttpURLConnection
+                    val conn = URL(speechUrl(baseUrl, text, slow)).openConnection() as HttpURLConnection
                     conn.connectTimeout = 15_000
                     conn.readTimeout = 60_000
                     conn.setRequestProperty("X-Device-Key", key)
@@ -218,8 +221,11 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
         tts = null
     }
 
-    private fun sayHere(text: String) {
+    private var lastSlow = false
+
+    private fun sayHere(text: String, slow: Boolean = false) {
         lastText = text
+        lastSlow = slow
         retried = false
         speakHere(text)
     }
@@ -227,14 +233,18 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     private fun speakHere(text: String) {
         if (!ttsReady) return
         utterances++
+        tts?.setSpeechRate(if (lastSlow) 0.7f else 0.9f)
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "wonderbox$utterances")
     }
 
     /** A clip from the server's voice; if it fails, this TV's own voice says it instead. */
-    private fun play(text: String, address: Pair<String, String>) {
+    private fun speechUrl(baseUrl: String, text: String, slow: Boolean) =
+        baseUrl.trimEnd('/') + "/api/wonder/speech?text=" + URLEncoder.encode(text, "UTF-8") + if (slow) "&slow=1" else ""
+
+    private fun play(text: String, address: Pair<String, String>, slow: Boolean) {
         stop()
         val (baseUrl, key) = address
-        val url = baseUrl.trimEnd('/') + "/api/wonder/speech?text=" + URLEncoder.encode(text, "UTF-8")
+        val url = speechUrl(baseUrl, text, slow)
         val p = MediaPlayer()
         player = p
         try {
@@ -254,7 +264,7 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
                 mp.release()
                 if (player === mp) {
                     player = null
-                    failed(text)
+                    failed(text, slow)
                 }
                 true
             }
@@ -262,14 +272,14 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
         } catch (e: Exception) {
             p.release()
             player = null
-            failed(text)
+            failed(text, slow)
         }
     }
 
-    private fun failed(text: String) {
+    private fun failed(text: String, slow: Boolean) {
         serverFailures++
         refresh()
-        sayHere(text)
+        sayHere(text, slow)
     }
 
     private fun refresh() {
