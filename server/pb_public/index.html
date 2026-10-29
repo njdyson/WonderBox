@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0E5E66">
+<meta name="theme-color" content="#073B40">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Wonder Box">
@@ -33,13 +33,12 @@
     position: fixed; inset: 0; display: flex; flex-direction: column;
   }
   /*
-   * Opened from the Home Screen, iPhones can make the fixed box shorter than the screen, leaving
-   * a band under the tab bar. There's no browser toolbar there, so the full screen height (lvh)
-   * is always right.
+   * Opened from the Home Screen, some iPhones give the app a view that stops short of the bottom
+   * of the screen (the strip below is drawn by iOS in the manifest's colour, which now matches
+   * the bar). The view doesn't reach the home bar then, so the bar needs no room for it.
+   * fitView() sets .short-view.
    */
-  @media (display-mode: standalone) {
-    body { bottom: auto; height: 100vh; height: 100lvh; }
-  }
+  .short-view .tabbar { padding-bottom: 6px; }
   #scroller {
     flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
     padding: 0 16px 28px;
@@ -1544,6 +1543,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 // The page itself shouldn't scroll (only #scroller does), but iPhones still slide it up to show
 // the box being typed in, and sometimes leave it there when the keyboard closes. Put it back.
 const remeasure = () => setTimeout(() => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); }, 60);
+
+/** Notices a Home Screen view that's shorter than the screen (see .short-view). */
+function fitView() {
+  const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+  const portrait = window.innerWidth < window.innerHeight;
+  document.documentElement.classList.toggle("short-view", !!standalone && portrait && screen.height - window.innerHeight > 20);
+}
+fitView();
+window.addEventListener("resize", fitView);
+window.addEventListener("orientationchange", () => setTimeout(fitView, 300));
 document.addEventListener("focusout", remeasure);
 window.addEventListener("orientationchange", remeasure);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", remeasure);
