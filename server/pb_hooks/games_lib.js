@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Settings for the TV's hangman, word game, memory pairs and story maker (app/.../games/Hangman.kt,
-// WordGame.kt, Memory.kt and Story.kt), loaded with require(). Each child's are kept in
+// Settings for the TV's hangman, word game, memory pairs, story maker and photo quiz
+// (app/.../games/Hangman.kt, WordGame.kt, Memory.kt, Story.kt and PhotoQuiz.kt), loaded with require(). Each child's are kept in
 // children.game_setup next to maths and spelling; anything missing or odd gets the default.
 
 const WORD_LISTS = ["short", "long", "big", "mine"]
@@ -21,6 +21,13 @@ const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say:
 const STORY_AGES = [3, 4, 5, 6, 7, 8, 9]
 const STORY_TURNS = [3, 4, 5, 6, 7, 8, 9, 10]
 const STORY_DEFAULT = { on: true, age: 5, turns: 5 }
+// The photo quiz (photo_quiz_lib.js): the child looks at a photo for [look] seconds, then
+// answers [questions] questions about it, as hard as suits their [age]. [pick] is "child" (they
+// choose the photo) or "surprise" (the TV does). Off until the parent turns it on, since it
+// sends the family's photos to Gemini.
+const PHOTO_QUIZ_LOOK = [5, 10, 15, 20, 30]
+const PHOTO_QUIZ_QUESTIONS = [3, 4, 5, 6]
+const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" }
 
 /** The nearest of [allowed] to [value], or [fallback] when it isn't a number. */
 function nearest(value, allowed, fallback) {
@@ -80,4 +87,16 @@ function storySetup(value) {
   }
 }
 
-module.exports = { hangmanSetup, scrambleSetup, memorySetup, storySetup, SCRAMBLE_LEVELS }
+/** A child's photo quiz: {on, age, look, questions, pick}. */
+function photoQuizSetup(value) {
+  const v = value && typeof value === "object" ? value : {}
+  return {
+    on: v.on === undefined ? PHOTO_QUIZ_DEFAULT.on : !!v.on,
+    age: nearest(v.age, STORY_AGES, PHOTO_QUIZ_DEFAULT.age),
+    look: nearest(v.look, PHOTO_QUIZ_LOOK, PHOTO_QUIZ_DEFAULT.look),
+    questions: nearest(v.questions, PHOTO_QUIZ_QUESTIONS, PHOTO_QUIZ_DEFAULT.questions),
+    pick: v.pick === "surprise" ? "surprise" : "child",
+  }
+}
+
+module.exports = { hangmanSetup, scrambleSetup, memorySetup, storySetup, photoQuizSetup, SCRAMBLE_LEVELS }

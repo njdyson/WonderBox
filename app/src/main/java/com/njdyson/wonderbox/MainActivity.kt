@@ -20,6 +20,7 @@ import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.PHOTO_QUIZ
 import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.STORY
 import com.njdyson.wonderbox.games.gamesFor
@@ -29,6 +30,7 @@ import com.njdyson.wonderbox.ui.GameScreen
 import com.njdyson.wonderbox.ui.GamesScreen
 import com.njdyson.wonderbox.ui.HomeScreen
 import com.njdyson.wonderbox.ui.PhotoGridScreen
+import com.njdyson.wonderbox.ui.PhotoQuizScreen
 import com.njdyson.wonderbox.ui.AppState
 import com.njdyson.wonderbox.ui.GrownUpGate
 import com.njdyson.wonderbox.ui.HangmanScreen
@@ -70,6 +72,7 @@ private sealed interface Screen {
     data class Hangman(val childId: String) : Screen
     data class WordGame(val childId: String) : Screen
     data class Memory(val childId: String) : Screen
+    data class PhotoQuiz(val childId: String) : Screen
     data class Story(val childId: String) : Screen
     data class StoryLibrary(val childId: String) : Screen
     data object Gate : Screen
@@ -212,6 +215,7 @@ class MainActivity : ComponentActivity() {
                                             HANGMAN -> Screen.Hangman(child.id)
                                             SCRAMBLE -> Screen.WordGame(child.id)
                                             MEMORY -> Screen.Memory(child.id)
+                                            PHOTO_QUIZ -> Screen.PhotoQuiz(child.id)
                                             STORY -> Screen.StoryLibrary(child.id)
                                             else -> Screen.Playing(child.id, it.key)
                                         },
@@ -378,6 +382,22 @@ class MainActivity : ComponentActivity() {
                                     child,
                                     hasTreats = treat,
                                     onFinished = { if (treat) winTreat(child.id, "memory.finish", MEMORY) },
+                                    onPickTreat = { pickTreat(child.id) },
+                                    onBack = { back() },
+                                )
+                            }
+                        }
+                        is Screen.PhotoQuiz -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            if (child == null || !child.games.photoQuiz.on) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                val treat = earnsTreat(child.id, PHOTO_QUIZ)
+                                PhotoQuizScreen(
+                                    app,
+                                    child,
+                                    hasTreats = treat,
+                                    onFinished = { if (treat) winTreat(child.id, "photoquiz.finish", PHOTO_QUIZ) },
                                     onPickTreat = { pickTreat(child.id) },
                                     onBack = { back() },
                                 )

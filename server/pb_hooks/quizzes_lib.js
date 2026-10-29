@@ -17,9 +17,9 @@ const SPELLING_TYPES = ["first", "missing", "pick", "build", "hear", "hearbuild"
 const CLOCK_TYPES = ["oclock", "half", "quarter", "five", "minute"]
 
 // The games that can win a treat on the TV ("quizzes" is all the parent's quizzes, "videos" the
-// learning and exercise videos), and the ones that do until the parent changes it: not the jigsaw, pairs
-// or story maker.
-const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "memory", "jigsaw", "story", "videos"]
+// learning and exercise videos), and the ones that do until the parent changes it: not the jigsaw, pairs,
+// story maker or photo quiz.
+const TREAT_GAMES = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "memory", "jigsaw", "story", "photoquiz", "videos"]
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"]
 // The games a parent could tick before the word game came, for children saved without treatsOffered.
 const TREAT_GAMES_BEFORE_SCRAMBLE = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "memory", "jigsaw", "videos"]

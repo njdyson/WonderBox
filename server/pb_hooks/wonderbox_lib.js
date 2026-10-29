@@ -88,6 +88,8 @@ function library(userId) {
     voice: require(`${__hooks}/speech_lib.js`).available(),
     // The story maker can ask Gemini to write (story_lib.js); without it the TV tells a simple story itself.
     stories: require(`${__hooks}/story_lib.js`).available(),
+    // The photo quiz needs Gemini to write its questions (photo_quiz_lib.js).
+    photoQuiz: require(`${__hooks}/photo_quiz_lib.js`).available(),
     // {"home.games": path, "game.jigsaw": path}: the menu tile pictures Gemini has drawn (menu_lib.js).
     menuPictures: require(`${__hooks}/menu_lib.js`).pictureMap(userId),
     videos: videoRecords(userId).map((v) => ({
@@ -152,7 +154,7 @@ function games(child) {
     clockSetup: quiz.clockSetup(stored.clock, clockLevel),
     flags: flagLevel,
     flagSetup: quiz.flagSetup(stored.flags, flagLevel),
-    // Which games win a treat: maths, spelling, clock, flags, quizzes, hangman, scramble, memory, jigsaw, story, videos (learning and exercise).
+    // Which games win a treat: maths, spelling, clock, flags, quizzes, hangman, scramble, memory, jigsaw, story, photoquiz, videos (learning and exercise).
     treatGames: quiz.treatGames(stored.treats, stored.treatsOffered),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
@@ -160,6 +162,7 @@ function games(child) {
     scramble: extra.scrambleSetup(stored.scramble),
     memory: extra.memorySetup(stored.memory),
     story: extra.storySetup(stored.story),
+    photoQuiz: extra.photoQuizSetup(stored.photoQuiz),
     // The menus' quiet music (on unless turned off) and decorations (app/.../ui/Music.kt, Seasons.kt).
     music: stored.music !== false,
     season: SEASONS.includes(stored.season) ? stored.season : "auto",
@@ -183,9 +186,9 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, scramble, memory, story, music, season}: how hard a child's games are (jigsaw 0 is off),
+ * jigsaw, sounds, hangman, scramble, memory, story, photoQuiz, music, season}: how hard a child's games are (jigsaw 0 is off),
  * which of them win a treat, their sound effects, and the menus' music and decorations. hangman, scramble (the word game),
- * memory and story are whole setups (pb_hooks/games_lib.js).
+ * memory, story and photoQuiz are whole setups (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -214,6 +217,7 @@ function saveGames(userId, body) {
   setup.scramble = body.scramble ? extra.scrambleSetup(body.scramble) : current.scramble
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
   setup.story = body.story ? extra.storySetup(body.story) : current.story
+  setup.photoQuiz = body.photoQuiz ? extra.photoQuizSetup(body.photoQuiz) : current.photoQuiz
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
   let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
   if (body.mathsSetup) {

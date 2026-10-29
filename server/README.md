@@ -40,6 +40,14 @@ few minutes of the key being added; until then, and on a TV that can't fetch the
 show their emoji. The phone app's Family tab shows them, and a tap draws one again (at most 40
 pictures per family per day). `GEMINI_IMAGE_MODEL='…'` changes the drawing model.
 
+The **photo quiz** uses the same key: Gemini looks at each family photo once and writes nine
+questions about it, easy to harder ("What colour was the girl's dress?"), which the TV asks
+after the child has looked at the photo (`pb_hooks/photo_quiz_lib.js`). It's off for every child
+until the parent turns it on in the phone app, since that's when that child's photos start going
+to Gemini. Questions are written by a cron job a couple of photos a minute (at most 60 photos
+per family per day), so the TV never waits; the phone app shows them and can ask for new ones
+or leave a photo out. Without a key the game isn't shown on the TV.
+
 ## Channels and playlists
 
 Paste a channel link (`youtube.com/@name`, `/channel/UC…`, `/c/…` or `/user/…`) and the
