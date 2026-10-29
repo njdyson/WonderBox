@@ -65,9 +65,18 @@ import kotlinx.coroutines.delay
  * until it's drawn). Picking a story reads it aloud page by page, like a picture book.
  */
 @Composable
-fun StoryLibraryScreen(app: AppState, child: Child, canMake: Boolean, onNew: () -> Unit) {
+fun StoryLibraryScreen(
+    app: AppState,
+    child: Child,
+    canMake: Boolean,
+    onNew: () -> Unit,
+    /** A story to open straight away: one just made in the story maker. */
+    startOpen: String? = null,
+    /** Picking a treat, for a story that just won one (null when it didn't). */
+    onPickTreat: (() -> Unit)? = null,
+) {
     val stories = app.storiesFor(child.id)
-    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    var open by rememberSaveable { mutableStateOf(startOpen) }
     val story = stories.firstOrNull { it.id == open }
     // While a picture is being drawn, look for it every 20 seconds.
     val drawing = stories.any { it.drawing }
@@ -79,7 +88,7 @@ fun StoryLibraryScreen(app: AppState, child: Child, canMake: Boolean, onNew: () 
     }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
         if (story != null) {
-            StoryReader(app, child, story, onClose = { open = null })
+            StoryReader(app, child, story, fresh = story.id == startOpen, onPickTreat = onPickTreat.takeIf { story.id == startOpen }, onClose = { open = null })
         } else {
             Shelf(app, child, stories, canMake, onNew, onOpen = {
                 EventLog.log("story.read", child.id, subject = it.id)
@@ -179,9 +188,9 @@ private fun StoryCover(app: AppState, story: SavedStory, modifier: Modifier) {
     }
 }
 
-/** A brush leaving dabs of paint across the page, so it's clear the picture is on its way. */
+/** A brush leaving dabs of paint across the page, so it's clear the picture is on its way, with [label] under it. */
 @Composable
-private fun Painting(modifier: Modifier) {
+internal fun Painting(modifier: Modifier, label: String = "Drawing the picture…") {
     val t by rememberInfiniteTransition(label = "painting").animateFloat(
         0f, 1f, infiniteRepeatable(tween(4_000, easing = LinearEasing), RepeatMode.Restart), label = "painting",
     )
@@ -203,9 +212,9 @@ private fun Painting(modifier: Modifier) {
             Modifier.align(Alignment.TopStart).offset(x = maxWidth * brush.x - maxWidth * 0.05f, y = maxHeight * brush.y - maxWidth * 0.15f),
         )
         Text(
-            "Drawing the picture…",
+            label,
             color = Ink,
-            fontSize = 18.sp,
+            fontSize = if (maxWidth > 500.dp) 28.sp else 18.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
         )
@@ -214,9 +223,18 @@ private fun Painting(modifier: Modifier) {
 
 /** A saved story read aloud page by page; the arrows go back and forward a page. */
 @Composable
-private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose: () -> Unit) {
+private fun StoryReader(
+    app: AppState,
+    child: Child,
+    story: SavedStory,
+    /** Just made: a moment to look at the finished book first, and a cheer at the end. */
+    fresh: Boolean,
+    onPickTreat: (() -> Unit)?,
+    onClose: () -> Unit,
+) {
     var page by remember(story.id) { mutableIntStateOf(0) }
     var reading by remember(story.id) { mutableStateOf(true) }
+    var finishedOnce by remember(story.id) { mutableStateOf(false) }
     val first = remember { FocusRequester() }
     val pages = story.parts.size
     DisposableEffect(story.id) { onDispose { app.stopSpeaking() } }
@@ -226,6 +244,7 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
     LaunchedEffect(page, reading) {
         if (!reading) return@LaunchedEffect
         if (page == 0) {
+            if (fresh && finishedOnce.not()) delay(1_500)
             app.sayAndWait(story.title)
             delay(300)
         }
@@ -233,7 +252,13 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
         delay(600)
         if (page < pages - 1) page++ else {
             reading = false
-            app.say("The end!")
+            if (fresh && !finishedOnce) {
+                app.sounds.play(Sounds.Effect.Finish, child)
+                app.say(if (onPickTreat != null) "The end! What a brilliant story, ${child.name}! Pick a treat!" else "The end! What a brilliant story, ${child.name}!")
+            } else {
+                app.say("The end!")
+            }
+            finishedOnce = true
         }
     }
     val part = story.parts.getOrNull(page)
@@ -280,6 +305,7 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
                 }
             }
             BigButton("📚 My stories", Modifier, onClose)
+            if (onPickTreat != null && finishedOnce) BigButton("⭐ Pick a treat", Modifier, onPickTreat)
         }
     }
 }

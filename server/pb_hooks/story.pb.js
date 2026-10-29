@@ -42,6 +42,16 @@ routerAdd("GET", "/api/wonder/stories", (e) => {
   return e.json(200, { stories: stories.storyList(lib.caller(e).id) })
 })
 
+// {id}: draws the story's picture now, while the TV's story maker waits (up to a minute or two).
+// Returns {stories}, the picture included if it worked.
+routerAdd("POST", "/api/wonder/stories/draw", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const stories = require(`${__hooks}/story_lib.js`)
+  const user = lib.caller(e)
+  stories.drawNow(String((e.requestInfo().body || {}).id || ""), user.id)
+  return e.json(200, { stories: stories.storyList(user.id) })
+})
+
 // {id}: the parent removes a story (phone app).
 routerAdd("POST", "/api/wonder/stories/remove", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)

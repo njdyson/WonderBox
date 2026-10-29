@@ -77,11 +77,13 @@ private val Paper = Color(0xFFFFF6E5)
 
 /**
  * The story maker: the child picks one of three pictures for each part of a story (who it's
- * about, where they go, what happens, how it ends) and the story is written as they go, read
- * aloud and shown on a page. The server (Gemini) writes the three possible next parts as soon
+ * about, where they go, what happens, how it ends) and the story is written as they go and
+ * shown on a page (not read aloud: it's read as a whole once the book is made). The server (Gemini) writes the three possible next parts as soon
  * as the pictures are shown, so the chosen one is usually ready; while it isn't, a pencil
  * writes on the page. Without the server, the TV tells a simple story of its own.
- * At the end the whole story can be heard again.
+ * At the end the story is saved, its picture drawn while a brush paints, and [onBook] opens the
+ * finished book (picture and pages) to be read in full. If it can't be saved, the last part is
+ * read here and the whole story can be heard again.
  */
 @Composable
 fun StoryScreen(
@@ -91,6 +93,8 @@ fun StoryScreen(
     onFinished: () -> Unit,
     onPickTreat: () -> Unit,
     onBack: () -> Unit,
+    /** The story is saved (and drawn, if it could be): show it as a finished book. */
+    onBook: (storyId: String) -> Unit = {},
     random: Random = Random,
     /** A story already under way (for screenshots). */
     startParts: List<StoryPart> = emptyList(),
@@ -104,6 +108,8 @@ fun StoryScreen(
     var game by remember { mutableIntStateOf(0) }
     var story by remember { mutableStateOf(startParts) }
     var writing by remember { mutableStateOf(startWriting) }
+    /** The last part is written: the book is being saved and its picture drawn. */
+    var binding by remember { mutableStateOf(false) }
     /** The part being read again at the end, or null. */
     var replaying by remember { mutableStateOf<Int?>(null) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -128,8 +134,6 @@ fun StoryScreen(
         if (options.isEmpty()) return@LaunchedEffect
         val parts = withTimeoutOrNull(WAIT_MS) { app.storyParts(child.id, story, options) }
         drafts.complete(parts)
-        // Have the server's voice ready for whichever is picked.
-        parts?.let { app.voice.prepare(it, slow = true) }
     }
 
     fun pick(index: Int) {
@@ -156,16 +160,35 @@ fun StoryScreen(
                     put("text", story.joinToString("\n") { it.text })
                     put("seconds", (System.currentTimeMillis() - startedAt) / 1000)
                 }
-                // Into the child's library; the server draws its picture.
-                val finishedStory = story
-                scope.launch { app.saveStory(child.id, finishedStory) }
-                app.say(text, slow = true, onDone = {
-                    app.sounds.play(Sounds.Effect.Finish, child)
-                    app.say(if (hasTreats) "The end! What a brilliant story, ${child.name}! Pick a treat!" else "The end! What a brilliant story, ${child.name}!")
-                })
                 onFinished()
+                // Into the child's library, then its picture is drawn, and then it's shown as a
+                // finished book and read from the start.
+                val finishedStory = story
+                binding = true
+                app.say("What a story! Now I'll draw a picture for your book.")
+                val id = app.saveStory(child.id, finishedStory)
+                if (id != null) {
+                    app.voice.prepare(finishedStory.map { it.text }, slow = true)
+                    val since = System.currentTimeMillis()
+                    app.drawStory(id)
+                    // Long enough to see the brush, even when there's no picture to wait for.
+                    delay((4_000 - (System.currentTimeMillis() - since)).coerceAtLeast(0))
+                    onBook(id)
+                    return@launch
+                }
+                // It couldn't be kept: read the whole story here instead.
+                binding = false
+                finishedStory.forEachIndexed { i, part ->
+                    replaying = i
+                    app.sayAndWait(part.text, slow = true)
+                    delay(400)
+                }
+                replaying = null
+                app.sounds.play(Sounds.Effect.Finish, child)
+                app.say(if (hasTreats) "The end! What a brilliant story, ${child.name}! Pick a treat!" else "The end! What a brilliant story, ${child.name}!")
             } else {
-                app.say(text, slow = true, onDone = { app.say(StoryPictures.question(partTurn + 1, turns)) })
+                // The parts aren't read while the story is made: it's read as a whole at the end.
+                app.say(StoryPictures.question(partTurn + 1, turns))
             }
         }
     }
@@ -201,14 +224,16 @@ fun StoryScreen(
             val shown = replaying?.let { story.getOrNull(it) } ?: story.lastOrNull()
             Page(app, Modifier.weight(1f).fillMaxWidth()) {
                 when {
+                    binding -> Painting(Modifier.fillMaxSize(), "Drawing the picture for your book…")
                     writing -> Writing("Writing your story…")
                     // The storyteller is still recording this part: the words wait for the voice.
-                    app.voice.loading && shown != null -> Writing("Getting ready to read it…")
                     shown == null -> Intro(child)
                     else -> PartText(app, shown)
                 }
             }
-            if (finished && !writing) {
+            if (binding) {
+                // Nothing to pick while the book is made.
+            } else if (finished && !writing) {
                 TheEnd(app, story, hasTreats, replaying != null, onHearAgain = ::hearAgain, onNewStory = ::newStory, onPickTreat = onPickTreat, onBack = onBack)
             } else {
                 Choices(app, child, StoryPictures.question(turn, turns), options, enabled = !writing, key = game * 10 + turn, onPick = ::pick)
