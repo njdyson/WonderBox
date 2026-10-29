@@ -166,7 +166,8 @@ function speak(text, style, path) {
   const body = {
     model: ttsModel(),
     input: [{ type: "user_input", content: [{ type: "text", text, annotations: style ? [{ type: "speech_metadata", style }] : [] }] }],
-    response_format: { type: "audio" },
+    // Bare samples: the WAV header is written here (savePcm).
+    response_format: { type: "audio", mime_type: "audio/l16" },
     generation_config: { speech_config: [{ voice: voice() }] },
   }
   const res = $http.send({
@@ -188,24 +189,61 @@ function speak(text, style, path) {
   if (!data && res.json.output_audio) data = res.json.output_audio.data || ""
   data = String(data).replace(/[^A-Za-z0-9+/=]/g, "")
   if (!data) return false
-  // Older TTS models send bare PCM (16-bit, 24 kHz, mono), which needs a WAV header first.
-  const head = isWav(base64Bytes(data.slice(0, 16))) ? [] : wav([], 24000, Math.floor(data.replace(/=+$/, "").length * 3 / 4))
-  // A long part is megabytes of base64: the system's decoder is far quicker than one in JS.
-  const b64 = `${path}.b64`
-  const top = `${path}.head`
+  savePcm(data, path)
+  return true
+}
+
+/**
+ * Saves [data], base64 16-bit 24 kHz mono PCM (or a WAV file of it, if the model sent one anyway),
+ * as a WAV file at [path] with a header written here, so its length is always right, and the last
+ * 0.3 seconds faded out, so a part never ends on a click or burst of noise.
+ */
+function savePcm(data, path) {
+  const rate = 24000
+  if (data.length % 4) data += "=".repeat(4 - (data.length % 4))
+  // Where the samples start: after the model's own header, if it sent one.
+  let skip = 0
+  const start = base64Bytes(data.slice(0, 400))
+  if (isWav(start)) {
+    for (let i = 12; i + 8 <= start.length; i++) {
+      if (start[i] === 100 && start[i + 1] === 97 && start[i + 2] === 116 && start[i + 3] === 97) { // "data"
+        skip = i + 8
+        break
+      }
+    }
+    if (!skip) skip = 44
+  }
+  // The end is decoded here to fade it; the rest by the system's decoder, far quicker for a long part.
+  let cut = Math.max(0, Math.floor((data.length - 4 * Math.ceil(rate * 2 * 0.3 / 3)) / 8) * 8)
+  if (cut / 4 * 3 <= skip) cut = 0
+  else if ((cut / 4 * 3 - skip) % 2) cut -= 4
+  let tail = base64Bytes(data.slice(cut))
+  if (!cut) tail = tail.slice(skip)
+  if (tail.length % 2) tail = tail.slice(0, tail.length - 1)
+  const samples = tail.length / 2
+  for (let i = 0; i < samples; i++) {
+    let v = (tail[2 * i] | (tail[2 * i + 1] << 8)) << 16 >> 16
+    v = Math.round(v * (1 - (i + 1) / samples))
+    tail[2 * i] = v & 255
+    tail[2 * i + 1] = (v >> 8) & 255
+  }
+  const body = cut ? cut / 4 * 3 - skip : 0
+  const head = wav([], rate, body + tail.length)
+  const files = { head: `${path}.head`, b64: `${path}.b64`, tail: `${path}.tail` }
   try {
-    $os.writeFile(b64, data, 0o600)
-    $os.writeFile(top, head, 0o600)
-    $os.cmd("sh", "-c", 'cat "$0" > "$2" && base64 -d "$1" >> "$2"', top, b64, path).combinedOutput()
-    $os.stat(path)
+    $os.writeFile(files.head, head, 0o600)
+    $os.writeFile(files.b64, data.slice(0, cut), 0o600)
+    $os.writeFile(files.tail, tail, 0o600)
+    $os.cmd("sh", "-c", 'cat "$0" > "$3" && base64 -d "$1" | tail -c +"$4" >> "$3" && cat "$2" >> "$3"',
+      files.head, files.b64, files.tail, path, String(skip + 1)).combinedOutput()
+    const size = $os.stat(path).size()
+    if (size !== head.length + body + tail.length) throw new Error(`made ${size} bytes`)
   } catch (err) {
     console.log(`gemini speech: base64 failed (${err}), decoding here`)
-    $os.writeFile(path, head.concat(base64Bytes(data)), 0o644)
+    $os.writeFile(path, head.concat(cut ? base64Bytes(data.slice(0, cut)).slice(skip) : [], tail), 0o644)
   } finally {
-    try { $os.remove(b64) } catch (_) {}
-    try { $os.remove(top) } catch (_) {}
+    for (const f of Object.values(files)) try { $os.remove(f) } catch (_) {}
   }
-  return true
 }
 
 function isWav(bytes) {

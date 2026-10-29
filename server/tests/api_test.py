@@ -367,6 +367,8 @@ try:
             wav = res.read()
             assert res.headers["Content-Type"] == "audio/wav" and wav[:4] == b"RIFF" and wav[8:12] == b"WAVE", wav[:16]
             assert int.from_bytes(wav[40:44], "little") == len(wav) - 44 == 4800, len(wav)
+            # The end is faded out, so a part never finishes on a click.
+            assert wav[-2:] == b"\x00\x00" and abs(int.from_bytes(wav[-202:-200], "little", signed=True)) < 200, wav[-4:]
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)
