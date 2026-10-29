@@ -62,6 +62,15 @@ class AppState(context: Context) {
         }
     }
 
+    /** Fetches the stories again (to see a picture that's just been drawn). */
+    suspend fun refreshStories() {
+        val key = deviceKey ?: return
+        runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).stories() } }.onSuccess {
+            stories = it
+            store.stories = it
+        }
+    }
+
     /** The family photos, newest first, each for one or more children. */
     var photos by mutableStateOf(store.photos)
         private set

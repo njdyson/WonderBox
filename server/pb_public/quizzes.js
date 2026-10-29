@@ -175,7 +175,7 @@ const toggle = (on, onChange, title) =>
 function renderGames(c) {
   // The learning games are listed in the Quizzes tab; the rest, and treats and sounds, in the Games
   // tab. Each opens on its own page (openPage in index.html).
-  for (const id of ["gamesHeading", "games", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
+  for (const id of ["gamesHeading", "games", "storiesHeading", "storyList", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
   if (!c) {
     if (GAME_PAGES[page]) $("pageBody").replaceChildren(el("div", { className: "card empty", textContent: "Add a child in Family first." }));
     return;
@@ -449,6 +449,16 @@ function renderGames(c) {
   if (kept.length) {
     storyPart.append(el("button", { type: "button", className: "more", textContent: `${c.name}'s stories (${kept.length}) ▸`, onclick: () => storiesSheet(c) }));
   }
+  // The stories the child has made, at the top of the Games tab.
+  const newest = kept[0];
+  $("storyList").replaceChildren(el("div", { className: "nav-row" + (kept.length ? "" : " off"), role: "button", tabIndex: 0, onclick: () => { if (kept.length) storiesSheet(c); } },
+    el("span", { className: "nav-icon", textContent: "📚" }),
+    el("span", { className: "grow" },
+      el("b", { textContent: kept.length ? `${c.name}'s stories (${kept.length})` : `${c.name}'s stories` }),
+      el("span", { className: "nav-sub", textContent: newest
+        ? `Newest: ${newest.title || "Story"}, ${new Date(newest.created.replace(" ", "T")).toLocaleDateString()}`
+        : `None yet. They appear here when ${c.name} finishes one on the TV.` })),
+    kept.length ? el("span", { className: "chev", textContent: "›" }) : ""));
 
   // Sound effects (app/.../ui/Sounds.kt)
   const sounds = g.sounds || "silly";
@@ -561,16 +571,18 @@ for (const [key, info] of Object.entries(GAME_PAGES)) PAGES[key] = { tab: info.t
 // --- Saved stories (the TV's story maker) --------------------------------------
 
 let savedStories = [];
-let storiesLoaded = false;
+let storiesAt = 0;
 
-/** Fetches the saved stories once, then shows the Games tab again with them. */
+/** Fetches the saved stories (again after a minute, so new ones show up), then shows the games again if they changed. */
 async function loadStories() {
-  if (storiesLoaded) return;
-  storiesLoaded = true;
+  if (Date.now() - storiesAt < 60 * 1000) return;
+  storiesAt = Date.now();
   try {
-    savedStories = (await api("/api/wonder/stories")).stories || [];
+    const fresh = (await api("/api/wonder/stories")).stories || [];
+    if (JSON.stringify(fresh) === JSON.stringify(savedStories)) return;
+    savedStories = fresh;
     const c = child(selected);
-    if (c && savedStories.length) renderGames(c);
+    if (c) renderGames(c);
   } catch (_) {}
 }
 
@@ -595,6 +607,7 @@ function storySheet(c, st) {
   openSheet(
     el("h2", { textContent: st.title || "Story" }),
     img,
+    st.drawing ? el("div", { className: "muted", textContent: "🖌️ Gemini is drawing its picture. It'll be here in a minute or two." }) : "",
     ...st.parts.map((p) => el("p", { textContent: `${p.picture || ""} ${p.text}`.trim() })),
     el("button", { type: "button", className: "ghost", textContent: "Back", onclick: () => storiesSheet(c) }),
     el("button", { type: "button", className: "ghost", textContent: "Delete this story", onclick: async () => {

@@ -156,13 +156,13 @@ function drawImage(prompt, aspect) {
 }
 
 /**
- * [text] read aloud by [voice()], delivered as [style] says (like "gentle and slow"), as the
- * bytes of a WAV file; null if it couldn't. Uses the Interactions API, which the TTS models
- * answer on.
+ * [text] read aloud by [voice()], delivered as [style] says (like "gentle and slow"), saved as a
+ * WAV file at [path]. Returns true when it worked. Uses the Interactions API, which the TTS
+ * models answer on.
  */
-function speak(text, style) {
+function speak(text, style, path) {
   const key = $os.getenv("GEMINI_API_KEY")
-  if (!key) return null
+  if (!key) return false
   const body = {
     model: ttsModel(),
     input: [{ type: "user_input", content: [{ type: "text", text, annotations: style ? [{ type: "speech_metadata", style }] : [] }] }],
@@ -178,7 +178,7 @@ function speak(text, style) {
   })
   if (res.statusCode !== 200 || !res.json) {
     console.log(`gemini ${body.model}: answered ${res.statusCode}: ${String(toString(res.body)).slice(0, 300)}`)
-    return null
+    return false
   }
   // The last audio block of the model's output.
   let data = ""
@@ -186,24 +186,41 @@ function speak(text, style) {
     for (const c of step.content || []) if (c && c.type === "audio" && c.data) data = c.data
   }
   if (!data && res.json.output_audio) data = res.json.output_audio.data || ""
-  if (!data) return null
-  const bytes = base64Bytes(data)
-  // Older TTS models send bare PCM (16-bit, 24 kHz, mono): give it a WAV header.
-  return isWav(bytes) ? bytes : wav(bytes, 24000)
+  data = String(data).replace(/[^A-Za-z0-9+/=]/g, "")
+  if (!data) return false
+  // Older TTS models send bare PCM (16-bit, 24 kHz, mono), which needs a WAV header first.
+  const head = isWav(base64Bytes(data.slice(0, 16))) ? [] : wav([], 24000, Math.floor(data.replace(/=+$/, "").length * 3 / 4))
+  // A long part is megabytes of base64: the system's decoder is far quicker than one in JS.
+  const b64 = `${path}.b64`
+  const top = `${path}.head`
+  try {
+    $os.writeFile(b64, data, 0o600)
+    $os.writeFile(top, head, 0o600)
+    $os.cmd("sh", "-c", 'cat "$0" > "$2" && base64 -d "$1" >> "$2"', top, b64, path).combinedOutput()
+    $os.stat(path)
+  } catch (err) {
+    console.log(`gemini speech: base64 failed (${err}), decoding here`)
+    $os.writeFile(path, head.concat(base64Bytes(data)), 0o644)
+  } finally {
+    try { $os.remove(b64) } catch (_) {}
+    try { $os.remove(top) } catch (_) {}
+  }
+  return true
 }
 
 function isWav(bytes) {
   return bytes.length > 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70
 }
 
-/** 16-bit mono [pcm] at [rate] as a WAV file's bytes. */
-function wav(pcm, rate) {
+/** 16-bit mono [pcm] at [rate] as a WAV file's bytes; [length] for a header alone, with the samples added after. */
+function wav(pcm, rate, length) {
+  const size = length === undefined ? pcm.length : length
   const head = []
   const text = (t) => { for (let i = 0; i < t.length; i++) head.push(t.charCodeAt(i)) }
   const int = (n, size) => { for (let i = 0; i < size; i++) head.push((n >> (8 * i)) & 255) }
-  text("RIFF"); int(36 + pcm.length, 4); text("WAVE")
+  text("RIFF"); int(36 + size, 4); text("WAVE")
   text("fmt "); int(16, 4); int(1, 2); int(1, 2); int(rate, 4); int(rate * 2, 4); int(2, 2); int(16, 2)
-  text("data"); int(pcm.length, 4)
+  text("data"); int(size, 4)
   return head.concat(pcm)
 }
 

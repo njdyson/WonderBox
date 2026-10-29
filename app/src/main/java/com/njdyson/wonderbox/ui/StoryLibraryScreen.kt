@@ -1,9 +1,17 @@
 package com.njdyson.wonderbox.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -59,6 +69,14 @@ fun StoryLibraryScreen(app: AppState, child: Child, canMake: Boolean, onNew: () 
     val stories = app.storiesFor(child.id)
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val story = stories.firstOrNull { it.id == open }
+    // While a picture is being drawn, look for it every 20 seconds.
+    val drawing = stories.any { it.drawing }
+    LaunchedEffect(drawing) {
+        while (drawing) {
+            delay(20_000)
+            app.refreshStories()
+        }
+    }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
         if (story != null) {
             StoryReader(app, child, story, onClose = { open = null })
@@ -137,10 +155,12 @@ private fun ShelfCard(modifier: Modifier, onClick: () -> Unit, content: @Composa
     }
 }
 
-/** A story's picture, or its hero on a page until Gemini has drawn one. */
+/** A story's picture, a brush painting while Gemini draws it, or its pictures on a page if it can't. */
 @Composable
 private fun StoryCover(app: AppState, story: SavedStory, modifier: Modifier) {
-    if (story.picture.isNotBlank()) {
+    if (story.drawing && story.picture.isBlank()) {
+        Painting(modifier.background(Color(0xFFFFF6E5), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)))
+    } else if (story.picture.isNotBlank()) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(app.photoUrl(story.picture))
@@ -156,6 +176,39 @@ private fun StoryCover(app: AppState, story: SavedStory, modifier: Modifier) {
                 story.parts.take(3).forEach { EmojiPicture(it.picture.ifBlank { "📖" }, 58.dp) }
             }
         }
+    }
+}
+
+/** A brush leaving dabs of paint across the page, so it's clear the picture is on its way. */
+@Composable
+private fun Painting(modifier: Modifier) {
+    val t by rememberInfiniteTransition(label = "painting").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(4_000, easing = LinearEasing), RepeatMode.Restart), label = "painting",
+    )
+    val colours = listOf(Color(0xFFFF8A65), Color(0xFF4FC3F7), Color(0xFFFFD54F), Color(0xFF81C784), Color(0xFFBA68C8))
+    val dabs = 14
+    // Where the brush is at [p] (0 to 1): a gentle zigzag across the page.
+    fun at(p: Float) = Offset(0.12f + 0.76f * p, 0.5f + 0.22f * kotlin.math.sin(p * 4 * Math.PI).toFloat())
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            for (k in 0 until (t * dabs).toInt()) {
+                val o = at(k / dabs.toFloat())
+                drawCircle(colours[k % colours.size].copy(alpha = 0.75f), radius = size.minDimension * 0.07f, center = Offset(o.x * size.width, o.y * size.height))
+            }
+        }
+        val brush = at(t)
+        EmojiPicture(
+            "🖌️",
+            maxWidth * 0.18f,
+            Modifier.align(Alignment.TopStart).offset(x = maxWidth * brush.x - maxWidth * 0.05f, y = maxHeight * brush.y - maxWidth * 0.15f),
+        )
+        Text(
+            "Drawing the picture…",
+            color = Ink,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
+        )
     }
 }
 
@@ -190,7 +243,7 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
             Progress(page + 1, pages)
         }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            if (story.picture.isNotBlank()) {
+            if (story.picture.isNotBlank() || story.drawing) {
                 StoryCover(app, story, Modifier.fillMaxHeight().aspectRatio(4f / 3f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(24.dp)))
             }
             Box(
@@ -199,7 +252,8 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
             ) {
                 if (part != null) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (part.picture.isNotBlank()) EmojiPicture(part.picture, 72.dp)
+                        if (app.voice.loading) GettingReady()
+                        else if (part.picture.isNotBlank()) EmojiPicture(part.picture, 72.dp)
                         val size = if (part.text.length > 260) 22.sp else 26.sp
                         Text(part.text, color = Ink, fontSize = size, lineHeight = size * 1.3f, fontWeight = FontWeight.Medium)
                     }

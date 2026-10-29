@@ -237,7 +237,10 @@ data class Photo(
 @Serializable
 data class Photos(val photos: List<Photo> = emptyList())
 
-/** A story a child finished in the story maker, kept in their library. [picture] is the server path of the picture Gemini drew for it, or "". */
+/**
+ * A story a child finished in the story maker, kept in their library. [picture] is the server path
+ * of the picture Gemini drew for it, or ""; [drawing] while that picture is still being drawn.
+ */
 @Serializable
 data class SavedStory(
     val id: String,
@@ -245,6 +248,7 @@ data class SavedStory(
     val title: String = "",
     val parts: List<SavedStoryPart> = emptyList(),
     val picture: String = "",
+    val drawing: Boolean = false,
     val created: String = "",
 )
 

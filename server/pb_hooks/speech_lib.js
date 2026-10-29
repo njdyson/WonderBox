@@ -100,17 +100,38 @@ function story(text, userId) {
     $os.stat(wav)
     return wav
   } catch (_) {}
+  // The TV asks for each part ahead of time and again when it's read, often while the first ask
+  // is still being recorded: the second waits for the first rather than paying for it twice.
+  const making = `wonderbox_speech_making:${name}`
+  const since = $app.store().get(making)
+  if (since && Date.now() - since < 100 * 1000) {
+    while (Date.now() - since < 100 * 1000) {
+      sleep(500)
+      try {
+        $os.stat(wav)
+        return wav
+      } catch (_) {}
+      if (!$app.store().get(making)) break
+    }
+    try {
+      $os.stat(wav)
+      return wav
+    } catch (_) {
+      return null
+    }
+  }
+  $app.store().set(making, Date.now())
   try {
     gemini.allow(userId || "", "voice", STORY_CLIPS_PER_DAY)
-    const bytes = gemini.speak(text, STORY_STYLE)
-    if (!bytes) return null
     const part = `${dir}/${name}.part.wav`
-    $os.writeFile(part, bytes, 0o644)
+    if (!gemini.speak(text, STORY_STYLE, part)) return null
     $os.rename(part, wav)
     return wav
   } catch (err) {
     console.log(`storyteller voice: ${err}`)
     return null
+  } finally {
+    $app.store().remove(making)
   }
 }
 

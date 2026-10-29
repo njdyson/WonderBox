@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -59,13 +60,12 @@ import com.njdyson.wonderbox.games.StoryPictures
 import com.njdyson.wonderbox.games.StorySetup
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.put
-import kotlin.coroutines.resume
 import kotlin.random.Random
 
 /** How long a child waits for the server's writing before the TV tells that part itself. */
@@ -203,7 +203,9 @@ fun StoryScreen(
             val shown = replaying?.let { story.getOrNull(it) } ?: story.lastOrNull()
             Page(app, Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    writing -> Writing()
+                    writing -> Writing("Writing your story…")
+                    // The storyteller is still recording this part: the words wait for the voice.
+                    app.voice.loading && shown != null -> Writing("Getting ready to read it…")
                     shown == null -> Intro(child)
                     else -> PartText(app, shown)
                 }
@@ -248,9 +250,9 @@ private fun PartText(app: AppState, part: StoryPart) {
     }
 }
 
-/** A pencil writing lines on the page, while the story's next part is being written. */
+/** A pencil writing lines on the page, while the story's next part is being written (or recorded), with [label] under it. */
 @Composable
-private fun Writing() {
+private fun Writing(label: String) {
     val t by rememberInfiniteTransition(label = "writing").animateFloat(
         0f, 1f, infiniteRepeatable(tween(2_800, easing = LinearEasing), RepeatMode.Restart), label = "writing",
     )
@@ -292,7 +294,7 @@ private fun Writing() {
                     .rotate(kotlin.math.sin(t * 60f) * 8f),
             )
         }
-        Text("Writing your story…", color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -310,8 +312,9 @@ private fun Choices(app: AppState, child: Child, question: String, options: List
                     option,
                     enabled,
                     (if (i == 0) Modifier.focusRequester(first) else Modifier).onFocusChanged {
-                        // No sound effects here: just the word, so the story stays calm.
-                        if (it.isFocused && enabled) app.speak(option.word)
+                        // No sound effects here: just the word, so the story stays calm. Never over
+                        // the story itself, which may still be on its way from the storyteller.
+                        if (it.isFocused && enabled && !app.voice.storyBusy) app.speak(option.word)
                     },
                 ) { onPick(i) }
             }
@@ -375,9 +378,22 @@ private fun TheEnd(
  * (some TVs never say when they've finished, or can't speak at all).
  */
 internal suspend fun AppState.sayAndWait(text: String, slow: Boolean = false) {
-    // Stories allow longer: the storyteller voice may still be recording a part the first time.
-    val estimate = if (slow) 15_000L + text.split(' ').size * 900L else 3_000L + text.split(' ').size * 700L
-    withTimeoutOrNull(estimate) {
-        suspendCancellableCoroutine { c -> say(text, onDone = { if (c.isActive) c.resume(Unit) }, slow = slow) }
+    val said = CompletableDeferred<Unit>()
+    say(text, onDone = { said.complete(Unit) }, slow = slow)
+    // The storyteller may still be recording a part the first time: that doesn't count.
+    withTimeoutOrNull(150_000L) { snapshotFlow { voice.loading }.first { !it } }
+    val estimate = 3_000L + text.split(' ').size * (if (slow) 900L else 700L)
+    withTimeoutOrNull(estimate) { said.await() }
+}
+
+/** A microphone bobbing, while the storyteller records the part about to be read. */
+@Composable
+internal fun GettingReady(modifier: Modifier = Modifier) {
+    val t by rememberInfiniteTransition(label = "ready").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(1_200, easing = LinearEasing), RepeatMode.Restart), label = "ready",
+    )
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        EmojiPicture("🎙️", 44.dp, Modifier.offset(y = (kotlin.math.sin(t * 2 * Math.PI) * 4).dp))
+        Text("Getting ready to read" + ".".repeat(1 + (t * 3).toInt().coerceAtMost(2)), color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     }
 }

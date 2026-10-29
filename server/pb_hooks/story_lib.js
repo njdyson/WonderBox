@@ -176,6 +176,8 @@ function storyList(userId) {
       parts: quiz.jsonField(r, "parts") || [],
       // The file name changes when it's redrawn, so a cached copy is never shown instead.
       picture: r.getString("picture") ? `/api/wonder/stories/${r.id}/picture?v=${encodeURIComponent(r.getString("picture"))}` : "",
+      // Still waiting for its picture (drawn by the cron job within a minute or two).
+      drawing: !r.getString("picture") && r.getString("picture_state") !== "failed" && available(),
       created: r.getString("created"),
     })
   }
