@@ -223,27 +223,53 @@ function drawPending(limit) {
     } catch (_) {
       continue // drawn tomorrow
     }
-    record.set("picture_state", "drawing")
-    $app.save(record)
-    let ok = false
-    try {
-      ok = draw(record)
-    } catch (err) {
-      console.log(`story picture: ${err}`)
-    }
-    record.set("picture_state", ok ? "done" : "failed")
-    try {
-      $app.save(record)
-    } catch (err) {
-      console.log(`story picture: couldn't save it: ${err}`)
-      record.set("picture", null)
-      record.set("picture_state", "failed")
-      $app.save(record)
-    }
+    drawOne(record)
   }
+}
+
+/** Draws [record]'s picture now, marking it drawing, then done or failed. */
+function drawOne(record) {
+  record.set("picture_state", "drawing")
+  $app.save(record)
+  let ok = false
+  try {
+    ok = draw(record)
+  } catch (err) {
+    console.log(`story picture: ${err}`)
+  }
+  record.set("picture_state", ok ? "done" : "failed")
+  try {
+    $app.save(record)
+  } catch (err) {
+    console.log(`story picture: couldn't save it: ${err}`)
+    record.set("picture", null)
+    record.set("picture_state", "failed")
+    $app.save(record)
+  }
+}
+
+/**
+ * Draws the picture for story [id] while the TV waits (the story maker shows it being drawn,
+ * then the finished book). If the cron job is drawing it already, waits for that instead.
+ */
+function drawNow(id, userId) {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  let record = lib.own("stories", id, userId)
+  if (!available() || record.getString("picture")) return
+  const state = record.getString("picture_state")
+  if (state === "drawing") {
+    for (let waited = 0; waited < 100 && record.getString("picture_state") === "drawing"; waited++) {
+      sleep(1000)
+      record = lib.own("stories", id, userId)
+    }
+    return
+  }
+  if (state !== "") return // failed, or drawn and since removed: the cron job's retries aren't for here
+  require(`${__hooks}/gemini_lib.js`).allow(userId, "picture", PICTURES_PER_DAY)
+  drawOne(record)
 }
 
 module.exports = {
   available, write, parse, check, cleanWord, cleanPart, lengthFor, MAX_TURNS, DAILY_LIMIT,
-  save, storyList, titleOf, draw, drawPending,
+  save, storyList, titleOf, draw, drawPending, drawNow,
 }

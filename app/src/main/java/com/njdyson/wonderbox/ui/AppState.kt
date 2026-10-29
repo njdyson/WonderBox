@@ -50,16 +50,26 @@ class AppState(context: Context) {
     fun storiesFor(childId: String) = stories.filter { it.child == childId }
 
     /**
-     * Saves a finished story in [childId]'s library (the server then draws its picture). If the
-     * server can't be reached the story is just not kept.
+     * Saves a finished story in [childId]'s library and returns its id. If the server can't be
+     * reached the story is just not kept, and this returns null.
      */
-    suspend fun saveStory(childId: String, parts: List<StoryPart>) {
-        val key = deviceKey ?: return
+    suspend fun saveStory(childId: String, parts: List<StoryPart>): String? {
+        val key = deviceKey ?: return null
         val saved = parts.map { SavedStoryPart(it.pick.word, it.pick.picture, it.text) }
-        runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).saveStory(childId, saved) } }.onSuccess {
+        return runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).saveStory(childId, saved) } }.onSuccess {
+            stories = it.stories
+            store.stories = it.stories
+        }.getOrNull()?.saved?.ifBlank { null }
+    }
+
+    /** Has the server draw story [id]'s picture now, waiting for it (a minute or two at most); false if it couldn't. */
+    suspend fun drawStory(id: String): Boolean {
+        val key = deviceKey ?: return false
+        if (!library.stories) return false
+        return runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).drawStory(id) } }.onSuccess {
             stories = it
             store.stories = it
-        }
+        }.getOrNull()?.firstOrNull { it.id == id }?.picture?.isNotBlank() == true
     }
 
     /** Fetches the stories again (to see a picture that's just been drawn). */

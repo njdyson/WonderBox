@@ -75,7 +75,8 @@ private sealed interface Screen {
     data class Memory(val childId: String) : Screen
     data class PhotoQuiz(val childId: String) : Screen
     data class Story(val childId: String) : Screen
-    data class StoryLibrary(val childId: String) : Screen
+    /** [open]: a story just made, shown as a finished book; [treat] when making it won a treat. */
+    data class StoryLibrary(val childId: String, val open: String? = null, val treat: Boolean = false) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -417,6 +418,17 @@ class MainActivity : ComponentActivity() {
                                     onFinished = { if (treat) winTreat(child.id, "story.finish", STORY) },
                                     onPickTreat = { pickTreat(child.id) },
                                     onBack = { back() },
+                                    onBook = { id ->
+                                        // The maker gives way to the finished book, in the library it was opened from.
+                                        back()
+                                        val book = Screen.StoryLibrary(child.id, open = id, treat = treat)
+                                        if ((stack.last() as? Screen.StoryLibrary)?.childId == child.id) {
+                                            saved.removeState(stack.last().toString())
+                                            stack[stack.lastIndex] = book
+                                        } else {
+                                            open(book)
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -425,7 +437,14 @@ class MainActivity : ComponentActivity() {
                             if (child == null || (!child.games.story.on && app.storiesFor(screen.childId).isEmpty())) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                StoryLibraryScreen(app, child, canMake = child.games.story.on, onNew = { open(Screen.Story(child.id)) })
+                                StoryLibraryScreen(
+                                    app,
+                                    child,
+                                    canMake = child.games.story.on,
+                                    onNew = { open(Screen.Story(child.id)) },
+                                    startOpen = screen.open,
+                                    onPickTreat = if (screen.treat) ({ pickTreat(child.id) }) else null,
+                                )
                             }
                         }
                         is Screen.PhotoGrid -> app.library.children.firstOrNull { it.id == screen.childId }.let { child ->

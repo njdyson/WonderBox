@@ -257,7 +257,7 @@ data class SavedStoryPart(val word: String = "", val picture: String = "", val t
 
 /** GET /api/wonder/stories: newest first. */
 @Serializable
-data class SavedStories(val stories: List<SavedStory> = emptyList())
+data class SavedStories(val stories: List<SavedStory> = emptyList(), val saved: String = "")
 
 /** Thrown when the server no longer accepts this TV's key (it was unlinked from the phone app). */
 class UnlinkedException : Exception("This TV was unlinked")
@@ -265,10 +265,10 @@ class UnlinkedException : Exception("This TV was unlinked")
 val json = Json { ignoreUnknownKeys = true }
 
 /** Blocking HTTP calls to the server's /api/wonder routes; call from a background thread. */
-private fun request(baseUrl: String, path: String, body: JsonElement? = null, deviceKey: String? = null): String {
+private fun request(baseUrl: String, path: String, body: JsonElement? = null, deviceKey: String? = null, readTimeout: Int = 30_000): String {
     val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
     conn.connectTimeout = 15_000
-    conn.readTimeout = 30_000
+    conn.readTimeout = readTimeout
     conn.setRequestProperty("Content-Type", "application/json")
     deviceKey?.let { conn.setRequestProperty("X-Device-Key", it) }
     // Lets the phone app show which build each TV runs.
@@ -317,14 +317,18 @@ class Server(private val baseUrl: String, private val deviceKey: String) {
 
     fun stories(): List<SavedStory> = json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories", deviceKey = deviceKey)).stories
 
-    /** Saves a finished story in the child's library; returns the library. */
-    fun saveStory(childId: String, parts: List<SavedStoryPart>): List<SavedStory> {
+    /** Saves a finished story in the child's library; returns the library and the new story's id ([SavedStories.saved]). */
+    fun saveStory(childId: String, parts: List<SavedStoryPart>): SavedStories {
         val body = buildJsonObject {
             put("child", childId)
             put("parts", json.encodeToJsonElement(ListSerializer(SavedStoryPart.serializer()), parts))
         }
-        return json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories/save", body, deviceKey)).stories
+        return json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories/save", body, deviceKey))
     }
+
+    /** Has the server draw story [id]'s picture now (it can take a minute or two); returns the library. */
+    fun drawStory(id: String): List<SavedStory> =
+        json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories/draw", buildJsonObject { put("id", id) }, deviceKey, readTimeout = 150_000)).stories
 
     /** The photos [childId] can be quizzed on, with their questions. */
     fun photoQuiz(childId: String): List<PhotoQuizPhoto> =
