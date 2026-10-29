@@ -81,7 +81,7 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
  * nothing in them, so a tile never opens onto an empty screen.
  */
 fun AppState.categoriesFor(child: Child): List<Category> {
-    val games = library.gamesFor(child, photos = photosFor(child.id).isNotEmpty(), stories = storiesFor(child.id).isNotEmpty())
+    val games = library.gamesFor(child, photos = stillsFor(child.id).isNotEmpty(), stories = storiesFor(child.id).isNotEmpty())
     return buildList {
         if (games.any { it.isQuiz }) add(Category.Quizzes)
         if (games.any { !it.isQuiz }) add(Category.Games)

@@ -20,6 +20,9 @@
 # It also installs Piper and a British voice (about 90 MB) so the server can read questions
 # aloud for TVs whose own text-to-speech is missing or poor. Set VOICE=0 to skip that.
 #
+# And ffmpeg, which makes the home videos parents send from the phone app playable on the TVs:
+# the system's own if it has one, otherwise a static build (about 80 MB) in /opt/wonderbox/ffmpeg.
+#
 # Re-running is safe: the database is never touched except to apply new migrations.
 set -euo pipefail
 # Scheduled tasks start with a minimal PATH.
@@ -139,6 +142,43 @@ Environment=PIPER_VOICE=$BIN_DIR/voices/$VOICE_NAME.onnx"
   fi
 fi
 
+# ffmpeg for home videos (home_video_lib.js): the system's own, or a static build.
+FFMPEG_ENV=""
+if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+  FFMPEG_BIN=$(command -v ffmpeg)
+  FFPROBE_BIN=$(command -v ffprobe)
+else
+  case "$(uname -m)" in
+    x86_64) FFMPEG_ARCH=amd64 ;;
+    aarch64|arm64) FFMPEG_ARCH=arm64 ;;
+    *) FFMPEG_ARCH="" ;;
+  esac
+  FFMPEG_BIN="$BIN_DIR/ffmpeg/ffmpeg"
+  FFPROBE_BIN="$BIN_DIR/ffmpeg/ffprobe"
+  if [ -n "$FFMPEG_ARCH" ] && [ ! -x "$FFMPEG_BIN" ]; then
+    echo "Downloading ffmpeg for home videos…"
+    command -v xz >/dev/null || apt-get install -y xz-utils || yum install -y xz || true
+    tmp=$(mktemp -d)
+    if curl -fsSL -o "$tmp/ffmpeg.tar.xz" "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-$FFMPEG_ARCH-static.tar.xz" \
+      && tar -xJf "$tmp/ffmpeg.tar.xz" -C "$tmp"; then
+      rm -rf "$BIN_DIR/ffmpeg"
+      mkdir -p "$BIN_DIR/ffmpeg"
+      cp "$tmp"/ffmpeg-*-static/ffmpeg "$tmp"/ffmpeg-*-static/ffprobe "$BIN_DIR/ffmpeg/"
+      chmod 755 "$BIN_DIR/ffmpeg/ffmpeg" "$BIN_DIR/ffmpeg/ffprobe"
+    fi
+    rm -rf "$tmp"
+  fi
+fi
+if "$FFMPEG_BIN" -hide_banner -version >/dev/null 2>&1 && "$FFPROBE_BIN" -hide_banner -version >/dev/null 2>&1; then
+  FFMPEG_ENV="Environment=FFMPEG_BIN=$FFMPEG_BIN
+Environment=FFPROBE_BIN=$FFPROBE_BIN"
+  echo "ffmpeg works, so home videos can be added: $("$FFMPEG_BIN" -hide_banner -version | head -n 1)"
+else
+  echo "ffmpeg isn't working, so home videos can't be added yet. Install it (apt-get install ffmpeg) and run this again."
+fi
+mkdir -p "$DATA/home-videos"
+chown "$RUN_AS" "$DATA/home-videos"
+
 PB_ARGS="--dir=$DATA --hooksDir=$SRC/pb_hooks --migrationsDir=$SRC/pb_migrations --publicDir=$SRC/pb_public"
 
 cat > "/etc/systemd/system/$SERVICE.service" <<UNIT
@@ -151,6 +191,7 @@ User=$RUN_AS
 WorkingDirectory=$DATA
 EnvironmentFile=-$ENV_FILE
 $PIPER_ENV
+$FFMPEG_ENV
 ExecStart=$BIN_DIR/pocketbase serve --http=127.0.0.1:$PORT $PB_ARGS
 Restart=always
 RestartSec=5

@@ -137,6 +137,9 @@
   .photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .photos button { padding: 0; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--deep); }
   .photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photos button { position: relative; }
+  .photos .badge { position: absolute; left: 4px; bottom: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
+  .photos .waiting { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; background: rgba(7,59,64,.75); color: #fff; font-size: 12px; font-weight: 700; }
   .photo-big { width: 100%; max-height: 45vh; object-fit: contain; border-radius: 10px; background: #000; }
 
   /* Bottom sheet: a child's details, or who a video is for */
@@ -229,8 +232,8 @@
 
     <h2 id="photosHeading">PHOTOS</h2>
     <div class="card stack">
-      <button type="button" id="addPhotosBtn">Add photos</button>
-      <input type="file" id="photoFiles" accept="image/*" multiple hidden>
+      <button type="button" id="addPhotosBtn">Add photos or videos</button>
+      <input type="file" id="photoFiles" accept="image/*,video/*" multiple hidden>
       <div class="muted" id="photosNote"></div>
       <div class="photos" id="photos"></div>
     </div>
@@ -903,9 +906,13 @@ async function loadPhotos() {
   try { setPhotos((await api("/api/wonder/photos")).photos); } catch (e) { showError(e); }
 }
 
+let photosTimer;
 function setPhotos(list) {
   photos = list || [];
   renderPhotos();
+  // Videos being got ready show up by themselves when they're done.
+  clearTimeout(photosTimer);
+  if (photos.some((p) => p.status === "converting")) photosTimer = setTimeout(loadPhotos, 10000);
 }
 
 /** A protected photo file as a blob URL, fetched once. */
@@ -933,27 +940,63 @@ function renderPhotos() {
   const c = child(selected);
   const mine = c ? photos.filter((p) => p.children.includes(c.id)) : [];
   $("photosHeading").textContent = c ? `${c.name.toUpperCase()}'S PHOTOS` : "PHOTOS";
-  $("addPhotosBtn").textContent = c ? `Add photos for ${c.name}` : "Add photos";
+  $("addPhotosBtn").textContent = c ? `Add photos or videos for ${c.name}` : "Add photos or videos";
   $("addPhotosBtn").disabled = !c || busyPhotos;
   $("photos").replaceChildren(...mine.map((p) => {
-    const img = el("img", { alt: "" });
-    img.dataset.src = p.thumb;
-    if (thumbObserver) thumbObserver.observe(img);
-    else photoUrl(p.thumb).then((url) => { img.src = url; }).catch(() => {});
-    return el("button", { type: "button", onclick: () => photoSheet(p) }, img);
+    const parts = [];
+    if (!p.status) {
+      const img = el("img", { alt: "" });
+      img.dataset.src = p.thumb;
+      if (thumbObserver) thumbObserver.observe(img);
+      else photoUrl(p.thumb).then((url) => { img.src = url; }).catch(() => {});
+      parts.push(img);
+      if (p.video) parts.push(el("span", { className: "badge", textContent: `▶ ${clock(p.duration)}` }));
+    } else {
+      parts.push(el("span", { className: "waiting", textContent: VIDEO_STATUS[p.status] || p.status }));
+    }
+    return el("button", { type: "button", onclick: () => (p.status ? videoSheet(p) : photoSheet(p)) }, ...parts);
   }));
   if (!busyPhotos) $("photosNote").textContent = !c
     ? "Add a child in Family first, then their photos."
     : mine.length
-      ? `${mine.length} photo${mine.length === 1 ? "" : "s"} on ${c.name}'s TV screen. Tap one to share it with someone else too.`
-      : `${c.name} hasn't any photos yet. They're made smaller before they're sent, to save space.`;
+      ? `${counted(mine)} on ${c.name}'s TV screen. Tap one to share it with someone else too.${videoSpace()}`
+      : `${c.name} hasn't any photos or videos yet. Photos are made smaller before they're sent, and videos are made TV-sized on the server, to save space.`;
 }
 
-/** A photo, big: who it's for, and removing it. */
+const VIDEO_STATUS = { uploading: "Sending…", converting: "Getting it ready for the TV…", failed: "Couldn't get it ready. Tap to see why." };
+
+/** "3 photos and 1 video". */
+function counted(list) {
+  const videos = list.filter((p) => p.video || p.status).length, stills = list.length - videos;
+  const say = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  return [stills ? say(stills, "photo") : "", videos ? say(videos, "video") : ""].filter(Boolean).join(" and ");
+}
+
+/** A length in seconds as 0:42 or 12:05. */
+function clock(seconds) {
+  const s = Math.max(0, Math.round(seconds || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** How much room all the family's videos take up on the server. */
+function videoSpace() {
+  const bytes = photos.reduce((sum, p) => sum + (p.size || 0), 0);
+  if (!bytes) return "";
+  return ` Videos use ${bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`} on the server.`;
+}
+
+/** A photo or home video, big: who it's for, and removing it. */
 function photoSheet(p) {
-  const img = el("img", { className: "photo-big", alt: "" });
-  photoUrl(p.thumb).then((url) => { if (!img.src) img.src = url; }).catch(() => {});
-  photoUrl(p.image).then((url) => { img.src = url; }).catch(() => {});
+  const noun = p.video ? "video" : "photo";
+  let top;
+  if (p.video) {
+    top = videoPlayer(p);
+  } else {
+    const img = el("img", { className: "photo-big", alt: "" });
+    photoUrl(p.thumb).then((url) => { if (!img.src) img.src = url; }).catch(() => {});
+    photoUrl(p.image).then((url) => { img.src = url; }).catch(() => {});
+    top = [img];
+  }
   let kids = p.children.filter((id) => child(id));
   // Opened from this child's photos; removing takes it off their TV screen only.
   const here = child(selected);
@@ -972,7 +1015,7 @@ function photoSheet(p) {
     } }, face(c), c.name);
   }));
   const save = el("button", { textContent: "Save", onclick: async () => {
-    if (!kids.length && !confirm("No one is chosen, so this photo will be deleted from Wonder Box for everyone. It stays on your phone.")) return;
+    if (!kids.length && !confirm(`No one is chosen, so this ${noun} will be deleted from Wonder Box for everyone. It stays on your phone.`)) return;
     await update(kids);
   } });
   drawWho();
@@ -983,18 +1026,18 @@ function photoSheet(p) {
       el("button", { className: "ghost", textContent: `Remove from ${here.name}'s photos`, onclick: () =>
         update(kids.filter((id) => id !== here.id), `Removed from ${here.name}'s photos. ${names(others)} still ${others.length === 1 ? "has" : "have"} it.`) }),
       el("button", { className: "ghost", textContent: "Remove for everyone", onclick: async () => {
-        if (!confirm(`Delete this photo for ${names([here, ...others])}? It's only deleted from Wonder Box, not from your phone.`)) return;
-        try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast("Photo deleted"); } catch (e) { showError(e); }
+        if (!confirm(`Delete this ${noun} for ${names([here, ...others])}? It's only deleted from Wonder Box, not from your phone.`)) return;
+        try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast(p.video ? "Video deleted" : "Photo deleted"); } catch (e) { showError(e); }
       } }));
   } else {
     // Only this child has it, so removing it deletes it.
-    const label = here ? `Remove from ${here.name}'s photos` : "Remove photo";
+    const label = here ? `Remove from ${here.name}'s photos` : `Remove ${noun}`;
     remove.push(el("button", { className: "ghost", textContent: label, onclick: async () => {
-      if (!confirm(`${here ? `Only ${here.name} has this photo, so it` : "This photo"} will be deleted from Wonder Box. It stays on your phone.`)) return;
-      try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast("Photo deleted"); } catch (e) { showError(e); }
+      if (!confirm(`${here ? `Only ${here.name} has this ${noun}, so it` : `This ${noun}`} will be deleted from Wonder Box. It stays on your phone.`)) return;
+      try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast(p.video ? "Video deleted" : "Photo deleted"); } catch (e) { showError(e); }
     } }));
   }
-  openSheet(img,
+  openSheet(...top,
     el("div", { className: "muted", textContent: others.length
       ? `On the TV for ${names([...(here ? [here] : []), ...others])}.`
       : here ? `Only on ${here.name}'s TV screen.` : "" }),
@@ -1003,6 +1046,74 @@ function photoSheet(p) {
     who,
     save,
     el("button", { className: "ghost", textContent: "Close", onclick: closeSheet }));
+}
+
+/** A home video that isn't ready: why, and removing it. */
+function videoSheet(p) {
+  const remove = el("button", { className: "ghost", textContent: "Remove video", onclick: async () => {
+    if (!confirm("Delete this video? It's only deleted from Wonder Box, not from your phone.")) return;
+    try { setPhotos((await api("/api/wonder/photos/remove", { id: p.id })).photos); closeSheet(); toast("Video deleted"); } catch (e) { showError(e); }
+  } });
+  openSheet(
+    el("div", { style: "font-weight:700", textContent: VIDEO_STATUS[p.status] || p.status }),
+    el("div", { className: "muted", textContent: p.status === "failed"
+      ? `${p.problem || "The server couldn't convert it."} It's still on your phone.`
+      : p.status === "uploading" ? "It's still being sent from a phone. If that stopped, remove it and add it again." : "Big videos take a few minutes. It shows on the TV as soon as it's ready." }),
+    remove,
+    el("button", { className: "ghost", textContent: "Close", onclick: closeSheet }));
+}
+
+/** A home video's still, and a button that fetches it (it's protected, so with the sign-in) and plays it. */
+function videoPlayer(p) {
+  const video = el("video", { className: "photo-big", controls: true, playsInline: true, preload: "none" });
+  photoUrl(p.image).then((url) => { video.poster = url; }).catch(() => {});
+  const play = el("button", { textContent: `▶ Watch here (${clock(p.duration)}, ${Math.max(1, Math.round((p.size || 0) / 1e6))} MB)`, onclick: async () => {
+    play.disabled = true;
+    play.textContent = "Loading…";
+    try {
+      video.src = await photoUrl(p.video);
+      play.remove();
+      video.play().catch(() => {});
+    } catch (e) {
+      play.disabled = false;
+      play.textContent = "Couldn't load it. Try again";
+    }
+  } });
+  return [video, play];
+}
+
+/**
+ * Sends a video in pieces (each under the server's upload limit), retrying a piece a few
+ * times on a weak signal. [progress] gets 0 to 1. The server then gets it ready for the TV.
+ */
+async function sendVideo(file, forChild, progress) {
+  const start = await api("/api/wonder/photos/video/start", { size: file.size, children: [forChild] });
+  const count = Math.ceil(file.size / start.piece);
+  try {
+    for (let n = 0; n < count; n++) {
+      const piece = file.slice(n * start.piece, Math.min(file.size, (n + 1) * start.piece));
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const res = await fetch(`/api/wonder/photos/video/${start.id}/piece?n=${n}`, {
+            method: "POST", headers: { Authorization: token, "Content-Type": "application/octet-stream" }, body: piece });
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 401) throw new AuthError(data.message || "Please sign in again.");
+          if (res.status >= 400 && res.status < 500) throw Object.assign(new Error(data.message || `Something went wrong (${res.status}).`), { final: true });
+          if (!res.ok) throw new Error(data.message || `Something went wrong (${res.status}).`);
+          break;
+        } catch (e) {
+          if (e instanceof AuthError || e.final || attempt >= 4) throw e;
+          await new Promise((r) => setTimeout(r, attempt * 3000));
+        }
+      }
+      progress((n + 1) / count);
+    }
+    return (await api(`/api/wonder/photos/video/${start.id}/finish`, { pieces: count })).photos;
+  } catch (e) {
+    // Don't leave a half-sent video in the list.
+    api("/api/wonder/photos/remove", { id: start.id }).catch(() => {});
+    throw e;
+  }
 }
 
 /** Draws [source] onto a canvas no bigger than [edge] on its longest side. */
@@ -1046,10 +1157,23 @@ $("photoFiles").onchange = async () => {
   if (!files.length || busyPhotos || !child(forChild)) return;
   busyPhotos = true;
   $("addPhotosBtn").disabled = true;
-  let added = 0, failed = 0;
+  let added = 0, failed = 0, videos = 0, videoProblem = "";
   try {
     for (const [i, file] of files.entries()) {
       $("photosNote").textContent = `Adding ${i + 1} of ${files.length}…`;
+      if (file.type.startsWith("video/") || (!file.type && /\.(mov|mp4|m4v|3gp|webm|mkv)$/i.test(file.name))) {
+        try {
+          const list = await sendVideo(file, forChild, (done) => {
+            $("photosNote").textContent = `Sending video${files.length > 1 ? ` (${i + 1} of ${files.length})` : ""}: ${Math.round(done * 100)}%. Keep this open until it's sent.`;
+          });
+          setPhotos(list);
+          videos++;
+        } catch (e) {
+          if (e instanceof AuthError) throw e;
+          videoProblem = String(e.message || e);
+        }
+        continue;
+      }
       try {
         const small = await shrink(file);
         const form = new FormData();
@@ -1075,7 +1199,8 @@ $("photoFiles").onchange = async () => {
     busyPhotos = false;
     renderPhotos();
   }
-  if (added) toast(`${added} photo${added === 1 ? "" : "s"} added`);
+  if (added || videos) toast([added ? `${added} photo${added === 1 ? "" : "s"} added` : "", videos ? `${videos} video${videos === 1 ? "" : "s"} sent: ${videos === 1 ? "it shows" : "they show"} on the TV once ${videos === 1 ? "it's" : "they're"} ready` : ""].filter(Boolean).join(". "));
+  if (videoProblem) showError(new Error(videoProblem));
   if (failed) showError(new Error(`${failed} photo${failed === 1 ? "" : "s"} couldn't be read. Some phones save photos in a format the browser can't open (HEIC); try sharing them as JPEG.`));
 };
 

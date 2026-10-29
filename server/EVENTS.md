@@ -64,7 +64,8 @@ about it.
 | `level.change` | game: `maths`, `spelling`, `clock`, `flags` or `scramble` | the new level | `from`, `to` (levels), `result` (`easy`, `hard` or `toohard`: how the round that moved it went) | A game the parent set to Auto moves up (two easy rounds in a row) or down (two hard ones, or one where the child was mostly guessing). The server saves `to` as the child's level while the game is still on Auto. |
 | `reward.earn` | `treat` | | `reason` (`quiz.finish`, `jigsaw.finish`, `hangman.finish`, `scramble.finish`, `memory.finish`, `story.finish` or `video.finish`), `game` (`jigsaw`, `hangman`, `scramble`, `memory`, `story`, `videos`, or the round's game), `video` (YouTube ID, for `video.finish`) | A finished game round, jigsaw, hangman, word game or pairs, or a learning or exercise video watched all the way through for the first time, wins a treat to pick (only what the parent chose). |
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked and saved in the child's Treats section (watching it later logs `video.play`). |
-| `photo.view` | photo id | seconds looked at | `album` | A photo is shown. |
+| `photo.view` | photo id | seconds looked at | `album` | A photo (or a home video's still, or the video playing) is shown. |
+| `homevideo.play` | photo id of the home video | its length in seconds | | A home video in the Photos starts playing (OK on it, or the slideshow reaching it). |
 
 ## The API
 

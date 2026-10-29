@@ -191,7 +191,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Games -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
                             val games = child?.let { c ->
-                                app.library.gamesFor(c, photos = app.photosFor(c.id).isNotEmpty(), stories = app.storiesFor(c.id).isNotEmpty())
+                                app.library.gamesFor(c, photos = app.stillsFor(c.id).isNotEmpty(), stories = app.storiesFor(c.id).isNotEmpty())
                                     .filter { it.isQuiz == (screen.category == Category.Quizzes) }
                             }
                             if (child == null || games.isNullOrEmpty()) {
