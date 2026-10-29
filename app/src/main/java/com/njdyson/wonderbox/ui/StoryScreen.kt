@@ -77,8 +77,8 @@ private val Paper = Color(0xFFFFF6E5)
 
 /**
  * The story maker: the child picks one of three pictures for each part of a story (who it's
- * about, where they go, what happens, how it ends) and the story is written as they go, read
- * aloud and shown on a page. The server (Gemini) writes the three possible next parts as soon
+ * about, where they go, what happens, how it ends) and the story is written as they go and
+ * shown on a page (not read aloud: it's read as a whole once the book is made). The server (Gemini) writes the three possible next parts as soon
  * as the pictures are shown, so the chosen one is usually ready; while it isn't, a pencil
  * writes on the page. Without the server, the TV tells a simple story of its own.
  * At the end the story is saved, its picture drawn while a brush paints, and [onBook] opens the
@@ -134,8 +134,6 @@ fun StoryScreen(
         if (options.isEmpty()) return@LaunchedEffect
         val parts = withTimeoutOrNull(WAIT_MS) { app.storyParts(child.id, story, options) }
         drafts.complete(parts)
-        // Have the server's voice ready for whichever is picked.
-        parts?.let { app.voice.prepare(it, slow = true) }
     }
 
     fun pick(index: Int) {
@@ -178,14 +176,19 @@ fun StoryScreen(
                     onBook(id)
                     return@launch
                 }
-                // It couldn't be kept: read the end here instead.
+                // It couldn't be kept: read the whole story here instead.
                 binding = false
-                app.say(text, slow = true, onDone = {
-                    app.sounds.play(Sounds.Effect.Finish, child)
-                    app.say(if (hasTreats) "The end! What a brilliant story, ${child.name}! Pick a treat!" else "The end! What a brilliant story, ${child.name}!")
-                })
+                finishedStory.forEachIndexed { i, part ->
+                    replaying = i
+                    app.sayAndWait(part.text, slow = true)
+                    delay(400)
+                }
+                replaying = null
+                app.sounds.play(Sounds.Effect.Finish, child)
+                app.say(if (hasTreats) "The end! What a brilliant story, ${child.name}! Pick a treat!" else "The end! What a brilliant story, ${child.name}!")
             } else {
-                app.say(text, slow = true, onDone = { app.say(StoryPictures.question(partTurn + 1, turns)) })
+                // The parts aren't read while the story is made: it's read as a whole at the end.
+                app.say(StoryPictures.question(partTurn + 1, turns))
             }
         }
     }
@@ -224,7 +227,6 @@ fun StoryScreen(
                     binding -> Painting(Modifier.fillMaxSize(), "Drawing the picture for your book…")
                     writing -> Writing("Writing your story…")
                     // The storyteller is still recording this part: the words wait for the voice.
-                    app.voice.loading && shown != null -> Writing("Getting ready to read it…")
                     shown == null -> Intro(child)
                     else -> PartText(app, shown)
                 }
