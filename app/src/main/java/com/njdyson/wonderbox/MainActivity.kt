@@ -48,6 +48,7 @@ import com.njdyson.wonderbox.ui.WordGameScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
+import kotlin.random.Random
 
 private sealed interface Screen {
     data object Profiles : Screen
@@ -255,7 +256,9 @@ class MainActivity : ComponentActivity() {
                         }
                         is Screen.PickTreat -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
-                            val shelves = child?.let { app.library.treatShelvesFor(it.id) }.orEmpty()
+                            // A fresh mix each time it opens, kept while they're on it.
+                            val seed = remember { Random.nextLong() }
+                            val shelves = child?.let { app.library.mixedTreatsFor(it.id, seed) }.orEmpty()
                             if (child == null || shelves.isEmpty() || app.treatsFor(child.id) <= 0) {
                                 LaunchedEffect(Unit) { back() }
                             } else {

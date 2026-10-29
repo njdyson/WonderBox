@@ -66,4 +66,29 @@ class LibraryTest {
         assertEquals(listOf("Music"), library.musicShelvesFor("c1").map { it.title })
         assertEquals(listOf("Exercise", "Cosmic Kids Yoga"), library.exerciseShelvesFor("c1").map { it.title })
     }
+    @Test
+    fun treatsToPickAreOneMixedShelfInANewOrderEachTime() {
+        val channels = (1..3).joinToString(",") { c ->
+            """{"id": "ch$c", "title": "Channel $c", "children": ["c1"], "tier": "treat",
+                "videos": [${(1..6).joinToString(",") { v -> """{"youtubeId": "c${c}v$v", "title": "C$c V$v"}""" }}]}"""
+        }
+        val library = json.decodeFromString(
+            Library.serializer(),
+            """{"children": [{"id": "c1", "name": "Sam"}],
+                "videos": [{"id": "v1", "youtubeId": "c1v1", "children": ["c1"], "tier": "treat"}],
+                "channels": [$channels]}""",
+        )
+        val mixed = library.mixedTreatsFor("c1", seed = 1)
+        assertEquals(1, mixed.size)
+        assertTrue(mixed[0].treat)
+        val order = mixed[0].videos.map { it.youtubeId }
+        // Every treat once (the same video in two places shows once), not channel by channel.
+        assertEquals(library.treatShelvesFor("c1").flatMap { it.videos }.map { it.youtubeId }.toSet(), order.toSet())
+        assertEquals(order.size, order.toSet().size)
+        assertTrue(order != order.sortedBy { it.take(2) })
+        // Same seed, same order; another seed, another order.
+        assertEquals(order, library.mixedTreatsFor("c1", seed = 1)[0].videos.map { it.youtubeId })
+        assertTrue(order != library.mixedTreatsFor("c1", seed = 2)[0].videos.map { it.youtubeId })
+        assertEquals(emptyList<Shelf>(), library.mixedTreatsFor("nobody", seed = 1))
+    }
 }

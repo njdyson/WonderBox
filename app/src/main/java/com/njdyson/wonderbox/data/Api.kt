@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.random.Random
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -193,6 +194,18 @@ data class Library(
 
     /** The treats, videos and music, only shown once a treat has been won. */
     fun treatShelvesFor(childId: String) = shelvesFor(childId).filter { it.treat }
+
+    /**
+     * All of the child's treats as one shelf, channels mixed together, so picking a treat feels
+     * like lots to choose from. Each [seed] gives its own order; the same seed keeps a video in
+     * the same place when the library changes under it.
+     */
+    fun mixedTreatsFor(childId: String, seed: Long): List<Shelf> {
+        val videos = treatShelvesFor(childId).flatMap { it.videos }
+            .distinctBy { it.youtubeId }
+            .sortedBy { Random(seed xor it.youtubeId.hashCode().toLong()).nextLong() }
+        return if (videos.isEmpty()) emptyList() else listOf(Shelf("treats-mixed", "Treats", true, videos))
+    }
 }
 
 /**
