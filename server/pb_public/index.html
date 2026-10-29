@@ -1536,7 +1536,7 @@ window.addEventListener("hashchange", () => { if (joinCode()) showJoin(); });
 // Waits for stats.js and quizzes.js too: the library can arrive before they've loaded, and
 // then the Quizzes, Games and Stats tabs would stay empty until a child was tapped.
 document.addEventListener("DOMContentLoaded", async () => {
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {});
   if (!token) return signedOut();
   if (joinCode()) showJoin();
   try {
@@ -1588,8 +1588,8 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("orientationchange", remeasure);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", remeasure);
 </script>
-<script src="/stats.js"></script>
-<script src="/quizzes.js"></script>
-<script src="/menu.js"></script>
+<script src="/stats.js?v=56"></script>
+<script src="/quizzes.js?v=56"></script>
+<script src="/menu.js?v=56"></script>
 </body>
 </html>
