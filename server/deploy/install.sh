@@ -15,7 +15,8 @@
 # Optionally set YOUTUBE_API_KEY: the phone app then also refuses age-restricted and
 # region-blocked videos when they're added, and PIXABAY_API_KEY for photo search in the quiz
 # picture picker, and GEMINI_API_KEY for the TV's story maker (GEMINI_MODEL to pick another
-# model than story_lib.js's default), all kept in <data>/wonderbox.env, not in Git.
+# model than story_lib.js's default, GEMINI_VOICE for another storyteller voice), all kept in
+# <data>/wonderbox.env, not in Git.
 #
 # It also installs Piper and a British voice (about 90 MB) so the server can read questions
 # aloud for TVs whose own text-to-speech is missing or poor. Set VOICE=0 to skip that.
@@ -87,6 +88,7 @@ save_key YOUTUBE_API_KEY "${YOUTUBE_API_KEY:-}"
 save_key PIXABAY_API_KEY "${PIXABAY_API_KEY:-}"
 save_key GEMINI_API_KEY "${GEMINI_API_KEY:-}"
 save_key GEMINI_MODEL "${GEMINI_MODEL:-}"
+save_key GEMINI_VOICE "${GEMINI_VOICE:-}"
 
 # PocketBase itself.
 if ! "$BIN_DIR/pocketbase" --version 2>/dev/null | grep -q "$PB_VERSION"; then

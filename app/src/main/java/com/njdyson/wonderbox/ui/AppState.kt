@@ -294,7 +294,7 @@ class AppState(context: Context) {
         if (!on) voice.stop()
     }
 
-    /** Reads [text] aloud (a 4-year-old can't read the titles), replacing anything still being said. */
+    /** Reads a menu item's [text] aloud (a 4-year-old can't read it), replacing anything still being said. */
     fun speak(text: String) {
         if (speakTitles) say(text)
     }
