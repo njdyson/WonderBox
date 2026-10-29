@@ -178,12 +178,12 @@ class ScreenshotsTest {
         shoot("music-summer")
     }
 
-    // Straight after winning: pick one to save.
+    // Straight after winning: pick one to save, every channel mixed together.
     @Test fun pickTreat() {
         val app = app()
         app.earnTreat(summer.id)
         compose.setContent {
-            WonderBoxTheme { VideosScreen(app, summer, "Pick a treat to save!", app.library.treatShelvesFor(summer.id), {}, stars = true) }
+            WonderBoxTheme { VideosScreen(app, summer, "Pick a treat to save!", app.library.mixedTreatsFor(summer.id, seed = 7), {}, stars = true) }
         }
         shoot("pick-treat-summer")
     }
