@@ -28,9 +28,10 @@
    * Opened from the Home Screen, iPhones make the view shorter than the screen (by the status
    * bar's height) though they still draw the page from the very top, which left a gap under the
    * tab bar. fitView() measures that shortfall and html grows by it, so the bar reaches the bottom.
+   * Some iPhones report the full height in innerHeight but still make 100% short: 100dvh covers those.
    * The page itself never scrolls: only #scroller does.
    */
-  html, body { height: 100%; overflow: hidden; background: var(--deep); }
+  html, body { height: 100%; min-height: 100dvh; overflow: hidden; background: var(--deep); }
   html { height: calc(100% + var(--viewport-shortfall, 0px)); }
   body {
     margin: 0; color: var(--text);
@@ -1563,7 +1564,7 @@ function fitView() {
   // Sizes for sorting out phone layout problems from a screenshot.
   const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
   const info = document.getElementById("screenInfo");
-  if (info) info.textContent = `${standalone ? "Home Screen app" : "Browser"} · screen ${screen.width}×${screen.height} · view ${window.innerWidth}×${window.innerHeight} · page ${document.documentElement.offsetHeight} · +${shortfall}`;
+  if (info) info.textContent = `${standalone ? "Home Screen app" : "Browser"} · screen ${screen.width}×${screen.height} · view ${window.innerWidth}×${window.innerHeight} · page ${document.body.offsetHeight} · +${shortfall}`;
 }
 fitView();
 window.addEventListener("resize", fitView);
