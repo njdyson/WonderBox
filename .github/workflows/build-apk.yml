@@ -4,10 +4,28 @@ name: Build APK
 # so a Fire Stick can always fetch the newest build from one fixed URL:
 # https://github.com/njdyson/WonderBox/releases/latest/download/WonderBox.apk
 # Pull requests are compiled too (no release), so a broken build shows before merging.
+# Only changes to the TV app start it: the server and phone app (server/) don't need a new APK.
+# The clipart is there because the TV screenshot test reads flags from it.
 on:
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "gradlew*"
+      - "server/pb_public/clipart/**"
+      - ".github/workflows/build-apk.yml"
   pull_request:
+    paths:
+      - "app/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - "gradlew*"
+      - "server/pb_public/clipart/**"
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
 permissions:
