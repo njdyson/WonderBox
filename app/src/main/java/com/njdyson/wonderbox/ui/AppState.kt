@@ -262,9 +262,12 @@ class AppState(context: Context) {
         if (speakTitles) say(text)
     }
 
-    /** Reads [text] aloud even when titles aren't read: the games' questions need it. [onDone] when it's been said. */
-    fun say(text: String, onDone: (() -> Unit)? = null) {
-        voice.say(text, onDone)
+    /**
+     * Reads [text] aloud even when titles aren't read: the games' questions need it. [onDone] when
+     * it's been said; [slow] for stories.
+     */
+    fun say(text: String, onDone: (() -> Unit)? = null, slow: Boolean = false) {
+        voice.say(text, onDone, slow)
     }
 
     /**

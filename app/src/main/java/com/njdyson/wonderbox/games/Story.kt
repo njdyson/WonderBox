@@ -3,11 +3,8 @@ package com.njdyson.wonderbox.games
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
-/** The story maker's [GameEntry.key]; it has its own screen (StoryScreen). */
+/** The Stories tile's [GameEntry.key]: StoryLibraryScreen, which makes new stories (StoryScreen) and keeps old ones. */
 const val STORY = "story"
-
-/** The child's finished stories' [GameEntry.key] (StoryLibraryScreen). */
-const val STORY_LIBRARY = "stories"
 
 /**
  * A child's story maker, set in the phone app: how old they are (each part is longer and a
@@ -21,7 +18,7 @@ data class StorySetup(
 ) {
     companion object {
         val AGES = 3..9
-        val TURNS = 3..6
+        val TURNS = 3..10
     }
 }
 

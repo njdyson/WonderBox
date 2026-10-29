@@ -10,7 +10,7 @@
 
 // A child can't run up a bill: at most this many parts written per family per day.
 const DAILY_LIMIT = 300
-const MAX_TURNS = 6
+const MAX_TURNS = 10
 const MAX_PART = 700
 
 // A last check on what comes back, on top of the prompt and Google's own filters. A part with
@@ -174,7 +174,8 @@ function storyList(userId) {
       child: r.getString("child"),
       title: r.getString("title"),
       parts: quiz.jsonField(r, "parts") || [],
-      picture: r.getString("picture") ? `/api/wonder/stories/${r.id}/picture` : "",
+      // The file name changes when it's redrawn, so a cached copy is never shown instead.
+      picture: r.getString("picture") ? `/api/wonder/stories/${r.id}/picture?v=${encodeURIComponent(r.getString("picture"))}` : "",
       created: r.getString("created"),
     })
   }
@@ -192,7 +193,8 @@ function draw(record) {
   const hero = (parts[0] && parts[0].word) || "animal"
   const story = parts.map((p) => p.text).join(" ").slice(0, 2500)
   const prompt = [
-    "Draw one warm, gentle picture-book illustration for this children's story, as a wide landscape picture.",
+    "Draw one warm, gentle picture-book illustration for this children's story, in landscape (4:3).",
+    "The illustration must fill the whole picture edge to edge: no borders, frames, margins or black bars.",
     `The hero is a friendly cartoon ${hero}. Show the happiest moment of the story.`,
     "Style: soft colours, rounded shapes, cosy and cheerful, like a picture book for 4 to 6 year olds.",
     "Do not draw any humans or children, only the animals, creatures and things from the story. No words, letters or numbers in the picture. Nothing scary.",
@@ -200,7 +202,7 @@ function draw(record) {
     "The story:",
     story,
   ].join("\n")
-  const image = gemini.drawImage(prompt, "16:9")
+  const image = gemini.drawImage(prompt, "4:3")
   if (!image) return false
   const ext = image.type.includes("jpeg") ? "jpg" : image.type.includes("webp") ? "webp" : "png"
   record.set("picture", $filesystem.fileFromBytes(image.bytes, `story.${ext}`))

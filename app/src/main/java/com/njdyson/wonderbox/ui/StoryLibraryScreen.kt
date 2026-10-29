@@ -50,12 +50,12 @@ import com.njdyson.wonderbox.data.SavedStory
 import kotlinx.coroutines.delay
 
 /**
- * A child's finished stories from the story maker, newest first, each with the picture Gemini
- * drew for it (or its hero, until the picture's ready). Picking one reads it aloud page by page,
- * like a picture book.
+ * The Stories tile: "Make a new story" first (when the story maker is on), then the child's
+ * finished stories, newest first, each with the picture Gemini drew for it (or its pictures,
+ * until it's drawn). Picking a story reads it aloud page by page, like a picture book.
  */
 @Composable
-fun StoryLibraryScreen(app: AppState, child: Child) {
+fun StoryLibraryScreen(app: AppState, child: Child, canMake: Boolean, onNew: () -> Unit) {
     val stories = app.storiesFor(child.id)
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val story = stories.firstOrNull { it.id == open }
@@ -63,7 +63,7 @@ fun StoryLibraryScreen(app: AppState, child: Child) {
         if (story != null) {
             StoryReader(app, child, story, onClose = { open = null })
         } else {
-            Shelf(app, child, stories, onOpen = {
+            Shelf(app, child, stories, canMake, onNew, onOpen = {
                 EventLog.log("story.read", child.id, subject = it.id)
                 open = it.id
             })
@@ -72,11 +72,11 @@ fun StoryLibraryScreen(app: AppState, child: Child) {
 }
 
 @Composable
-private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, onOpen: (SavedStory) -> Unit) {
+private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, canMake: Boolean, onNew: () -> Unit, onOpen: (SavedStory) -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocusWhenReady() }
     Column(Modifier.fillMaxSize().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "📚", "My stories", "") }
+        Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "📖", "Stories", "") }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 40.dp),
@@ -84,35 +84,56 @@ private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, onOpen
             verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            itemsIndexed(stories, key = { _, s -> s.id }) { i, s ->
-                val shape = RoundedCornerShape(20.dp)
-                Surface(
-                    onClick = { onOpen(s) },
-                    modifier = (if (i == 0) Modifier.focusRequester(first) else Modifier).fillMaxWidth(),
-                    shape = ClickableSurfaceDefaults.shape(shape),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = Reef,
-                        contentColor = Color.White,
-                        focusedContainerColor = Tangerine,
-                        focusedContentColor = Ink,
-                    ),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
-                    border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(4.dp, Color.White), shape = shape)),
-                ) {
-                    Column {
-                        StoryCover(app, s, Modifier.fillMaxWidth().aspectRatio(16f / 9f))
-                        Text(
-                            s.title.ifBlank { "My story" },
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        )
+            if (canMake) {
+                item(key = "new") {
+                    ShelfCard(Modifier.focusRequester(first), onNew) {
+                        Box(
+                            Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(Color(0xFFFFF6E5), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { EmojiPicture("✏️", 110.dp) }
+                        CardTitle("Make a new story")
                     }
                 }
             }
+            itemsIndexed(stories, key = { _, s -> s.id }) { i, s ->
+                ShelfCard(if (i == 0 && !canMake) Modifier.focusRequester(first) else Modifier, { onOpen(s) }) {
+                    StoryCover(app, s, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
+                    CardTitle(s.title.ifBlank { "My story" })
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun CardTitle(text: String) {
+    Text(
+        text,
+        fontSize = 20.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+    )
+}
+
+@Composable
+private fun ShelfCard(modifier: Modifier, onClick: () -> Unit, content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Reef,
+            contentColor = Color.White,
+            focusedContainerColor = Tangerine,
+            focusedContentColor = Ink,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(4.dp, Color.White), shape = shape)),
+    ) {
+        Column { content() }
     }
 }
 
@@ -153,7 +174,7 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
             app.sayAndWait(story.title)
             delay(300)
         }
-        app.sayAndWait(story.parts.getOrNull(page)?.text.orEmpty())
+        app.sayAndWait(story.parts.getOrNull(page)?.text.orEmpty(), slow = true)
         delay(600)
         if (page < pages - 1) page++ else {
             reading = false
@@ -163,12 +184,12 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
     val part = story.parts.getOrNull(page)
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { PlayHeader(child, "📚", story.title.ifBlank { "My story" }, "") }
+            Box(Modifier.weight(1f)) { PlayHeader(child, "📖", story.title.ifBlank { "My story" }, "") }
             Progress(page + 1, pages)
         }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             if (story.picture.isNotBlank()) {
-                StoryCover(app, story, Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)))
+                StoryCover(app, story, Modifier.fillMaxHeight().aspectRatio(4f / 3f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(24.dp)))
             }
             Box(
                 Modifier.weight(1f).fillMaxHeight().background(Color(0xFFFFF6E5), RoundedCornerShape(24.dp)).padding(24.dp),
@@ -202,7 +223,7 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
                     reading = true
                 }
             }
-            BigButton("📚 My stories", Modifier, onClose)
+            BigButton("📖 Stories", Modifier, onClose)
         }
     }
 }

@@ -22,7 +22,6 @@ import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
 import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.STORY
-import com.njdyson.wonderbox.games.STORY_LIBRARY
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.Category
@@ -205,8 +204,7 @@ class MainActivity : ComponentActivity() {
                                             HANGMAN -> Screen.Hangman(child.id)
                                             SCRAMBLE -> Screen.WordGame(child.id)
                                             MEMORY -> Screen.Memory(child.id)
-                                            STORY -> Screen.Story(child.id)
-                                            STORY_LIBRARY -> Screen.StoryLibrary(child.id)
+                                            STORY -> Screen.StoryLibrary(child.id)
                                             else -> Screen.Playing(child.id, it.key)
                                         },
                                     )
@@ -393,10 +391,10 @@ class MainActivity : ComponentActivity() {
                         }
                         is Screen.StoryLibrary -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
-                            if (child == null || app.storiesFor(screen.childId).isEmpty()) {
+                            if (child == null || (!child.games.story.on && app.storiesFor(screen.childId).isEmpty())) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                StoryLibraryScreen(app, child)
+                                StoryLibraryScreen(app, child, canMake = child.games.story.on, onNew = { open(Screen.Story(child.id)) })
                             }
                         }
                         is Screen.PhotoGrid -> app.library.children.firstOrNull { it.id == screen.childId }.let { child ->

@@ -130,7 +130,7 @@ fun StoryScreen(
         val parts = withTimeoutOrNull(WAIT_MS) { app.storyParts(child.id, story, options) }
         drafts.complete(parts)
         // Have the server's voice ready for whichever is picked.
-        parts?.let { app.voice.prepare(it) }
+        parts?.let { app.voice.prepare(it, slow = true) }
     }
 
     fun pick(index: Int) {
@@ -139,7 +139,6 @@ fun StoryScreen(
         val partTurn = turn
         writing = true
         app.stopSpeaking()
-        app.sounds.play(Sounds.Effect.Piece, child)
         app.say(pick.word)
         val waitFrom = System.currentTimeMillis()
         scope.launch {
@@ -162,13 +161,13 @@ fun StoryScreen(
                 // Into the child's library; the server draws its picture.
                 val finishedStory = story
                 scope.launch { app.saveStory(child.id, finishedStory) }
-                app.say(text) {
+                app.say(text, slow = true, onDone = {
                     app.sounds.play(Sounds.Effect.Finish, child)
                     app.say(if (hasTreats) "The end! What a brilliant story, ${child.name}! Pick a treat!" else "The end! What a brilliant story, ${child.name}!")
-                }
+                })
                 onFinished()
             } else {
-                app.say(text) { app.say(StoryPictures.question(partTurn + 1, turns)) }
+                app.say(text, slow = true, onDone = { app.say(StoryPictures.question(partTurn + 1, turns)) })
             }
         }
     }
@@ -178,7 +177,7 @@ fun StoryScreen(
             app.stopSpeaking()
             story.forEachIndexed { i, part ->
                 replaying = i
-                app.sayAndWait(part.text)
+                app.sayAndWait(part.text, slow = true)
                 delay(400)
             }
             replaying = null
@@ -301,7 +300,6 @@ private fun Writing() {
 @Composable
 private fun Choices(app: AppState, child: Child, question: String, options: List<StoryPick>, enabled: Boolean, key: Int, onPick: (Int) -> Unit) {
     val first = remember(key) { FocusRequester() }
-    var moved by remember(key) { mutableStateOf(false) }
     LaunchedEffect(key, enabled) { if (enabled) first.requestFocusWhenReady() }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(question, color = if (enabled) Color.White else Color.White.copy(alpha = 0.4f), fontSize = 26.sp, fontWeight = FontWeight.Bold)
@@ -312,11 +310,8 @@ private fun Choices(app: AppState, child: Child, question: String, options: List
                     option,
                     enabled,
                     (if (i == 0) Modifier.focusRequester(first) else Modifier).onFocusChanged {
-                        if (it.isFocused) {
-                            if (moved) app.sounds.play(Sounds.Effect.Move, child)
-                            moved = true
-                            if (enabled) app.speak(option.word)
-                        }
+                        // No sound effects here: just the word, so the story stays calm.
+                        if (it.isFocused && enabled) app.speak(option.word)
                     },
                 ) { onPick(i) }
             }
@@ -379,9 +374,9 @@ private fun TheEnd(
  * Says [text] and returns once it's been said, or after about as long as it takes to say
  * (some TVs never say when they've finished, or can't speak at all).
  */
-internal suspend fun AppState.sayAndWait(text: String) {
-    val estimate = 3_000L + text.split(' ').size * 600L
+internal suspend fun AppState.sayAndWait(text: String, slow: Boolean = false) {
+    val estimate = 3_000L + text.split(' ').size * (if (slow) 800L else 600L)
     withTimeoutOrNull(estimate) {
-        suspendCancellableCoroutine { c -> say(text) { if (c.isActive) c.resume(Unit) } }
+        suspendCancellableCoroutine { c -> say(text, onDone = { if (c.isActive) c.resume(Unit) }, slow = slow) }
     }
 }

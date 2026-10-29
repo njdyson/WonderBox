@@ -130,8 +130,8 @@ fun QuizQuestion.toQuestion(random: Random = Random): Question {
 
 /**
  * The games on [child]'s screen, in order: maths, spelling, the clock, hangman, the word game, a jigsaw (when
- * there are [photos] and the child has jigsaws on), memory pairs, the story maker, their finished
- * stories (when they have [stories]), then the parent's quizzes.
+ * there are [photos] and the child has jigsaws on), memory pairs, stories (the story maker, or
+ * just their finished [stories] when it's off), then the parent's quizzes.
  */
 fun Library.gamesFor(child: Child, photos: Boolean = false, stories: Boolean = false): List<GameEntry> = buildList {
     val maths = child.games.maths()
@@ -154,8 +154,9 @@ fun Library.gamesFor(child: Child, photos: Boolean = false, stories: Boolean = f
     }
     val memory = child.games.memory
     if (memory.on) add(GameEntry(MEMORY, "Pairs", "🃏", "${memory.pairs.coerceIn(MemorySetup.PAIRS.first(), MemorySetup.PAIRS.last())} pairs to find"))
-    if (child.games.story.on) add(GameEntry(STORY, "Story maker", "📖", "Pick pictures, make a story"))
-    if (stories) add(GameEntry(STORY_LIBRARY, "My stories", "📚", "Hear your stories again"))
+    if (child.games.story.on || stories) {
+        add(GameEntry(STORY, "Stories", "📖", if (child.games.story.on) "Make a story with pictures" else "Hear your stories again"))
+    }
     quizzes.filter { child.id in it.children && it.questions.any { q -> q.answers.size >= 2 } }.forEach { quiz ->
         val count = quiz.questions.size
         add(GameEntry("quiz/${quiz.id}", quiz.title.ifBlank { "Quiz" }, quiz.icon.ifBlank { "❓" }, "$count question${if (count == 1) "" else "s"}", quiz = quiz))
