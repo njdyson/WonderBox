@@ -46,12 +46,8 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     var loading by mutableStateOf(false)
         private set
 
-    /** What's being said now is a story part, still being recorded or being read. */
-    val storyBusy get() = currentSlow && (loading || player != null)
-
     private var serverFailures = 0
     @Volatile private var player: MediaPlayer? = null
-    private var currentSlow = false
 
     /** Counts what's been said or stopped, so a story clip that arrives late doesn't talk over something newer. */
     private var request = 0
@@ -190,7 +186,6 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
             return
         }
         val address = server()
-        currentSlow = slow
         // Whatever was coming (a story clip still downloading) is dropped.
         request++
         loading = false

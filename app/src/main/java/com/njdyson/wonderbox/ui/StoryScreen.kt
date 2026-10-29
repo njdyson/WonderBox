@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -139,7 +138,6 @@ fun StoryScreen(
         val partTurn = turn
         writing = true
         app.stopSpeaking()
-        app.say(pick.word)
         val waitFrom = System.currentTimeMillis()
         scope.launch {
             delay(MIN_WRITING_MS)
@@ -254,7 +252,8 @@ private fun PartText(app: AppState, part: StoryPart) {
 @Composable
 private fun Writing(label: String) {
     val t by rememberInfiniteTransition(label = "writing").animateFloat(
-        0f, 1f, infiniteRepeatable(tween(2_800, easing = LinearEasing), RepeatMode.Restart), label = "writing",
+        // Slow and steady: writing (and then recording) a part can take half a minute.
+        0f, 1f, infiniteRepeatable(tween(10_000, easing = LinearEasing), RepeatMode.Restart), label = "writing",
     )
     val lines = 4
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
@@ -311,11 +310,8 @@ private fun Choices(app: AppState, child: Child, question: String, options: List
                     app,
                     option,
                     enabled,
-                    (if (i == 0) Modifier.focusRequester(first) else Modifier).onFocusChanged {
-                        // No sound effects here: just the word, so the story stays calm. Never over
-                        // the story itself, which may still be on its way from the storyteller.
-                        if (it.isFocused && enabled && !app.voice.storyBusy) app.speak(option.word)
-                    },
+                    // Nothing is said on these: the pictures are enough, and only the storyteller talks.
+                    if (i == 0) Modifier.focusRequester(first) else Modifier,
                 ) { onPick(i) }
             }
         }
