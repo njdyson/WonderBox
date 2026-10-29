@@ -136,6 +136,11 @@ data class Library(
     val voice: Boolean = false,
     /** The server can write stories with Gemini (POST /api/wonder/story); otherwise the TV tells simple ones. */
     val stories: Boolean = false,
+    /**
+     * Pictures Gemini drew for the menu tiles, by key ("home.games", "game.jigsaw"): server
+     * paths. A tile without one shows its emoji.
+     */
+    val menuPictures: Map<String, String> = emptyMap(),
 ) {
     fun videosFor(childId: String) = videos.filter { childId in it.children }
 

@@ -96,16 +96,16 @@ class ScreenshotsTest {
     private val photos = (1..5).map { Photo("p$it", "/api/wonder/photos/p$it/image", "/api/wonder/photos/p$it/thumb", 1600, 1200, listOf(summer.id)) } +
         Photo("p6", "/api/wonder/photos/p6/image", "/api/wonder/photos/p6/thumb", 1600, 1200, listOf(jesse.id))
 
-    private fun app(withPhotos: Boolean = false): AppState {
+    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        if (withPhotos) fakePhotos(context)
+        if (withPhotos || menuPictures) fakePhotos(context)
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo", "Room on the Broom, read aloud", "Maddie Moate: How Do Bees Make Honey?", "Numberblocks: Make Ten", "Octonauts and the Whale Shark", "Blippi Visits a Farm")
         val videos = titles.mapIndexed { i, title ->
             Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i in 4..5) TREAT else "free", section = when (i) { 3 -> MUSIC; 6 -> STORIES; else -> "videos" })
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
-            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse), quizzes = quizzes, videos = videos)))
+            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse), quizzes = quizzes, videos = videos, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
             .putString("photos", json.encodeToString(Photos.serializer(), Photos(if (withPhotos) photos else emptyList())))
             .commit()
         return AppState(context)
@@ -162,6 +162,33 @@ class ScreenshotsTest {
         val games = app.library.gamesFor(summer, photos = true).filter { !it.isQuiz }
         compose.setContent { WonderBoxTheme { GamesScreen(app, summer, "Games", games, {}) } }
         shoot("games-summer")
+    }
+
+    // With the pictures Gemini draws for the tiles (stand-ins here: see [menuStandIn]).
+    @Test fun homePictures() {
+        val app = app(withPhotos = true, menuPictures = true)
+        compose.setContent { WonderBoxTheme { HomeScreen(app, summer, {}) } }
+        shoot("home-summer-pictures")
+    }
+
+    @Test fun homePicturesJesse() {
+        val app = app(withPhotos = true, menuPictures = true)
+        compose.setContent { WonderBoxTheme { HomeScreen(app, jesse, {}) } }
+        shoot("home-jesse-pictures")
+    }
+
+    @Test fun gamesPictures() {
+        val app = app(withPhotos = true, menuPictures = true)
+        val games = app.library.gamesFor(summer, photos = true).filter { !it.isQuiz }
+        compose.setContent { WonderBoxTheme { GamesScreen(app, summer, "Games", games, {}) } }
+        shoot("games-summer-pictures")
+    }
+
+    @Test fun quizzesPictures() {
+        val app = app(withPhotos = true, menuPictures = true)
+        val games = app.library.gamesFor(summer, photos = true).filter { it.isQuiz }
+        compose.setContent { WonderBoxTheme { GamesScreen(app, summer, "Quizzes", games, {}) } }
+        shoot("quizzes-summer-pictures")
     }
 
     @Test fun videos() {
@@ -386,6 +413,8 @@ class ScreenshotsTest {
                             val bitmap = BitmapFactory.decodeFile(File("../server/pb_public/clipart/flags/$flag.png").absolutePath)
                             return SuccessResult(BitmapDrawable(context.resources, bitmap), chain.request, DataSource.MEMORY)
                         }
+                        val menu = url.substringAfter("/api/wonder/menu-pictures/", "")
+                        if (menu.isNotEmpty()) return SuccessResult(BitmapDrawable(context.resources, menuStandIn(menu)), chain.request, DataSource.MEMORY)
                         if ("/api/wonder/stories/" in url) return SuccessResult(BitmapDrawable(context.resources, picture(4)), chain.request, DataSource.MEMORY)
                         if ("/api/wonder/photos/" !in url) return chain.proceed(chain.request)
                         val n = Regex("p(\\d)").find(url)?.groupValues?.get(1)?.toInt() ?: 1
@@ -394,6 +423,34 @@ class ScreenshotsTest {
                 })
             }.build(),
         )
+    }
+
+    /**
+     * A stand-in for the picture Gemini draws for the menu tile [key]: the tile's colours with
+     * a big bundled Fluent 3D emoji or two, which is close to the style asked for.
+     */
+    private fun menuStandIn(key: String): Bitmap {
+        val (colors, emoji) = MENU_STAND_INS.getValue(key)
+        val wide = key.startsWith("home.")
+        val w = if (wide) 800 else 600
+        val h = 600
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.shader = LinearGradient(0f, 0f, w.toFloat(), h.toFloat(), colors.first().toInt(), colors.last().toInt(), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w.toFloat(), h.toFloat(), p)
+        p.shader = null
+        // A soft glow behind, like studio light.
+        p.color = 0x33FFFFFF
+        c.drawCircle(w / 2f, if (wide) 250f else 300f, 230f, p)
+        fun draw(code: String, cx: Float, cy: Float, size: Float) {
+            val icon = BitmapFactory.decodeFile(File("src/main/assets/avatars/$code.webp").absolutePath) ?: return
+            c.drawBitmap(icon, null, RectF(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2), Paint(Paint.FILTER_BITMAP_FLAG))
+        }
+        val cy = if (wide) 250f else 310f
+        draw(emoji.first(), w / 2f - (if (emoji.size > 1) 40f else 0f), cy, if (wide) 380f else 420f)
+        if (emoji.size > 1) draw(emoji[1], w / 2f + (if (wide) 190f else 170f), cy - 130f, 190f)
+        return bmp
     }
 
     private fun picture(n: Int): Bitmap {
@@ -504,3 +561,24 @@ class ScreenshotsTest {
         shoot("home-jesse")
     }
 }
+
+/** Each menu picture's tile colours and the Fluent emoji (by file name) standing in for Gemini's drawing. */
+private val MENU_STAND_INS = mapOf(
+    "home.quizzes" to (listOf(0xFF4D96FF, 0xFF2B5FD9) to listOf("2753", "2b50")),
+    "home.games" to (listOf(0xFFA259FF, 0xFF6A2BD9) to listOf("1f3ae", "1f9e9")),
+    "home.learning" to (listOf(0xFFFF5C7A, 0xFFD12E55) to listOf("1f989")),
+    "home.music" to (listOf(0xFF2EC4B6, 0xFF13867C) to listOf("1f941", "1f3b5")),
+    "home.exercise" to (listOf(0xFFFF9F43, 0xFFE0612B) to listOf("1f412")),
+    "home.stories" to (listOf(0xFF7C6CF2, 0xFF4B3BC4) to listOf("1f3f0", "1f319")),
+    "home.photos" to (listOf(0xFF8BC34A, 0xFF4F8A1B) to listOf("1f4f7")),
+    "home.treats" to (listOf(0xFFFFC93C, 0xFFFF8A3D) to listOf("2b50", "1f36d")),
+    "game.maths" to (listOf(0xFF4D96FF, 0xFF2B5FD9) to listOf("1f522")),
+    "game.spelling" to (listOf(0xFFA259FF, 0xFF6A2BD9) to listOf("1f524")),
+    "game.clock" to (listOf(0xFF2EC4B6, 0xFF13867C) to listOf("231a")),
+    "game.flags" to (listOf(0xFF3FB950, 0xFF1E7A33) to listOf("1f5fa")),
+    "game.hangman" to (listOf(0xFFFF5C7A, 0xFFD12E55) to listOf("1f388")),
+    "game.scramble" to (listOf(0xFF3FB950, 0xFF1E7A33) to listOf("1f520")),
+    "game.jigsaw" to (listOf(0xFFFF8A3D, 0xFFD9541B) to listOf("1f9e9")),
+    "game.memory" to (listOf(0xFF4D96FF, 0xFF2B5FD9) to listOf("1f0cf", "1f41e")),
+    "game.story" to (listOf(0xFF7C6CF2, 0xFF4B3BC4) to listOf("1f409")),
+)

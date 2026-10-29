@@ -70,6 +70,8 @@ function library(userId) {
     voice: require(`${__hooks}/speech_lib.js`).available(),
     // The story maker can ask Gemini to write (story_lib.js); without it the TV tells a simple story itself.
     stories: require(`${__hooks}/story_lib.js`).available(),
+    // {"home.games": path, "game.jigsaw": path}: the menu tile pictures Gemini has drawn (menu_lib.js).
+    menuPictures: require(`${__hooks}/menu_lib.js`).pictureMap(userId),
     videos: videoRecords(userId).map((v) => ({
       id: v.id,
       youtubeId: v.getString("youtube_id"),

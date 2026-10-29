@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,9 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -49,6 +54,7 @@ import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
 import com.njdyson.wonderbox.games.SCRAMBLE
+import com.njdyson.wonderbox.games.STORY
 import com.njdyson.wonderbox.games.gamesFor
 
 /** What a child can pick on their home page. */
@@ -64,6 +70,10 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
     /** The treats they've saved up, and any won but not picked yet. Last, so learning comes first. */
     Treats("Treats", "⭐", listOf(Color(0xFFFFC93C), Color(0xFFFF8A3D))),
+    ;
+
+    /** Its tile's picture in [com.njdyson.wonderbox.data.Library.menuPictures]. */
+    val pictureKey get() = "home.${name.lowercase()}"
 }
 
 /**
@@ -156,6 +166,7 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                     row.forEach { category ->
                         CategoryTile(
+                            app,
                             category,
                             count = if (category == Category.Treats) saved else 0,
                             onClick = { onOpen(category) },
@@ -175,7 +186,8 @@ fun HomeScreen(app: AppState, child: Child, onOpen: (Category) -> Unit) {
 }
 
 @Composable
-private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+private fun CategoryTile(app: AppState, category: Category, count: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+    var pictured by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         modifier = modifier.width(192.dp).height(150.dp).onFocusChanged { if (it.isFocused) onFocus() },
@@ -187,13 +199,34 @@ private fun CategoryTile(category: Category, count: Int, onClick: () -> Unit, on
             focusedBorder = Border(BorderStroke(7.dp, Color.White), shape = RoundedCornerShape(24.dp)),
         ),
     ) {
-        Column(
-            Modifier.fillMaxSize().background(Brush.linearGradient(category.colors)),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            EmojiPicture(category.icon, 68.dp)
-            Text(category.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(category.colors))) {
+            // Gemini's picture when there is one, with the name over its foot; the emoji until then.
+            if (!pictured) {
+                Column(
+                    Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    EmojiPicture(category.icon, 68.dp)
+                    Text(category.title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                }
+            }
+            MenuPicture(app, category.pictureKey, Modifier.fillMaxSize(), onShown = { pictured = it })
+            if (pictured) {
+                Text(
+                    category.title,
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 3f), 8f)),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f))))
+                        .padding(top = 14.dp, bottom = 6.dp),
+                )
+            }
         }
         if (count > 0) {
             Text(
@@ -255,6 +288,7 @@ private val TILE_COLORS = listOf(
 
 @Composable
 private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
+    var pictured by remember { mutableStateOf(false) }
     val colors = when (game.game) {
         Game.Maths -> TILE_COLORS[0]
         Game.Spelling -> TILE_COLORS[1]
@@ -265,6 +299,8 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
             HANGMAN -> TILE_COLORS[4]
             SCRAMBLE -> TILE_COLORS[5]
             MEMORY -> TILE_COLORS[0]
+            // The same as the home page's Stories tile.
+            STORY -> Category.Stories.colors
             else -> TILE_COLORS[index % TILE_COLORS.size]
         }
     }
@@ -280,11 +316,16 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         ),
     ) {
         Row(
-            Modifier.fillMaxSize().background(Brush.linearGradient(colors)).padding(horizontal = 22.dp),
+            Modifier.fillMaxSize().background(Brush.linearGradient(colors)).padding(end = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            QuizPicture(app, game.icon, 72.dp)
+            // Gemini's picture, the tile's whole height, when there is one (not for the parent's
+            // quizzes, which have their own); the emoji or quiz picture until then.
+            Box(Modifier.width(96.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                if (!pictured) QuizPicture(app, game.icon, 72.dp)
+                if (game.quiz == null) MenuPicture(app, "game.${game.key}", Modifier.fillMaxSize(), onShown = { pictured = it })
+            }
             Column {
                 Text(game.title, color = Color.White, fontSize = when {
                     game.title.length > 10 -> 24.sp
