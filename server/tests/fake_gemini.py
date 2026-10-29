@@ -74,7 +74,7 @@ class Handler(BaseHTTPRequestHandler):
     def speak(self, body):
         text = (((body.get("input") or [{}])[0].get("content") or [{}])[0]).get("text")
         voice = ((body.get("generation_config") or {}).get("speech_config") or [{}])[0].get("voice")
-        if not (text and voice == "riko-library-id" and "tts" in body.get("model", "") and self.headers.get("x-goog-api-key")):
+        if not (text and voice == "riko-library-id" and "tts" in body.get("model", "") and (body.get("response_format") or {}).get("mime_type") == "audio/l16" and self.headers.get("x-goog-api-key")):
             self.send_response(400)
             self.end_headers()
             self.wfile.write(b'{"error": "not a speech request"}')
@@ -83,6 +83,10 @@ class Handler(BaseHTTPRequestHandler):
         time.sleep(float(os.environ.get("FAKE_TTS_DELAY", "0")))
         samples = int(24000 * float(os.environ.get("FAKE_TTS_SECONDS", "0.1")))
         pcm = b"".join(int(8000 * math.sin(i / 10)).to_bytes(2, "little", signed=True) for i in range(samples))
+        if os.environ.get("FAKE_TTS_WAV"):
+            # A WAV file instead, with a bogus length and a chunk after the samples, like some encoders.
+            pcm = b"RIFF\xff\xff\xff\xffWAVEfmt " + (16).to_bytes(4, "little") + bytes.fromhex("01000100c05d0000803b000002001000") \
+                + b"data\xff\xff\xff\xff" + pcm + b"LIST" + (64).to_bytes(4, "little") + bytes(range(64))
         reply = {"steps": [{"type": "model_output", "content": [{"type": "audio", "data": base64.b64encode(pcm).decode()}]}]}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")

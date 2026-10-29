@@ -13,8 +13,10 @@ const MAX_TEXT = 700
 // Everyday reading is a little slower than Piper's own pace, for young children.
 const PACE = { normal: ["1.2", "0.35"], slow: ["1.4", "0.7"] }
 
-// How the storyteller reads, and how many new story clips a family can have made per day.
-const STORY_STYLE = "a gentle, warm bedtime storyteller reading to a young child: soft, slow and calm, with expressive, playful character voices"
+// How the storyteller reads, and how many new story clips a family can have made per day. Kept
+// short: Google says long style prompts make the voice drift, and asking for playful character
+// voices brought odd noises (Nick heard fart-like sounds and hiss).
+const STORY_STYLE = "warm, gentle and calm"
 const STORY_CLIPS_PER_DAY = 300
 
 function config() {
