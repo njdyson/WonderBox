@@ -1,5 +1,6 @@
 package com.njdyson.wonderbox.data
 
+import com.njdyson.wonderbox.BuildConfig
 import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.ClockSetup
 import com.njdyson.wonderbox.games.FlagSetup
@@ -247,6 +248,8 @@ private fun request(baseUrl: String, path: String, body: JsonElement? = null, de
     conn.readTimeout = 30_000
     conn.setRequestProperty("Content-Type", "application/json")
     deviceKey?.let { conn.setRequestProperty("X-Device-Key", it) }
+    // Lets the phone app show which build each TV runs.
+    conn.setRequestProperty("X-App-Build", BuildConfig.VERSION_CODE.toString())
     if (body != null) {
         conn.requestMethod = "POST"
         conn.doOutput = true

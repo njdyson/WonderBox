@@ -1366,13 +1366,24 @@ async function showPairing() {
 }
 window.addEventListener("hashchange", showPairing);
 
+// Which build a TV runs, against the newest published one (0 when not known).
+function tvBuild(build, latest) {
+  if (!build) return el("div", { className: "muted", textContent: "Build not known yet: it shows once the TV has the latest update." });
+  if (latest && build < latest) return el("div", { style: "color:var(--lime);font-size:14px", textContent: `Build ${build}: update available (build ${latest}). On the TV, open Grown-ups and choose Check for update.` });
+  return el("div", { className: "muted", textContent: latest ? `Build ${build}: up to date` : `Build ${build}` });
+}
+
 async function loadTvs() {
   try {
-    const tvs = await api("/api/wonder/devices");
+    const [tvs, latest] = await Promise.all([
+      api("/api/wonder/devices"),
+      api("/api/wonder/devices/latest").then((r) => r.build).catch(() => 0),
+    ]);
     $("tvs").replaceChildren(...(tvs.length ? tvs.map((tv) => el("div", { className: "tv" },
       el("div", { className: "grow" },
         el("div", { style: "font-weight:700", textContent: tv.name || "TV" }),
-        el("div", { className: "muted", textContent: tv.lastSeen ? "Last seen " + new Date(tv.lastSeen.replace(" ", "T")).toLocaleString() : "" })),
+        el("div", { className: "muted", textContent: tv.lastSeen ? "Last seen " + new Date(tv.lastSeen.replace(" ", "T")).toLocaleString() : "" }),
+        tvBuild(tv.build, latest)),
       el("button", { className: "ghost small", textContent: "Unlink", onclick: async () => {
         if (!confirm(`Unlink ${tv.name}? It will ask to be linked again.`)) return;
         try { await api("/api/wonder/devices/remove", { id: tv.id }); loadTvs(); } catch (e) { showError(e); }
