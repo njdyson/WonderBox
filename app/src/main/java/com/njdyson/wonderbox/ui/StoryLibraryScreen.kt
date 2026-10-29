@@ -60,7 +60,7 @@ import com.njdyson.wonderbox.data.SavedStory
 import kotlinx.coroutines.delay
 
 /**
- * The Stories tile: "Make a new story" first (when the story maker is on), then the child's
+ * The Story maker tile in Games: "Make a new story" first (when the story maker is on), then the child's
  * finished stories, newest first, each with the picture Gemini drew for it (or its pictures,
  * until it's drawn). Picking a story reads it aloud page by page, like a picture book.
  */
@@ -94,7 +94,7 @@ private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, canMak
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocusWhenReady() }
     Column(Modifier.fillMaxSize().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "📖", "Stories", "") }
+        Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "✏️", "Story maker", "") }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 40.dp),
@@ -279,7 +279,7 @@ private fun StoryReader(app: AppState, child: Child, story: SavedStory, onClose:
                     reading = true
                 }
             }
-            BigButton("📖 Stories", Modifier, onClose)
+            BigButton("📚 My stories", Modifier, onClose)
         }
     }
 }

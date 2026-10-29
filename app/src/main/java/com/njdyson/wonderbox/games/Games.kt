@@ -157,7 +157,7 @@ fun Library.gamesFor(child: Child, photos: Boolean = false, stories: Boolean = f
     if (memory.on) add(GameEntry(MEMORY, "Pairs", "🃏", "${memory.pairs.coerceIn(MemorySetup.PAIRS.first(), MemorySetup.PAIRS.last())} pairs to find"))
     if (photos && photoQuiz && child.games.photoQuiz.on) add(GameEntry(PHOTO_QUIZ, "Photo quiz", "🔍", "Look, then remember"))
     if (child.games.story.on || stories) {
-        add(GameEntry(STORY, "Stories", "📖", if (child.games.story.on) "Make a story with pictures" else "Hear your stories again"))
+        add(GameEntry(STORY, "Story maker", "✏️", if (child.games.story.on) "Make a story with pictures" else "Hear your stories again"))
     }
     quizzes.filter { child.id in it.children && it.questions.any { q -> q.answers.size >= 2 } }.forEach { quiz ->
         val count = quiz.questions.size
