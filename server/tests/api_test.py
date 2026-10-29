@@ -107,8 +107,8 @@ MP4 = base64.b64decode(
 )
 
 
-def call(method, path, body=None, token=None, device_key=None, expect=200):
-    headers = {"Content-Type": "application/json"}
+def call(method, path, body=None, token=None, device_key=None, expect=200, headers=None):
+    headers = {"Content-Type": "application/json", **(headers or {})}
     if token:
         headers["Authorization"] = token
     if device_key:
@@ -702,6 +702,10 @@ try:
 
     tvs = call("GET", "/api/wonder/devices", token=token)
     assert [t["name"] for t in tvs] == ["Living room"]
+    call("GET", "/api/wonder/library", device_key=key, headers={"X-App-Build": "123"})
+    assert call("GET", "/api/wonder/devices", token=token)[0]["build"] == 123
+    assert isinstance(call("GET", "/api/wonder/devices/latest", token=token)["build"], int)
+    call("GET", "/api/wonder/devices/latest", device_key=key, expect=401)
     call("POST", "/api/wonder/devices/remove", {"id": tvs[0]["id"]}, token)
     call("GET", "/api/wonder/library", device_key=key, expect=401)
     fetch(tv_photos[0]["image"], device_key=key, expect=401)

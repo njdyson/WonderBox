@@ -30,10 +30,13 @@ function caller(e) {
       device = $app.findFirstRecordByFilter("devices", "key_hash = {:h}", { h: $security.sha256(key) })
     } catch (_) {}
     if (device) {
-      // Record when a TV was last seen, at most once an hour.
+      // Record when a TV was last seen, at most once an hour, and its build when it changes.
       const last = device.getDateTime("last_seen")
-      if (last.isZero() || Date.now() - last.unix() * 1000 > 3600 * 1000) {
+      const build = parseInt(e.request.header.get("X-App-Build"), 10) || 0
+      const stale = last.isZero() || Date.now() - last.unix() * 1000 > 3600 * 1000
+      if (stale || (build && build !== device.getInt("build"))) {
         device.set("last_seen", new Date().toISOString())
+        if (build) device.set("build", build)
         $app.save(device)
       }
       return $app.findRecordById("users", device.getString("user"))
@@ -902,9 +905,27 @@ function cleanupPairings() {
   for (const r of old) $app.delete(r)
 }
 
+// --- Latest published build -------------------------------------------------
+
+const LATEST_BUILD_URL = "https://github.com/njdyson/WonderBox/releases/latest/download/version.json"
+const LATEST_BUILD_CACHE_MS = 10 * 60 * 1000
+
+/** The build number on the apk-latest release (what the TV's Check for update installs), or 0 if GitHub can't be reached. */
+function latestBuild() {
+  const cached = $app.store().get("wonderbox_latest_build")
+  if (cached && Date.now() - cached.at < LATEST_BUILD_CACHE_MS) return cached.build
+  let build = 0
+  try {
+    const res = $http.send({ url: `${LATEST_BUILD_URL}?t=${Date.now()}`, timeout: 10 })
+    if (res.statusCode === 200 && res.json) build = parseInt(res.json.versionCode, 10) || 0
+  } catch (_) {}
+  if (build) $app.store().set("wonderbox_latest_build", { build, at: Date.now() })
+  return build
+}
+
 module.exports = {
   caller, requireUser, familyOf, library, games, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
   saveGames, autoLevel, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
   refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
-  PAIRING_TTL_MS,
+  latestBuild, PAIRING_TTL_MS,
 }

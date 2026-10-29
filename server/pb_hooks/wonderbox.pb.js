@@ -233,7 +233,15 @@ routerAdd("GET", "/api/wonder/devices", (e) => {
     id: d.id,
     name: d.getString("name"),
     lastSeen: d.getString("last_seen"),
+    build: d.getInt("build"),
   })))
+})
+
+// The newest published build, so the phone app can say which TVs need updating.
+routerAdd("GET", "/api/wonder/devices/latest", (e) => {
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  lib.requireUser(e)
+  return e.json(200, { build: lib.latestBuild() })
 })
 
 routerAdd("POST", "/api/wonder/devices/remove", (e) => {
