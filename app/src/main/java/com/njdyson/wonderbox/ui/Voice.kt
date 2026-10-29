@@ -12,6 +12,7 @@ import android.speech.tts.UtteranceProgressListener
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -41,8 +42,22 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
             refresh()
         }
 
+    /** A story part is being recorded by the server's storyteller (it can take half a minute): the story screens show it. */
+    var loading by mutableStateOf(false)
+        private set
+
+    /** What's being said now is a story part, still being recorded or being read. */
+    val storyBusy get() = currentSlow && (loading || player != null)
+
     private var serverFailures = 0
     @Volatile private var player: MediaPlayer? = null
+    private var currentSlow = false
+
+    /** Counts what's been said or stopped, so a story clip that arrives late doesn't talk over something newer. */
+    private var request = 0
+
+    /** Story clips, kept here once downloaded (the server keeps them too). */
+    private val clips = File(this.context.cacheDir, "speech").apply { mkdirs() }
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -175,6 +190,10 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
             return
         }
         val address = server()
+        currentSlow = slow
+        // Whatever was coming (a story clip still downloading) is dropped.
+        request++
+        loading = false
         if (useServer && address != null) play(text, address, slow) else sayHere(text, slow)
         this.onDone = onDone
     }
@@ -186,17 +205,23 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     }
 
     /**
-     * Has the server's voice make clips of [texts] now, in the background, so they start
-     * straight away when they're said (the server keeps each clip once made).
+     * Has the server's voice make clips of [texts] now, in the background and all at once, so they
+     * start straight away when they're said (the server keeps each clip once made, and this TV
+     * keeps story clips too).
      */
     fun prepare(texts: List<String>, slow: Boolean = false) {
         val address = server() ?: return
         if (!useServer) return
         val (baseUrl, key) = address
-        Thread {
-            texts.filter { it.isNotBlank() }.forEach { text ->
+        texts.filter { it.isNotBlank() }.distinct().forEach { text ->
+            Thread {
                 runCatching {
-                    val conn = URL(speechUrl(baseUrl, text, slow)).openConnection() as HttpURLConnection
+                    if (slow) {
+                        val file = clipFile(baseUrl, text)
+                        if (!file.exists()) download(baseUrl, key, text, file)
+                        return@runCatching
+                    }
+                    val conn = URL(speechUrl(baseUrl, text, false)).openConnection() as HttpURLConnection
                     conn.connectTimeout = 15_000
                     conn.readTimeout = 60_000
                     conn.setRequestProperty("X-Device-Key", key)
@@ -205,14 +230,42 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
                         while (input.read(buffer) >= 0) Unit
                     }
                 }
-            }
-        }.start()
+            }.start()
+        }
+    }
+
+    /** Where this TV keeps a story clip of [text]. */
+    private fun clipFile(baseUrl: String, text: String): File {
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(speechUrl(baseUrl, text, true).toByteArray())
+        return File(clips, hash.joinToString("") { "%02x".format(it) } + ".wav")
+    }
+
+    /**
+     * Downloads the server's story clip of [text] into [file]. The storyteller can take a while to
+     * record a long part the first time, so this waits up to two minutes.
+     */
+    private fun download(baseUrl: String, key: String, text: String, file: File) {
+        val conn = URL(speechUrl(baseUrl, text, true)).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15_000
+        conn.readTimeout = 120_000
+        conn.setRequestProperty("X-Device-Key", key)
+        val part = File(file.path + ".${Thread.currentThread().id}.part")
+        try {
+            if (conn.responseCode != 200) throw java.io.IOException("speech answered ${conn.responseCode}")
+            conn.inputStream.use { input -> part.outputStream().use { input.copyTo(it) } }
+            if (!part.renameTo(file) && !file.exists()) throw java.io.IOException("couldn't keep the clip")
+        } finally {
+            part.delete()
+            conn.disconnect()
+        }
     }
 
     /** Something is being read aloud now (asked from any thread: [Music] goes quieter). */
     val speaking get() = player != null || runCatching { tts?.isSpeaking == true }.getOrDefault(false)
 
     fun stop() {
+        request++
+        loading = false
         onDone = null
         player?.let { runCatching { it.stop() }; it.release() }
         player = null
@@ -248,14 +301,37 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     private fun play(text: String, address: Pair<String, String>, slow: Boolean) {
         stop()
         val (baseUrl, key) = address
-        val url = speechUrl(baseUrl, text, slow)
+        if (!slow) {
+            playFrom(Uri.parse(speechUrl(baseUrl, text, false)), mapOf("X-Device-Key" to key), text, false)
+            return
+        }
+        // Story parts are downloaded first: the storyteller may still be recording, for longer
+        // than the player would wait.
+        val file = clipFile(baseUrl, text)
+        if (file.exists()) {
+            playFrom(Uri.fromFile(file), null, text, true)
+            return
+        }
+        val id = request
+        loading = true
+        Thread {
+            val ok = runCatching { download(baseUrl, key, text, file) }.isSuccess || file.exists()
+            main.post {
+                if (id != request) return@post
+                loading = false
+                if (ok) playFrom(Uri.fromFile(file), null, text, true) else failed(text, true)
+            }
+        }.start()
+    }
+
+    private fun playFrom(uri: Uri, headers: Map<String, String>?, text: String, slow: Boolean) {
         val p = MediaPlayer()
         player = p
         try {
             p.setAudioAttributes(
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(),
             )
-            p.setDataSource(context, Uri.parse(url), mapOf("X-Device-Key" to key))
+            p.setDataSource(context, uri, headers)
             p.setOnPreparedListener { if (player === it) it.start() }
             p.setOnCompletionListener {
                 it.release()
@@ -266,6 +342,8 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
             }
             p.setOnErrorListener { mp, _, _ ->
                 mp.release()
+                // A kept clip that won't play is fetched again next time.
+                if (uri.scheme == "file") uri.path?.let { File(it).delete() }
                 if (player === mp) {
                     player = null
                     failed(text, slow)

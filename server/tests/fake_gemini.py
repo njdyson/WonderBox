@@ -11,10 +11,12 @@ bare PCM, like the older TTS models send. Anything
 else, such as the story maker, gets a 400, so those checks see Gemini as failing.
 """
 import math
+import os
+import time
 import base64
 import json
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 QUESTIONS = [
     {"level": 1, "text": "What colour was the dress?", "right": "Red", "wrong": ["blue", "green"]},
@@ -77,7 +79,10 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"error": "not a speech request"}')
             return
-        pcm = b"".join(int(8000 * math.sin(i / 10)).to_bytes(2, "little", signed=True) for i in range(2400))
+        # A tenth of a second, or FAKE_TTS_SECONDS (to time a long story part), after FAKE_TTS_DELAY seconds.
+        time.sleep(float(os.environ.get("FAKE_TTS_DELAY", "0")))
+        samples = int(24000 * float(os.environ.get("FAKE_TTS_SECONDS", "0.1")))
+        pcm = b"".join(int(8000 * math.sin(i / 10)).to_bytes(2, "little", signed=True) for i in range(samples))
         reply = {"steps": [{"type": "model_output", "content": [{"type": "audio", "data": base64.b64encode(pcm).decode()}]}]}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -88,4 +93,4 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-HTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()
+ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), Handler).serve_forever()

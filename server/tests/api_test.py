@@ -694,7 +694,7 @@ try:
     story = next(st for st in saved["stories"] if st["id"] == saved["saved"])
     assert story["title"] == "The Fox and the Castle" and story["child"] == sam, story
     assert story["parts"][0]["picture"] == "🦊" and story["parts"][1]["picture"] == "", story["parts"]
-    assert story["picture"] == ""
+    assert story["picture"] == "" and story["drawing"] is True, story
     call("POST", "/api/wonder/stories/save", {"child": sam, "parts": []}, device_key=key, expect=400)
     assert [st["id"] for st in call("GET", "/api/wonder/stories", token=token)["stories"]] == [story["id"]]
     call("GET", f"/api/wonder/stories/{story['id']}/picture", device_key=key, expect=404)
