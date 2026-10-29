@@ -127,7 +127,17 @@ WAV file, made once and kept in `<data>/speech`. The library says `voice: true` 
 server has one; the TV then uses it, and falls back to its own text-to-speech if a clip
 fails. Without Piper (`VOICE=0`, or a server it can't run on) the TVs use their own voices.
 The TV's Grown-ups screen shows which voice it's using, with a "Test the voice" button.
-Piper is found through `PIPER_BIN` and `PIPER_VOICE`, set in the systemd service.
+Piper is found through `PIPER_BIN` and `PIPER_VOICE`, set in the systemd service. Piper reads
+a little slower than its own pace (`PACE` in `pb_hooks/speech_lib.js`), and the TV reads menu
+items, questions and answers, but not video titles.
+
+Stories (`slow=1`) are read by Gemini's text-to-speech instead when the server has a Gemini key:
+a storyteller voice (`gemini-3.8-flash-tts`, voice Riko from the voice library, looked up by name), made once per story
+part and kept like Piper's clips, at most 300 new parts per family per day. If Gemini fails,
+Piper reads it slowly. To try another voice, audition them in Google AI Studio and run the
+install task again with `GEMINI_VOICE='…'` (the name AI Studio shows, or a `voice_…` ID from
+Voice design). `GEMINI_TTS_MODEL` changes the model.
+`/api/wonder/voice` says `"storyteller": true` when it's on.
 
 To switch it on, run the step 4 install task again (after Plesk has deployed the latest
 code). Its output ends with "The server's voice works." or says why Piper didn't run. Then

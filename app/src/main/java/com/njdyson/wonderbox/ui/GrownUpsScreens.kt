@@ -95,7 +95,7 @@ fun SettingsScreen(app: AppState, resumeCount: Int) {
         )
 
         OutlinedButton(onClick = { app.chooseSpeakTitles(!app.speakTitles) }) {
-            Text("Read titles aloud: ${if (app.speakTitles) "On" else "Off"}")
+            Text("Read menus aloud: ${if (app.speakTitles) "On" else "Off"}")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { app.say("Hello! This is the Wonder Box voice. What time does the clock say?") }) { Text("Test the voice") }

@@ -360,6 +360,13 @@ try:
     check = call("GET", "/api/wonder/voice")
     assert check["voice"] == bool(lib.get("voice")), check
     assert bool(check["problem"]) != check["voice"], check
+    # Stories are read by Gemini's storyteller when there's a key (tests/fake_gemini.py beeps).
+    if check["storyteller"]:
+        req = urllib.request.Request(BASE + "/api/wonder/speech?slow=1&text=" + urllib.parse.quote(f"Once upon a time {uuid.uuid4()}"), headers={"Authorization": token})
+        with urllib.request.urlopen(req) as res:
+            wav = res.read()
+            assert res.headers["Content-Type"] == "audio/wav" and wav[:4] == b"RIFF" and wav[8:12] == b"WAVE", wav[:16]
+            assert int.from_bytes(wav[40:44], "little") == len(wav) - 44 == 4800, len(wav)
 
     # Checking videos
     call("POST", "/api/wonder/videos/check", {"url": "https://example.com"}, token, expect=400)

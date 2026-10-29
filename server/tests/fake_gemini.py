@@ -5,9 +5,12 @@
     GEMINI_API_KEY=test GEMINI_URL=http://127.0.0.1:9099 ./pocketbase serve ...
 
 It answers every request with the same nine photo quiz questions (plus a few the server must
-drop), after checking that a photo came with it as base64 JPEG or PNG. Anything else, such as
-the story maker, gets a 400, so those checks see Gemini as failing.
+drop), after checking that a photo came with it as base64 JPEG or PNG. Text-to-speech requests
+(the Interactions API) in the voice Riko (looked up in the fake voice library) get a short beep as
+bare PCM, like the older TTS models send. Anything
+else, such as the story maker, gets a 400, so those checks see Gemini as failing.
 """
+import math
 import base64
 import json
 import sys
@@ -34,6 +37,8 @@ QUESTIONS = [
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        if self.path.endswith("/interactions"):
+            return self.speak(body)
         parts = (body.get("contents") or [{}])[0].get("parts") or []
         images = [p["inlineData"] for p in parts if "inlineData" in p]
         ok = bool(images) and self.headers.get("x-goog-api-key") and body.get("safetySettings")
@@ -47,6 +52,33 @@ class Handler(BaseHTTPRequestHandler):
             return
         answer = {"usable": True, "questions": QUESTIONS}
         reply = {"candidates": [{"content": {"parts": [{"text": json.dumps(answer)}]}}]}
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(reply).encode())
+
+    def do_GET(self):
+        # The voice library: knows Riko, by another ID.
+        if self.path.startswith("/v1beta/voices") and "search=Riko" in self.path:
+            reply = {"voices": [{"id": "riko-library-id", "displayName": "Riko"}, {"id": "x", "displayName": "Rikodo"}]}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(reply).encode())
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def speak(self, body):
+        text = (((body.get("input") or [{}])[0].get("content") or [{}])[0]).get("text")
+        voice = ((body.get("generation_config") or {}).get("speech_config") or [{}])[0].get("voice")
+        if not (text and voice == "riko-library-id" and "tts" in body.get("model", "") and self.headers.get("x-goog-api-key")):
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b'{"error": "not a speech request"}')
+            return
+        pcm = b"".join(int(8000 * math.sin(i / 10)).to_bytes(2, "little", signed=True) for i in range(2400))
+        reply = {"steps": [{"type": "model_output", "content": [{"type": "audio", "data": base64.b64encode(pcm).decode()}]}]}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()

@@ -149,12 +149,11 @@ fun VideosScreen(
         if (greeting != null && focusedKey == null) app.say(greeting)
         if (firstKey != null) restore.requestFocusWhenReady()
     }
-    // Read the title once focus settles, then preload its player if it stays there.
+    // Preload the player once focus settles there. Titles aren't read aloud: hearing every one
+    // while scrolling past was annoying (menus and game answers still are).
     LaunchedEffect(focusedVideo?.id) {
         val video = focusedVideo ?: return@LaunchedEffect
-        delay(400)
-        app.speak(video.title)
-        delay(1_100)
+        delay(1_500)
         PlayerWebView.preload(context, video.youtubeId)
     }
     DisposableEffect(Unit) {

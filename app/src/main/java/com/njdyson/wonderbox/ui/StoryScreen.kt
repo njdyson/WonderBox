@@ -375,7 +375,8 @@ private fun TheEnd(
  * (some TVs never say when they've finished, or can't speak at all).
  */
 internal suspend fun AppState.sayAndWait(text: String, slow: Boolean = false) {
-    val estimate = 3_000L + text.split(' ').size * (if (slow) 800L else 600L)
+    // Stories allow longer: the storyteller voice may still be recording a part the first time.
+    val estimate = if (slow) 15_000L + text.split(' ').size * 900L else 3_000L + text.split(' ').size * 700L
     withTimeoutOrNull(estimate) {
         suspendCancellableCoroutine { c -> say(text, onDone = { if (c.isActive) c.resume(Unit) }, slow = slow) }
     }

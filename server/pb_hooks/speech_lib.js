@@ -4,8 +4,18 @@
 // voice, for TVs whose own text-to-speech is missing or poor (some Fire TV sticks). install.sh
 // puts Piper and a voice in /opt/wonderbox/piper and sets PIPER_BIN and PIPER_VOICE. Each
 // clip is made once and kept in <data>/speech, named by a hash of the voice and the text.
+// Stories (slow) are read by Gemini's storyteller voice instead when the server has a Gemini
+// key (gemini_lib.js), with Piper as the fallback.
 
 const MAX_TEXT = 700
+
+// Piper's pace: length_scale (above 1 is slower) and seconds of silence between sentences.
+// Everyday reading is a little slower than Piper's own pace, for young children.
+const PACE = { normal: ["1.2", "0.35"], slow: ["1.4", "0.7"] }
+
+// How the storyteller reads, and how many new story clips a family can have made per day.
+const STORY_STYLE = "a gentle, warm bedtime storyteller reading to a young child: soft, slow and calm, with expressive, playful character voices"
+const STORY_CLIPS_PER_DAY = 300
 
 function config() {
   const bin = $os.getenv("PIPER_BIN")
@@ -30,7 +40,7 @@ function problem() {
   return ""
 }
 
-/** True when this server can speak. */
+/** True when this server can speak (Piper; the storyteller alone isn't enough for everything else). */
 function available() {
   return config() !== null
 }
@@ -41,15 +51,21 @@ function clean(text) {
 }
 
 /**
- * The path of a WAV file of [text] being read, made now if it isn't already. [slow] reads it
- * more slowly, with longer pauses between sentences, for stories.
+ * The path of a WAV file of [text] being read, made now if it isn't already. [slow] is for
+ * stories: Gemini's storyteller when it can (counted against [userId]'s day), otherwise Piper
+ * reading more slowly, with longer pauses between sentences.
  */
-function clip(text, slow) {
+function clip(text, slow, userId) {
+  if (slow) {
+    const told = story(text, userId)
+    if (told) return told
+  }
   const c = config()
   if (!c) throw new NotFoundError("This server has no voice.")
   const dir = `${$app.dataDir()}/speech`
   $os.mkdirAll(dir, 0o755)
-  const name = $security.sha256(`${c.voice}\n${slow ? "slow\n" : ""}${text}`)
+  const pace = slow ? PACE.slow : PACE.normal
+  const name = $security.sha256(`${c.voice}\n${pace.join(" ")}\n${text}`)
   const wav = `${dir}/${name}.wav`
   try {
     $os.stat(wav)
@@ -60,7 +76,6 @@ function clip(text, slow) {
   $os.writeFile(input, text, 0o644)
   try {
     // The paths go in as arguments, never into the shell command, so no text can run as code.
-    const pace = slow ? ["1.3", "0.6"] : ["1", "0.2"]
     $os.cmd("sh", "-c", '"$0" --model "$1" --output_file "$2" --length_scale "$4" --sentence_silence "$5" < "$3"', c.bin, c.voice, part, input, pace[0], pace[1]).combinedOutput()
     $os.stat(part)
     $os.rename(part, wav)
@@ -73,4 +88,35 @@ function clip(text, slow) {
   return wav
 }
 
-module.exports = { available, problem, clean, clip, MAX_TEXT }
+/** The path of Gemini's storyteller reading [text], made now if need be; null if it can't. */
+function story(text, userId) {
+  const gemini = require(`${__hooks}/gemini_lib.js`)
+  if (!gemini.available()) return null
+  const dir = `${$app.dataDir()}/speech`
+  $os.mkdirAll(dir, 0o755)
+  const name = $security.sha256(`gemini\n${gemini.ttsModel()}\n${gemini.voice()}\n${STORY_STYLE}\n${text}`)
+  const wav = `${dir}/${name}.wav`
+  try {
+    $os.stat(wav)
+    return wav
+  } catch (_) {}
+  try {
+    gemini.allow(userId || "", "voice", STORY_CLIPS_PER_DAY)
+    const bytes = gemini.speak(text, STORY_STYLE)
+    if (!bytes) return null
+    const part = `${dir}/${name}.part.wav`
+    $os.writeFile(part, bytes, 0o644)
+    $os.rename(part, wav)
+    return wav
+  } catch (err) {
+    console.log(`storyteller voice: ${err}`)
+    return null
+  }
+}
+
+/** Whether stories are read by Gemini's storyteller (the server has a Gemini key). */
+function storyteller() {
+  return require(`${__hooks}/gemini_lib.js`).available()
+}
+
+module.exports = { available, problem, clean, clip, storyteller, MAX_TEXT }

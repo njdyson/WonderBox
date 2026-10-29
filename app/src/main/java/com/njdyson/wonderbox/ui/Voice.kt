@@ -68,7 +68,7 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
                 ttsEngine = t.defaultEngine.orEmpty()
                 choices = choicesFor(t)
                 if (!useNext(t)) ttsProblem = "this TV's text-to-speech has no language it can use"
-                t.setSpeechRate(0.9f)
+                t.setSpeechRate(NORMAL_RATE)
                 ttsReady = true
             } else {
                 ttsProblem = if (t?.engines.isNullOrEmpty()) "this TV has no text-to-speech engine" else "this TV's text-to-speech wouldn't start"
@@ -166,7 +166,8 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
 
     /**
      * Reads [text] aloud, replacing anything still being said. [onDone] once it's been said (not
-     * if it's cut short). [slow] reads it more slowly, with longer pauses, for stories.
+     * if it's cut short). [slow] is for stories: the server's storyteller voice (Gemini) when it has
+     * one, otherwise read more slowly, with longer pauses.
      */
     fun say(text: String, onDone: (() -> Unit)? = null, slow: Boolean = false) {
         if (text.isBlank()) {
@@ -236,7 +237,7 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     private fun speakHere(text: String) {
         if (!ttsReady) return
         utterances++
-        tts?.setSpeechRate(if (lastSlow) 0.7f else 0.9f)
+        tts?.setSpeechRate(if (lastSlow) SLOW_RATE else NORMAL_RATE)
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "wonderbox$utterances")
     }
 
@@ -325,5 +326,9 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     companion object {
         /** After this many failed clips, the server's voice is left alone until the app restarts. */
         const val MAX_SERVER_FAILURES = 3
+
+        /** This TV's own voice's pace (1 is the engine's usual): a bit slow for young children, slower for stories. */
+        const val NORMAL_RATE = 0.8f
+        const val SLOW_RATE = 0.65f
     }
 }

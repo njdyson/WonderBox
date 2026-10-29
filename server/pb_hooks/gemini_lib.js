@@ -1,13 +1,18 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Google Gemini, for anything on the server that writes or draws (the story maker in
-// story_lib.js, menu pictures, the photo quiz's questions), loaded with require(). One key for
-// everything: GEMINI_API_KEY in <data>/wonderbox.env (deploy/install.sh). GEMINI_MODEL and
-// GEMINI_IMAGE_MODEL change the default models; GEMINI_URL points somewhere else, for tests.
+// Google Gemini, for anything on the server that writes, draws or reads aloud (the story maker
+// in story_lib.js, menu pictures, the photo quiz's questions, the storyteller voice in
+// speech_lib.js), loaded with require(). One key for everything: GEMINI_API_KEY in
+// <data>/wonderbox.env (deploy/install.sh). GEMINI_MODEL, GEMINI_IMAGE_MODEL and
+// GEMINI_TTS_MODEL change the default models, GEMINI_VOICE the storyteller's voice;
+// GEMINI_URL points somewhere else, for tests.
 // Every call has Google's safety filters at their strictest, since it's all for children.
 
 const TEXT_MODEL = "gemini-3.6-flash"
 const IMAGE_MODEL = "gemini-2.5-flash-image"
+const TTS_MODEL = "gemini-3.8-flash-tts"
+// The storyteller: Nick's pick from Google AI Studio's voice library (2026-10-29).
+const VOICE = "Riko"
 
 const SAFETY = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]
   .map((category) => ({ category, threshold: "BLOCK_LOW_AND_ABOVE" }))
@@ -22,6 +27,44 @@ function textModel() {
 
 function imageModel() {
   return ($os.getenv("GEMINI_IMAGE_MODEL") || IMAGE_MODEL).replace(/[^a-zA-Z0-9.\-_]/g, "")
+}
+
+function ttsModel() {
+  return ($os.getenv("GEMINI_TTS_MODEL") || TTS_MODEL).replace(/[^a-zA-Z0-9.\-_]/g, "")
+}
+
+/**
+ * The storyteller's voice for the TTS models: a voice_… ID as it is, otherwise the name as AI
+ * Studio shows it (like "Riko"), looked up once in the voice library for its ID. A prebuilt
+ * name, or one the library doesn't know, is used as it is.
+ */
+function voice() {
+  const name = ($os.getenv("GEMINI_VOICE") || VOICE).replace(/[^a-zA-Z0-9.\-_]/g, "")
+  if (/^voice(key)?_/.test(name)) return name
+  const cacheKey = `wonderbox_gemini:voice:${name}`
+  const cached = $app.store().get(cacheKey)
+  if (cached) return cached
+  let id = name
+  try {
+    const res = $http.send({
+      url: apiUrl(`voices?search=${encodeURIComponent(name)}&page_size=50`),
+      method: "GET",
+      headers: { "x-goog-api-key": $os.getenv("GEMINI_API_KEY") || "" },
+      timeout: 15,
+    })
+    const found = ((res.statusCode === 200 && res.json && res.json.voices) || [])
+      .find((v) => String(v.displayName || v.display_name || "").toLowerCase() === name.toLowerCase())
+    if (found) id = String(found.id || String(found.name || "").replace(/^voices\//, "") || name)
+    else console.log(`gemini voices: no voice called ${name} (answered ${res.statusCode}), trying the name as it is`)
+  } catch (err) {
+    console.log(`gemini voices: ${err}`)
+  }
+  $app.store().set(cacheKey, id)
+  return id
+}
+
+function apiUrl(path) {
+  return `${($os.getenv("GEMINI_URL") || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/${path}`
 }
 
 /**
@@ -45,7 +88,7 @@ function generate(model, body, timeout, fallback) {
   if (!key) throw new ApiError(503, "This needs a Gemini key on the server.")
   body.safetySettings = SAFETY
   const send = () => $http.send({
-    url: `${($os.getenv("GEMINI_URL") || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models/${model}:generateContent`,
+    url: apiUrl(`models/${model}:generateContent`),
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify(body),
@@ -112,6 +155,58 @@ function drawImage(prompt, aspect) {
   return { type: String(image.mimeType || image.mime_type || "image/png"), bytes: base64Bytes(image.data) }
 }
 
+/**
+ * [text] read aloud by [voice()], delivered as [style] says (like "gentle and slow"), as the
+ * bytes of a WAV file; null if it couldn't. Uses the Interactions API, which the TTS models
+ * answer on.
+ */
+function speak(text, style) {
+  const key = $os.getenv("GEMINI_API_KEY")
+  if (!key) return null
+  const body = {
+    model: ttsModel(),
+    input: [{ type: "user_input", content: [{ type: "text", text, annotations: style ? [{ type: "speech_metadata", style }] : [] }] }],
+    response_format: { type: "audio" },
+    generation_config: { speech_config: [{ voice: voice() }] },
+  }
+  const res = $http.send({
+    url: apiUrl("interactions"),
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify(body),
+    timeout: 90,
+  })
+  if (res.statusCode !== 200 || !res.json) {
+    console.log(`gemini ${body.model}: answered ${res.statusCode}: ${String(toString(res.body)).slice(0, 300)}`)
+    return null
+  }
+  // The last audio block of the model's output.
+  let data = ""
+  for (const step of res.json.steps || []) {
+    for (const c of step.content || []) if (c && c.type === "audio" && c.data) data = c.data
+  }
+  if (!data && res.json.output_audio) data = res.json.output_audio.data || ""
+  if (!data) return null
+  const bytes = base64Bytes(data)
+  // Older TTS models send bare PCM (16-bit, 24 kHz, mono): give it a WAV header.
+  return isWav(bytes) ? bytes : wav(bytes, 24000)
+}
+
+function isWav(bytes) {
+  return bytes.length > 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70
+}
+
+/** 16-bit mono [pcm] at [rate] as a WAV file's bytes. */
+function wav(pcm, rate) {
+  const head = []
+  const text = (t) => { for (let i = 0; i < t.length; i++) head.push(t.charCodeAt(i)) }
+  const int = (n, size) => { for (let i = 0; i < size; i++) head.push((n >> (8 * i)) & 255) }
+  text("RIFF"); int(36 + pcm.length, 4); text("WAVE")
+  text("fmt "); int(16, 4); int(1, 2); int(1, 2); int(rate, 4); int(rate * 2, 4); int(2, 2); int(16, 2)
+  text("data"); int(pcm.length, 4)
+  return head.concat(pcm)
+}
+
 /** Standard base64 to bytes (the JS hooks have no decoder of their own). */
 function base64Bytes(text) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -148,4 +243,4 @@ function base64Text(bytes) {
   return out.join("")
 }
 
-module.exports = { available, allow, generate, answerParts, writeJson, drawImage, base64Bytes, base64Text, textModel, imageModel }
+module.exports = { available, allow, generate, answerParts, writeJson, drawImage, speak, base64Bytes, base64Text, textModel, imageModel, ttsModel, voice }
