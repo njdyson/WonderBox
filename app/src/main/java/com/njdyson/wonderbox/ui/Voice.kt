@@ -52,8 +52,14 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
     /** Counts what's been said or stopped, so a story clip that arrives late doesn't talk over something newer. */
     private var request = 0
 
-    /** Story clips, kept here once downloaded (the server keeps them too). */
-    private val clips = File(this.context.cacheDir, "speech").apply { mkdirs() }
+    /**
+     * Story clips, kept here once downloaded (the server keeps them too). Named for the server's
+     * version of them: the first ones ended in a burst of static, so those are thrown away.
+     */
+    private val clips = File(this.context.cacheDir, "story-clips-2").apply {
+        File(this@Voice.context.cacheDir, "speech").deleteRecursively()
+        mkdirs()
+    }
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
