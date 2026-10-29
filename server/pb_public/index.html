@@ -24,11 +24,21 @@
    * the screen when a whole page scrolls (after a dropdown, the keyboard or rotating), which
    * left the tab bar floating halfway up.
    */
-  html, body { height: 100%; overflow: hidden; }
+  /* The tab bar's colour, so any strip the phone leaves below the app looks like part of the bar */
+  html { height: 100%; overflow: hidden; background: var(--deep); }
+  body { overflow: hidden; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     position: fixed; inset: 0; display: flex; flex-direction: column;
+  }
+  /*
+   * Opened from the Home Screen, iPhones can make the fixed box shorter than the screen, leaving
+   * a band under the tab bar. There's no browser toolbar there, so the full screen height (lvh)
+   * is always right.
+   */
+  @media (display-mode: standalone) {
+    body { bottom: auto; height: 100vh; height: 100lvh; }
   }
   #scroller {
     flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
