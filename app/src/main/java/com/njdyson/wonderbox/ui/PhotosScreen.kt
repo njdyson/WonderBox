@@ -58,10 +58,13 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import coil.imageLoader
+import coil.request.CachePolicy
+import coil.request.Disposable
 import coil.request.ImageRequest
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.data.Photo
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.put
 
 /** How long each photo stays up when the slideshow plays by itself. */
 private const val SLIDE_MS = 6_000L
@@ -100,6 +103,8 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0, seed: Long = 0L
     var videoOn by remember(photo.id) { mutableStateOf(false) }
     var videoPaused by remember(photo.id) { mutableStateOf(false) }
     var videoFailed by remember(photo.id) { mutableStateOf(false) }
+    // Times the full photo has failed to load and been asked for again.
+    var imageTries by remember(photo.id) { mutableStateOf(0) }
 
     fun step(delta: Int) {
         index = (current + delta).mod(photos.size)
@@ -137,10 +142,29 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0, seed: Long = 0L
                 true
             },
     ) {
+        // The thumbnail first (it's already loaded from the Photos screen), the full photo over
+        // it once it arrives. If the full photo won't load it's asked for twice more fresh from the
+        // server, and failing that the thumbnail stays, so the screen is never left blank.
         AsyncImage(
-            model = photoRequest(context, app, photo, crossfade = true),
+            model = ImageRequest.Builder(context)
+                .data(app.photoUrl(photo.thumb.ifBlank { photo.image }))
+                .addHeader("X-Device-Key", app.deviceKey.orEmpty())
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+        AsyncImage(
+            model = photoRequest(context, app, photo, crossfade = true, attempt = imageTries),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            onError = { error ->
+                val problem = error.result.throwable
+                EventLog.log("photo.fail", childId, subject = photo.id, value = imageTries + 1.0) {
+                    put("error", "${problem::class.java.simpleName}: ${problem.message.orEmpty()}".take(200))
+                }
+                if (imageTries < 2) imageTries++
+            },
             modifier = Modifier.fillMaxSize(),
         )
         if (photo.isVideo && videoOn) {
@@ -228,12 +252,27 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0, seed: Long = 0L
             if (seconds >= 1) EventLog.log("photo.view", childId, subject = photo.id, value = seconds)
         }
     }
-    // Load the neighbours ahead of time.
+    // Load the neighbours ahead of time, no bigger than the screen (as the photo on screen is),
+    // so a few of them don't fill the TV's memory. Loads for photos that are no longer next door
+    // are called off: left running, flipping quickly piled up loads for photos long gone, and the
+    // photo on screen had to wait behind them all.
+    val preloads = remember { mutableMapOf<String, Disposable>() }
     LaunchedEffect(current, photos.size) {
-        for (delta in listOf(1, -1, 2)) {
-            val next = photos[(current + delta).mod(photos.size)]
-            context.imageLoader.enqueue(photoRequest(context, app, next, crossfade = false))
+        val screen = context.resources.displayMetrics
+        val near = listOf(1, -1, 2).map { photos[(current + it).mod(photos.size)] }.filter { it.id != photo.id }
+        val nearIds = near.map { it.id }.toSet()
+        preloads.keys.filter { it !in nearIds }.forEach { id -> preloads.remove(id)?.dispose() }
+        for (next in near) {
+            if (preloads[next.id]?.isDisposed == false) continue
+            preloads[next.id] = context.imageLoader.enqueue(
+                photoRequest(context, app, next, crossfade = false).newBuilder()
+                    .size(screen.widthPixels, screen.heightPixels)
+                    .build(),
+            )
         }
+    }
+    DisposableEffect(Unit) {
+        onDispose { preloads.values.forEach { it.dispose() } }
     }
 }
 
@@ -270,7 +309,9 @@ private fun HomeVideoPlayer(url: String, deviceKey: String, paused: Boolean, onE
                     setVideoURI(Uri.parse(url), mapOf("X-Device-Key" to deviceKey))
                     start()
                 }
-                addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+                // Given the whole screen, VideoView fits the video in it at its own shape. With
+                // WRAP_CONTENT it stays at the video's own pixel size, small on a 1080p TV.
+                addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER))
                 view = video
             }
         },
@@ -284,12 +325,23 @@ private fun HomeVideoPlayer(url: String, deviceKey: String, paused: Boolean, onE
     }
 }
 
-/** The protected photo file, with this TV's key so the server hands it over. */
-private fun photoRequest(context: Context, app: AppState, photo: Photo, crossfade: Boolean): ImageRequest =
+/**
+ * The protected photo file, with this TV's key so the server hands it over. Asking again after
+ * a failure ([attempt] over 0) skips the copy saved on the TV, in case that's what's broken.
+ */
+private fun photoRequest(context: Context, app: AppState, photo: Photo, crossfade: Boolean, attempt: Int = 0): ImageRequest =
     ImageRequest.Builder(context)
         .data(app.photoUrl(photo.image))
         .addHeader("X-Device-Key", app.deviceKey.orEmpty())
         .crossfade(if (crossfade) 400 else 0)
+        .apply {
+            if (attempt > 0) {
+                diskCachePolicy(CachePolicy.WRITE_ONLY)
+                memoryCachePolicy(CachePolicy.WRITE_ONLY)
+                // A different request each time, so the photo on screen asks again.
+                setParameter("attempt", attempt, memoryCacheKey = null)
+            }
+        }
         .build()
 
 /**
