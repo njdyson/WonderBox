@@ -27,7 +27,8 @@
   /* The tab bar's colour, so any strip the phone leaves below the app looks like part of the bar */
   html { height: 100%; background: var(--deep); }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
+    /* The bar's colour: iPhones fill the strip under a short Home Screen view with the page's colour */
+    margin: 0; background: var(--deep); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     position: fixed; inset: 0; display: flex; flex-direction: column;
   }
@@ -41,7 +42,7 @@
   .short-view .tabbar { padding-bottom: 6px; }
   #scroller {
     flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
-    padding: 0 16px 28px;
+    padding: 0 16px 28px; background: var(--bg);
   }
   header {
     flex: none; background: var(--bg); min-height: 56px; box-sizing: content-box;
