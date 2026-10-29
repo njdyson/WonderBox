@@ -75,8 +75,6 @@ fun StoryLibraryScreen(app: AppState, child: Child, canMake: Boolean, onNew: () 
 private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, canMake: Boolean, onNew: () -> Unit, onOpen: (SavedStory) -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocusWhenReady() }
-    // Have the storyteller ready for every page, not just the first.
-    LaunchedEffect(story.id) { app.voice.prepare(story.parts.map { it.text }, slow = true) }
     Column(Modifier.fillMaxSize().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "📖", "Stories", "") }
         LazyVerticalGrid(
