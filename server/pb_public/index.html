@@ -24,22 +24,19 @@
    * the screen when a whole page scrolls (after a dropdown, the keyboard or rotating), which
    * left the tab bar floating halfway up.
    */
-  /* The tab bar's colour, so any strip the phone leaves below the app looks like part of the bar */
-  html { height: 100%; background: var(--deep); }
-  body {
-    /* The bar's colour: iPhones fill the strip under a short Home Screen view with the page's colour */
-    margin: 0; background: var(--deep); color: var(--text);
-    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    position: fixed; inset: 0; display: flex; flex-direction: column;
-  }
   /*
-   * Opened from the Home Screen, some iPhones place fixed things in a box that stops short of
-   * the bottom of the screen, though the page still draws below it. The bar's colour carries on
-   * underneath it (.tabbar::after) to fill that strip, so it needs no room for the home bar.
-   * fitView() sets .short-view. Nothing here may set overflow: hidden on html or body, which
-   * would cut that strip off; body being position: fixed already stops the page scrolling.
+   * Opened from the Home Screen, iPhones make the view shorter than the screen (by the status
+   * bar's height) though they still draw the page from the very top, which left a gap under the
+   * tab bar. fitView() measures that shortfall and html grows by it, so the bar reaches the bottom.
+   * The page itself never scrolls: only #scroller does.
    */
-  .short-view .tabbar { padding-bottom: 6px; }
+  html, body { height: 100%; overflow: hidden; background: var(--deep); }
+  html { height: calc(100% + var(--viewport-shortfall, 0px)); }
+  body {
+    margin: 0; color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+  }
   #scroller {
     flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
     padding: 0 16px 28px; background: var(--bg);
@@ -165,10 +162,9 @@
   .tv .face { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; flex: none; }
 
   /* The tab bar along the bottom, like a phone app's */
-  .tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 200px; background: var(--deep); }
   .tabbar {
     flex: none; display: flex; gap: 2px; z-index: 10; position: relative;
-    background: var(--deep); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: var(--deep); padding: 6px 6px max(6px, calc(env(safe-area-inset-bottom) - 14px));
     box-shadow: 0 -4px 16px rgba(0,0,0,.25);
   }
   .tabbar button {
@@ -1546,19 +1542,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 // the box being typed in, and sometimes leave it there when the keyboard closes. Put it back.
 const remeasure = () => setTimeout(() => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); }, 60);
 
-/** Notices a Home Screen view that's shorter than the screen (see .short-view). */
-function fitView() {
+/** How much shorter than the screen an iPhone makes the Home Screen view (see html's height). */
+function viewShortfall() {
   const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
-  const portrait = window.innerWidth < window.innerHeight;
-  document.documentElement.classList.toggle("short-view", !!standalone && portrait && screen.height - window.innerHeight > 20);
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!standalone || !ios) return 0;
+  const portrait = window.innerHeight >= window.innerWidth;
+  const screenHeight = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+  const shortfall = Math.round(screenHeight - window.innerHeight);
+  return shortfall > 0 && shortfall <= 100 ? shortfall : 0;
+}
+
+function fitView() {
+  // The keyboard shrinks the view too; leave things alone until it's gone.
+  const el = document.activeElement;
+  if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+  const shortfall = viewShortfall();
+  document.documentElement.style.setProperty("--viewport-shortfall", `${shortfall}px`);
+  if (shortfall && (window.scrollY || window.scrollX)) window.scrollTo(0, 0);
   // Sizes for sorting out phone layout problems from a screenshot.
+  const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
   const info = document.getElementById("screenInfo");
-  if (info) info.textContent = `${standalone ? "Home Screen app" : "Browser"} · screen ${screen.width}×${screen.height} · view ${window.innerWidth}×${window.innerHeight} · page ${document.body.offsetHeight}`;
+  if (info) info.textContent = `${standalone ? "Home Screen app" : "Browser"} · screen ${screen.width}×${screen.height} · view ${window.innerWidth}×${window.innerHeight} · page ${document.documentElement.offsetHeight} · +${shortfall}`;
 }
 fitView();
 window.addEventListener("resize", fitView);
 window.addEventListener("orientationchange", () => setTimeout(fitView, 300));
 document.addEventListener("focusout", remeasure);
+document.addEventListener("focusout", () => setTimeout(fitView, 300));
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") fitView(); });
 window.addEventListener("orientationchange", remeasure);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", remeasure);
 </script>
