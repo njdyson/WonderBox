@@ -18,19 +18,55 @@
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html, body { overflow-x: hidden; }
+  /*
+   * The page itself never scrolls: the header and the tab bar sit above and below #scroller,
+   * which is the only part that moves. iPhones lose track of position: fixed and the bottom of
+   * the screen when a whole page scrolls (after a dropdown, the keyboard or rotating), which
+   * left the tab bar floating halfway up.
+   */
+  html, body { height: 100%; overflow: hidden; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    padding: 0 16px calc(96px + env(safe-area-inset-bottom));
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+  }
+  #scroller {
+    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+    padding: 0 16px 28px;
   }
   header {
-    position: sticky; top: 0; z-index: 2; background: var(--bg);
-    padding: calc(14px + env(safe-area-inset-top)) 0 10px; display: flex; align-items: center; gap: 8px;
+    flex: none; background: var(--bg); min-height: 56px; box-sizing: content-box;
+    padding: calc(8px + env(safe-area-inset-top)) 16px 8px; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.08);
   }
+  .brand { display: flex; align-items: center; gap: 6px; }
   .logo { background: var(--accent); color: var(--deep); font-weight: 900; letter-spacing: .5px; padding: 3px 10px; border-radius: 999px; }
   .logo + b { font-weight: 900; color: var(--coral); }
-  #status { margin-left: auto; font-size: 12px; color: var(--muted); }
+  #status { font-size: 12px; color: var(--muted); }
+  .back { background: rgba(255,255,255,.12); color: var(--text); font-size: 22px; line-height: 1; width: 40px; height: 40px; padding: 0 0 3px; border-radius: 50%; flex: none; }
+  #pageTitle { font-weight: 800; font-size: 19px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spacer { flex: 1; }
+  /* Whose things the tab shows: every child's face, the chosen one with their name */
+  .kid-switch { display: flex; gap: 6px; align-items: center; flex: none; }
+  .kid-switch button { display: flex; align-items: center; gap: 6px; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.1); color: var(--text); font-weight: 800; font-size: 15px; }
+  .kid-switch .face { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; opacity: .55; }
+  .kid-switch button.on { background: var(--text); color: var(--deep); padding-right: 12px; }
+  .kid-switch button.on .face { opacity: 1; }
+  .tab-title { font-size: 26px; font-weight: 900; margin: 16px 0 2px; letter-spacing: -.3px; }
+  .tab-title + .muted { margin-bottom: 4px; }
+
+  /* A row that opens a page: a game's settings, the TV menu pictures */
+  .nav-list { background: var(--card); border-radius: 14px; overflow: hidden; margin-top: 12px; }
+  .nav-row { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; cursor: pointer; border-top: 1px solid rgba(255,255,255,.08); -webkit-tap-highlight-color: transparent; }
+  .nav-row:first-child { border-top: 0; }
+  .nav-row:active { background: rgba(255,255,255,.08); }
+  .nav-row .grow { display: grid; gap: 1px; }
+  .nav-row b { font-size: 17px; }
+  .nav-sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(0,0,0,.18); display: grid; place-items: center; font-size: 22px; flex: none; }
+  .nav-row.off .nav-icon, .nav-row.off b { opacity: .55; }
+  .chev { font-size: 26px; color: var(--muted); line-height: 1; flex: none; margin-left: 2px; }
+  .fine-tune { font-size: 13px; letter-spacing: 1.5px; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-top: 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); }
   h2 { font-size: 13px; letter-spacing: 2px; color: var(--accent); margin: 22px 0 8px; }
   input[type=url], input[type=text], input[type=email], input[type=password] {
     width: 100%; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 12px;
@@ -51,6 +87,7 @@
   .grow { flex: 1; min-width: 0; }
   .muted { color: var(--muted); font-size: 14px; }
   .error { background: #8a2340; border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+  .link-box { background: rgba(0,0,0,.2); border-radius: 10px; padding: 10px 12px; font-size: 14px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
 
   /* The video being added */
   .preview { display: flex; gap: 12px; align-items: center; }
@@ -119,12 +156,10 @@
 
   /* The tab bar along the bottom, like a phone app's */
   .tabbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; gap: 2px;
+    flex: none; display: flex; gap: 2px; z-index: 10;
     background: var(--deep); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     box-shadow: 0 -4px 16px rgba(0,0,0,.25);
   }
-  /* Its colour carries on below it, so if the phone ever leaves a gap under the bar it isn't seen. */
-  .tabbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--deep); }
   .tabbar button {
     flex: 1; min-width: 0; display: grid; justify-items: center; gap: 1px; padding: 6px 2px;
     background: transparent; color: var(--muted); font-size: 12px; font-weight: 700;
@@ -147,7 +182,7 @@
   .sheet {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 18; background: var(--card);
     border-radius: 18px 18px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
-    max-height: 85vh; overflow-y: auto; box-shadow: 0 -8px 30px rgba(0,0,0,.4);
+    max-height: 85%; overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 -8px 30px rgba(0,0,0,.4);
   }
   .picker { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
   .picker button { padding: 4px 0; font-size: 22px; background: rgba(255,255,255,.1); display: grid; place-items: center; }
@@ -167,7 +202,18 @@
 </style>
 </head>
 <body>
-<header><span class="logo">Wonder</span><b>Box</b><span id="status"></span></header>
+<header>
+  <button type="button" class="back" id="backBtn" aria-label="Back" hidden>‹</button>
+  <span class="brand" id="brand"><span class="logo">Wonder</span><b>Box</b></span>
+  <span id="pageTitle" hidden></span>
+  <span class="spacer"></span>
+  <span id="status"></span>
+  <!-- Whose videos, quizzes, games and photos: the same choice in every tab -->
+  <div class="kid-switch" id="kidSwitch" hidden></div>
+</header>
+
+<main id="scroller">
+<div id="error"></div>
 
 <!-- Signed out -->
 <section id="loginView" hidden>
@@ -176,61 +222,56 @@
     <input type="email" id="email" placeholder="Email" autocomplete="username" required>
     <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
     <button>Sign in</button>
-    <div class="muted">Grown-ups only. Accounts are set up in the server's dashboard.</div>
+    <div class="muted">Grown-ups only. New here? Ask whoever set up Wonder Box to send you an invite from Family, Grown-ups.</div>
   </form>
 </section>
+
+<!-- Opened from an invite link (/#join=CODE): make an account in that family -->
+<section id="joinView" hidden></section>
 
 <!-- Signed in: one tab at a time, picked from the bar at the bottom -->
 <section id="mainView" hidden>
   <div id="pairCard"></div>
 
   <section class="tab" id="videosTab" data-tab="videos">
-    <h2>ADD A VIDEO, SONG, CHANNEL OR PLAYLIST</h2>
-    <form class="row" id="addForm">
+    <div class="tab-title" id="videosTitle">Videos</div>
+    <form class="row" id="addForm" style="margin-top:10px">
       <input type="text" id="link" class="grow" placeholder="Search YouTube, or paste a link" autocomplete="off" autocapitalize="off" enterkeyhint="search">
       <button id="checkBtn">Search</button>
     </form>
     <div id="adding"></div>
 
-    <h2>WHOSE VIDEOS</h2>
-    <div class="kids kid-pick"></div>
-
     <!-- One kind at a time, like the tiles on the TV's home page -->
-    <h2 id="videosHeading">VIDEOS</h2>
+    <h2 id="videosHeading">ON THE TV</h2>
     <div class="kinds" id="kinds"></div>
     <input type="text" id="find" placeholder="Find in this list" autocomplete="off" autocapitalize="off" enterkeyhint="search" hidden>
     <div class="card" id="videos"></div>
   </section>
 
   <section class="tab" id="quizzesTab" data-tab="quizzes" hidden>
-    <h2>WHOSE QUIZZES</h2>
-    <div class="kids kid-pick"></div>
+    <div class="tab-title" id="quizzesTitle">Quizzes</div>
     <div class="card empty games-empty" hidden>Add a child in Family first, then choose their quizzes here.</div>
 
-    <h2 id="gamesHeading">QUIZZES</h2>
-    <div class="card stack" id="games"></div>
+    <h2 id="gamesHeading">READY-MADE QUIZZES</h2>
+    <div class="nav-list" id="games"></div>
 
     <h2>MY QUIZZES</h2>
     <div class="card stack" id="quizzes"></div>
   </section>
 
   <section class="tab" id="gamesTab" data-tab="games" hidden>
-    <h2>WHOSE GAMES</h2>
-    <div class="kids kid-pick"></div>
+    <div class="tab-title" id="gamesTitle">Games</div>
     <div class="card empty games-empty" hidden>Add a child in Family first, then choose their games here.</div>
 
-    <h2 id="playHeading">GAMES</h2>
-    <div class="card stack" id="playGames"></div>
+    <h2 id="playHeading">GAMES TO PLAY</h2>
+    <div class="nav-list" id="playGames"></div>
 
     <h2 id="treatsHeading">TREATS, SOUNDS AND MUSIC</h2>
-    <div class="card stack" id="treatRules"></div>
+    <div class="nav-list" id="treatRules"></div>
   </section>
 
   <section class="tab" id="photosTab" data-tab="photos" hidden>
-    <h2>WHOSE PHOTOS</h2>
-    <div class="kids kid-pick"></div>
-
-    <h2 id="photosHeading">PHOTOS</h2>
+    <div class="tab-title" id="photosHeading">Photos</div>
     <div class="card stack">
       <button type="button" id="addPhotosBtn">Add photos or videos</button>
       <input type="file" id="photoFiles" accept="image/*,video/*" multiple hidden>
@@ -240,19 +281,21 @@
   </section>
 
   <section class="tab" id="statsTab" data-tab="stats" hidden>
-    <h2>STATS</h2>
+    <div class="tab-title">Stats</div>
     <div id="stats"></div>
   </section>
 
   <section class="tab" id="familyTab" data-tab="family" hidden>
+    <div class="tab-title">Family</div>
     <h2>CHILDREN</h2>
     <div class="card" id="family"></div>
 
+    <h2>GROWN-UPS</h2>
+    <div class="card stack" id="grownUps"></div>
+
     <h2>YOUR TVS</h2>
     <div class="card" id="tvs"></div>
-
-    <h2>TV MENU PICTURES</h2>
-    <div class="card stack" id="menuPictures"></div>
+    <div class="nav-list" id="menuRow"></div>
 
     <h2>YOU</h2>
     <div class="card row">
@@ -261,17 +304,23 @@
     </div>
   </section>
 
-  <nav class="tabbar" id="tabbar">
-    <button type="button" data-tab="videos"><span>📺</span>Videos</button>
-    <button type="button" data-tab="quizzes"><span>🧠</span>Quizzes</button>
-    <button type="button" data-tab="games"><span>🎮</span>Games</button>
-    <button type="button" data-tab="photos"><span>🖼️</span>Photos</button>
-    <button type="button" data-tab="stats"><span>📊</span>Stats</button>
-    <button type="button" data-tab="family"><span>👪</span>Family</button>
-  </nav>
+  <!-- A page inside a tab: one game's settings, or the TV menu pictures -->
+  <section id="pageView" hidden>
+    <div id="pageBody"></div>
+    <div class="card stack" id="menuPictures" hidden></div>
+  </section>
 </section>
+</main>
 
-<div id="error"></div>
+<nav class="tabbar" id="tabbar" hidden>
+  <button type="button" data-tab="videos"><span>📺</span>Videos</button>
+  <button type="button" data-tab="quizzes"><span>🧠</span>Quizzes</button>
+  <button type="button" data-tab="games"><span>🎮</span>Games</button>
+  <button type="button" data-tab="photos"><span>🖼️</span>Photos</button>
+  <button type="button" data-tab="stats"><span>📊</span>Stats</button>
+  <button type="button" data-tab="family"><span>👪</span>Family</button>
+</nav>
+
 <div id="sheet" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
@@ -288,6 +337,7 @@ let library = { children: [], quizzes: [], videos: [], channels: [] };
 let selected = localStorage.getItem("wonderbox_child") || "";
 let checked = null; // the video or channel being added: {url, info, children, tier, section}
 let busy = false;
+let me = null; // the signed-in grown-up
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -333,8 +383,8 @@ async function edit(path, body) {
 function showError(e) {
   if (e instanceof AuthError) return signedOut();
   $("error").replaceChildren(e ? el("div", { className: "error", textContent: String(e.message || e) }) : "");
-  // The error box is under an open sheet, so say it on top too.
-  if (e && !$("sheet").hidden) toast(String(e.message || e));
+  // The error box may be scrolled out of sight or under an open sheet, so say it on top too.
+  if (e) toast(String(e.message || e));
 }
 
 let toastTimer;
@@ -394,8 +444,11 @@ function signedOut() {
   token = "";
   localStorage.removeItem(TOKEN);
   $("mainView").hidden = true;
-  $("loginView").hidden = false;
+  $("tabbar").hidden = true;
+  $("kidSwitch").hidden = true;
+  $("loginView").hidden = !!joinCode();
   $("status").textContent = "";
+  showJoin();
 }
 
 $("loginForm").onsubmit = async (e) => {
@@ -414,15 +467,18 @@ $("loginForm").onsubmit = async (e) => {
 $("signOut").onclick = (e) => { e.preventDefault(); signedOut(); };
 
 async function start(user) {
+  me = user;
   $("loginView").hidden = true;
+  $("joinView").hidden = true;
   $("mainView").hidden = false;
+  $("tabbar").hidden = false;
   showTab(tab);
   $("who").textContent = user.email;
+  loadFamily();
   await load();
   showPairing();
   loadPhotos();
   loadTvs();
-  loadMenuPictures();
   loadStats();
 }
 
@@ -599,21 +655,25 @@ function renderAdding() {
 // --- Children and their videos ---------------------------------------------
 
 function render() {
-  // The Videos, Games and Photos tabs each pick a child; it's the same choice in all of them.
-  for (const pick of document.querySelectorAll(".kid-pick")) pick.replaceChildren(
-    ...library.children.map((c) => el("button", {
-      className: "kid" + (c.id === selected ? " on" : ""),
-      onclick: () => {
-        if (c.id === selected) return childSheet(c);
-        selected = c.id;
-        localStorage.setItem("wonderbox_child", selected);
-        render();
-      },
-    }, face(c), c.name)),
-    // Adding and changing children lives in Family; this is a shortcut until there's one.
-    ...(library.children.length ? [] : [el("button", { className: "kid add ghost", textContent: "+ Add a child", onclick: () => childSheet(null) })]));
+  // Videos, Quizzes, Games and Photos are for one child at a time, picked in the header: every
+  // child's face, the chosen one with their name. Tapping the chosen one changes them.
+  $("kidSwitch").replaceChildren(...library.children.map((c) => el("button", {
+    type: "button", className: c.id === selected ? "on" : "", title: c.name,
+    onclick: () => {
+      if (c.id === selected) return childSheet(c);
+      selected = c.id;
+      localStorage.setItem("wonderbox_child", selected);
+      render();
+      toast(`Showing ${c.name}'s`);
+    },
+  }, face(c), c.id === selected ? c.name : "")));
+  showSwitch();
 
   const c = child(selected);
+  const whose = (what) => (c ? `${c.name}'s ${what}` : what.charAt(0).toUpperCase() + what.slice(1));
+  $("videosTitle").textContent = whose("videos");
+  $("quizzesTitle").textContent = whose("quizzes");
+  $("gamesTitle").textContent = whose("games");
   renderVideos(c);
 
   renderPhotos();
@@ -622,6 +682,13 @@ function render() {
   for (const note of document.querySelectorAll(".games-empty")) note.hidden = !!c;
   renderFamily();
   renderAdding();
+  if (PAGES[page]) $("pageTitle").textContent = PAGES[page].title;
+}
+
+/** The child switcher shows where it matters: not in Stats and Family, which cover everyone. */
+function showSwitch() {
+  const where = PAGES[page] ? PAGES[page].tab : tab;
+  $("kidSwitch").hidden = $("mainView").hidden || library.children.length < 1 || !["videos", "quizzes", "games", "photos"].includes(where);
 }
 
 // --- A child's list, one kind at a time -------------------------------------
@@ -651,7 +718,7 @@ function renderVideos(c) {
     return [...channels.filter(fits), ...videos.filter(fits)];
   };
 
-  $("videosHeading").textContent = c ? `${c.name.toUpperCase()}'S LIST` : "VIDEOS";
+  $("videosHeading").textContent = "ON THE TV";
   $("kinds").hidden = !c;
   $("kinds").replaceChildren(...KINDS.map(([k, label]) => el("button", {
     type: "button", className: k === kind ? "on" : "",
@@ -720,6 +787,10 @@ function renderFamily() {
       el("button", { className: "ghost small", textContent: "Change", onclick: () => childSheet(c) }))),
     ...(library.children.length ? [] : [el("div", { className: "muted", textContent: "No children yet. Add one, then choose their videos and games." })]),
     el("button", { className: "ghost", style: "width:100%;margin-top:10px", textContent: "+ Add a child", onclick: () => childSheet(null) }));
+  $("menuRow").replaceChildren(el("div", { className: "nav-row", role: "button", tabIndex: 0, onclick: () => openPage("menu") },
+    el("span", { className: "nav-icon", textContent: "🎨" }),
+    el("span", { className: "grow" }, el("b", { textContent: "TV menu pictures" }), el("span", { className: "nav-sub", textContent: "The pictures on the TV's tiles" })),
+    el("span", { className: "chev", textContent: "›" })));
 }
 
 /** "12 videos · 2 channels" for a child. */
@@ -736,13 +807,66 @@ function familyNote(c) {
 const TABS = ["videos", "quizzes", "games", "photos", "stats", "family"];
 let tab = TABS.includes(localStorage.getItem("wonderbox_tab")) ? localStorage.getItem("wonderbox_tab") : "videos";
 
+// Pages inside a tab, by name: {tab, title, render}. quizzes.js adds one per game.
+const PAGES = {
+  menu: { tab: "family", title: "TV menu pictures", render: () => loadMenuPictures() },
+};
+let page = null; // the page open, or null for the tab's own list
+// Where each list was scrolled to, so coming back from a page lands in the same place.
+const scrolled = {};
+
 function showTab(name) {
-  const changed = name !== tab;
+  const changed = name !== tab || page;
+  if (!page) scrolled[tab] = $("scroller").scrollTop;
   tab = name;
+  page = null;
+  if (history.state && history.state.page) history.replaceState(null, "");
   localStorage.setItem("wonderbox_tab", tab);
-  for (const section of document.querySelectorAll("#mainView .tab")) section.hidden = section.dataset.tab !== tab;
-  for (const button of $("tabbar").children) button.classList.toggle("on", button.dataset.tab === tab);
-  if (changed) window.scrollTo(0, 0);
+  showView();
+  if (changed) $("scroller").scrollTop = 0;
+}
+
+/** Opens a page (a game's settings), with a back button; the phone's back gesture works too. */
+function openPage(name) {
+  if (!PAGES[name]) return;
+  if (!page) scrolled[tab] = $("scroller").scrollTop;
+  page = name;
+  history.pushState({ page: name }, "");
+  showView();
+  $("scroller").scrollTop = 0;
+}
+
+function closePage() {
+  if (history.state && history.state.page) return history.back();
+  page = null;
+  showView();
+  $("scroller").scrollTop = scrolled[tab] || 0;
+}
+
+window.addEventListener("popstate", (e) => {
+  const was = page;
+  page = e.state && PAGES[e.state.page] ? e.state.page : null;
+  showView();
+  $("scroller").scrollTop = page ? 0 : was ? scrolled[tab] || 0 : 0;
+});
+
+$("backBtn").onclick = closePage;
+
+/** Shows the tab, or the page open in it, and the header that goes with it. */
+function showView() {
+  const info = PAGES[page];
+  const where = info ? info.tab : tab;
+  for (const section of document.querySelectorAll("#mainView .tab")) section.hidden = !!info || section.dataset.tab !== tab;
+  $("pageView").hidden = !info;
+  $("pageBody").hidden = page === "menu";
+  $("menuPictures").hidden = page !== "menu";
+  $("backBtn").hidden = !info;
+  $("brand").hidden = !!info;
+  $("pageTitle").hidden = !info;
+  $("pageTitle").textContent = info ? info.title : "";
+  for (const button of $("tabbar").children) button.classList.toggle("on", button.dataset.tab === where);
+  showSwitch();
+  if (info) info.render();
 }
 
 $("tabbar").onclick = (e) => {
@@ -751,7 +875,7 @@ $("tabbar").onclick = (e) => {
   showTab(button.dataset.tab);
   // Fresh numbers and TVs each time those tabs are opened.
   if (tab === "stats") loadStats();
-  if (tab === "family") { loadTvs(); loadMenuPictures(); }
+  if (tab === "family") { loadTvs(); loadFamily(); }
 };
 
 /** Who it's for, and whether it's a treat, music, exercise or a story. */
@@ -939,7 +1063,7 @@ const thumbObserver = "IntersectionObserver" in window ? new IntersectionObserve
 function renderPhotos() {
   const c = child(selected);
   const mine = c ? photos.filter((p) => p.children.includes(c.id)) : [];
-  $("photosHeading").textContent = c ? `${c.name.toUpperCase()}'S PHOTOS` : "PHOTOS";
+  $("photosHeading").textContent = c ? `${c.name}'s photos` : "Photos";
   $("addPhotosBtn").textContent = c ? `Add photos or videos for ${c.name}` : "Add photos or videos";
   $("addPhotosBtn").disabled = !c || busyPhotos;
   $("photos").replaceChildren(...mine.map((p) => {
@@ -1249,6 +1373,143 @@ async function loadTvs() {
   }
 }
 
+// --- Grown-ups ----------------------------------------------------------------
+
+// Everyone who can sign in to this family (pb_hooks/family_lib.js). The first account is made in
+// the server's dashboard; others join with an invite link from here and share everything.
+let familyInfo = null;
+
+async function loadFamily() {
+  try { familyInfo = await api("/api/wonder/family"); renderGrownUps(); } catch (e) { showError(e); }
+}
+
+function renderGrownUps() {
+  if (!familyInfo) return;
+  const { grownUps, invites, you, owner } = familyInfo;
+  const amOwner = you === owner;
+  const days = (iso) => Math.max(1, Math.ceil((new Date(iso.replace(" ", "T")) - Date.now()) / 86400000));
+  $("grownUps").replaceChildren(
+    el("div", {}, ...grownUps.map((g) => el("div", { className: "tv" },
+      el("div", { className: "face", style: "background:rgba(0,0,0,.2)", textContent: (g.name || g.email).slice(0, 1).toUpperCase() }),
+      el("div", { className: "grow" },
+        el("div", { style: "font-weight:700;overflow-wrap:anywhere", textContent: g.id === you ? `${g.email} (you)` : g.email }),
+        el("div", { className: "muted", textContent: g.owner ? "Set up Wonder Box" : "Joined with an invite" })),
+      !g.owner && (amOwner || g.id === you)
+        ? el("button", { className: "ghost small", textContent: g.id === you ? "Leave" : "Remove", onclick: () => removeGrownUp(g) })
+        : ""))),
+    ...invites.map((i) => el("div", { className: "row" },
+      el("div", { className: "grow muted", textContent: `Invite waiting, works for ${days(i.expires)} more day${days(i.expires) === 1 ? "" : "s"}` }),
+      el("button", { className: "ghost small", textContent: "Cancel", onclick: async () => {
+        try { familyInfo = await api("/api/wonder/family/invites/cancel", { id: i.id }); renderGrownUps(); toast("Invite cancelled"); } catch (e) { showError(e); }
+      } }))),
+    el("button", { textContent: "Invite a grown-up", onclick: inviteSheet }),
+    el("div", { className: "muted", textContent: "They get their own email and password, and see the same children, videos, photos and TVs as you. Changes either of you make show for both." }));
+}
+
+async function removeGrownUp(g) {
+  const leaving = g.id === familyInfo.you;
+  if (!confirm(leaving
+    ? "Leave this family? Your account is deleted, and you'll need a new invite to come back."
+    : `Remove ${g.email}? Their account is deleted. The children, videos and photos stay.`)) return;
+  try {
+    const data = await api("/api/wonder/family/remove", { id: g.id });
+    if (data.left) return signedOut();
+    familyInfo = data;
+    renderGrownUps();
+    toast(`${g.email} removed`);
+  } catch (e) { showError(e); }
+}
+
+/** Makes an invite link and offers to send it (Messages, WhatsApp, email) or copy it. */
+async function inviteSheet() {
+  let data;
+  try { data = await api("/api/wonder/family/invite", {}); } catch (e) { return showError(e); }
+  familyInfo = data;
+  renderGrownUps();
+  const url = `${location.origin}/#join=${data.code}`;
+  const text = "Join our Wonder Box family, to choose the children's videos and games. Open this on your phone:";
+  openSheet(
+    el("div", { style: "font-weight:800;font-size:20px", textContent: "Invite a grown-up" }),
+    el("div", { className: "muted", textContent: `Send them this link. It works once, for ${data.days} days. They choose their own email and password.` }),
+    el("div", { className: "link-box", textContent: url }),
+    ...(navigator.share ? [el("button", { textContent: "Send the link", onclick: () => navigator.share({ title: "Wonder Box", text, url }).catch(() => {}) })] : []),
+    el("button", { className: navigator.share ? "ghost" : "", textContent: "Copy the link", onclick: async () => {
+      try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch (_) { toast("Press and hold the link to copy it"); }
+    } }),
+    el("button", { className: "ghost", textContent: "Done", onclick: closeSheet }));
+}
+
+// --- Joining with an invite -------------------------------------------------
+
+const joinCode = () => new URLSearchParams(location.hash.slice(1)).get("join");
+
+/** The invite link's page: who it's from, then an email and password for a new account. */
+async function showJoin() {
+  const code = joinCode();
+  $("joinView").hidden = !code;
+  if (!code) return;
+  $("loginView").hidden = true;
+  const forget = () => { history.replaceState(null, "", "/"); $("joinView").hidden = true; if (!token) $("loginView").hidden = false; };
+  if (token && me) {
+    $("joinView").replaceChildren(el("div", { className: "card stack" },
+      el("div", { style: "font-weight:800;font-size:20px", textContent: "This is an invite link" }),
+      el("div", { className: "muted", textContent: `You're already signed in as ${me.email}. Send the link to the person you're inviting, so they can open it on their phone.` }),
+      el("button", { className: "ghost", textContent: "OK", onclick: forget })));
+    return;
+  }
+  $("joinView").replaceChildren(el("div", { className: "card muted", textContent: "Opening the invite…" }));
+  let info;
+  try {
+    info = await api(`/api/wonder/join?code=${encodeURIComponent(code)}`);
+  } catch (e) {
+    $("joinView").replaceChildren(el("div", { className: "card stack" },
+      el("div", { style: "font-weight:800;font-size:20px", textContent: "That invite doesn't work" }),
+      el("div", { className: "muted", textContent: `${e.message} If you already joined, sign in instead.` }),
+      el("button", { textContent: "Sign in", onclick: forget })));
+    return;
+  }
+  const kids = info.children.length ? info.children.join(info.children.length === 2 ? " and " : ", ") : "";
+  const email = el("input", { type: "email", placeholder: "Your email", autocomplete: "username", required: true });
+  const password = el("input", { type: "password", placeholder: "Choose a password (8 or more)", autocomplete: "new-password", minLength: 8, required: true });
+  const button = el("button", { textContent: "Join" });
+  const form = el("form", { className: "card stack", onsubmit: async (e) => {
+    e.preventDefault();
+    button.disabled = true;
+    button.textContent = "Joining…";
+    try {
+      const auth = await api("/api/wonder/join", { code, email: email.value, password: password.value });
+      token = auth.token;
+      localStorage.setItem(TOKEN, token);
+      history.replaceState(null, "", "/");
+      showError(null);
+      await start(auth.record);
+      welcomeSheet();
+    } catch (err) {
+      showError(err);
+      button.disabled = false;
+      button.textContent = "Join";
+    }
+  } },
+    el("div", { style: "font-weight:800;font-size:20px", textContent: "Join the family on Wonder Box" }),
+    el("div", { className: "muted", textContent: `${info.by} invited you${kids ? ` to help choose videos and games for ${kids}` : ""}. Make your own sign-in:` }),
+    email, password, button,
+    el("div", { className: "muted", textContent: "Already joined? " }, el("a", { href: "/", style: "color:var(--accent);font-weight:700", textContent: "Sign in", onclick: (e) => { e.preventDefault(); forget(); } })));
+  $("joinView").replaceChildren(form);
+}
+
+/** After joining: how to keep the app on the Home Screen. */
+function welcomeSheet() {
+  const iphone = /iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone;
+  openSheet(
+    el("div", { style: "font-weight:800;font-size:20px", textContent: "You're in!" }),
+    el("div", { textContent: "You now see the same children, videos and TVs. Pick a child at the top, then use the tabs along the bottom." }),
+    el("div", { className: "muted", textContent: iphone
+      ? "Keep it handy: tap Share in Safari, then Add to Home Screen. Open it from there and sign in once more with the email and password you just chose."
+      : "Keep it handy: use your browser's menu to add it to your home screen." }),
+    el("button", { textContent: "Got it", onclick: closeSheet }));
+}
+window.addEventListener("hashchange", () => { if (joinCode()) showJoin(); });
+
 // --- Start ------------------------------------------------------------------
 
 // Waits for stats.js and quizzes.js too: the library can arrive before they've loaded, and
@@ -1256,21 +1517,23 @@ async function loadTvs() {
 document.addEventListener("DOMContentLoaded", async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   if (!token) return signedOut();
+  if (joinCode()) showJoin();
   try {
     // Refreshing extends the sign-in, so regular use never has to sign in again.
     const auth = await api("/api/collections/users/auth-refresh", {});
     token = auth.token;
     localStorage.setItem(TOKEN, token);
-    start(auth.record);
+    await start(auth.record);
+    if (joinCode()) showJoin();
   } catch (e) {
     if (e instanceof AuthError) signedOut();
     else { $("status").textContent = "Offline"; showError(e); }
   }
 });
 
-// iPhones sometimes leave the page short after the keyboard closes (or after rotating), so the
-// tab bar floats above the bottom of the screen. Nudging the scroll makes Safari measure again.
-const remeasure = () => setTimeout(() => window.scrollTo(window.scrollX, window.scrollY), 60);
+// The page itself shouldn't scroll (only #scroller does), but iPhones still slide it up to show
+// the box being typed in, and sometimes leave it there when the keyboard closes. Put it back.
+const remeasure = () => setTimeout(() => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0); }, 60);
 document.addEventListener("focusout", remeasure);
 window.addEventListener("orientationchange", remeasure);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", remeasure);

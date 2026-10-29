@@ -1,4 +1,4 @@
-// The Family tab's TV menu pictures: the pictures Gemini drew for the TV's home page and
+// The TV menu pictures page (from the Family tab): the pictures Gemini drew for the TV's home page and
 // Games and Quizzes tiles (server/pb_hooks/menu_lib.js), with a tap to have one drawn again.
 // Loaded after the main script in index.html and uses its helpers ($, el, api, photoUrl,
 // showError, toast).
@@ -54,7 +54,7 @@ function renderMenuPictures(data) {
   // While any are being drawn, look again now and then.
   clearTimeout(menuPoll);
   if (pictures.some((p) => p.state === "" || p.state === "drawing")) {
-    menuPoll = setTimeout(() => { if (tab === "family") loadMenuPictures(); }, 20000);
+    menuPoll = setTimeout(() => { if (page === "menu") loadMenuPictures(); }, 20000);
   }
 }
 

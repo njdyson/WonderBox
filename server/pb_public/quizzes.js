@@ -137,9 +137,6 @@ function clockLevelOf(s) {
   return CLOCK_LEVELS.findIndex(([, p]) => key(p) === key(s)) + 1;
 }
 
-// Which children's "change what it asks" parts are open, by "<child>/<game>".
-const openSetups = new Set();
-
 /** A picture: an emoji, or a protected quiz image (fetched with the sign-in, like the photos). */
 function pic(picture, className = "pic") {
   const node = el("span", { className });
@@ -170,12 +167,18 @@ const toggle = (on, onChange, title) =>
 
 /** A child's games, saved as soon as anything changes. */
 function renderGames(c) {
-  // The learning games are in the Quizzes tab; the rest, and the treat rules, in the Games tab.
+  // The learning games are listed in the Quizzes tab; the rest, and treats and sounds, in the Games
+  // tab. Each opens on its own page (openPage in index.html).
   for (const id of ["gamesHeading", "games", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
-  if (!c) return;
+  if (!c) {
+    if (GAME_PAGES[page]) $("pageBody").replaceChildren(el("div", { className: "card empty", textContent: "Add a child in Family first." }));
+    return;
+  }
   loadStories();
-  $("gamesHeading").textContent = `${c.name.toUpperCase()}'S QUIZZES`;
-  $("playHeading").textContent = `${c.name.toUpperCase()}'S GAMES`;
+  // The top of a game's page: whether it's on the TV at all.
+  const head = (control) => el("div", { className: "game-head" }, el("span", { className: "grow", textContent: `On ${c.name}'s TV` }), control);
+  // Between the level and the details it's made of.
+  const fineTune = () => el("div", { className: "fine-tune", textContent: "Or choose exactly what it asks" });
   const g = c.games || {};
   const maths = g.mathsSetup || { on: true, ...MATHS_LEVELS[(g.maths || 1) - 1][1], tables: [2, 5, 10] };
   const spelling = g.spellingSetup || { on: true, ...SPELLING_LEVELS[(g.spelling || 1) - 1][1], myWords: [] };
@@ -203,152 +206,119 @@ function renderGames(c) {
 
   // Maths
   const mathsLevel = mathsLevelOf(maths);
-  const mathsKey = `${c.id}/maths`;
-  const mathsOpen = openSetups.has(mathsKey) || !mathsLevel;
   const mathsPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔢 Maths" }),
-      toggle(maths.on, (on) => saveMaths({ on, auto: !!maths.auto }), "Show Maths on the TV")));
+    head(toggle(maths.on, (on) => saveMaths({ on, auto: !!maths.auto }), "Show Maths on the TV")));
   if (maths.on) {
     mathsPart.append(
       levelSelect(MATHS_LEVELS, mathsLevel, maths.auto, (v) => saveMaths({ ...MATHS_LEVELS[v - 1][1], tables: MATHS_LEVELS[v - 1][1].tables || maths.tables }),
         () => saveMaths({ auto: true })),
-      autoNote(maths.auto),
-      el("button", { type: "button", className: "more", textContent: mathsOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
-        openSetups[mathsOpen ? "delete" : "add"](mathsKey);
-        renderGames(c);
-      } }));
-    if (mathsOpen) {
-      mathsPart.append(
-        el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
-        chips(MATHS_TYPES, maths.types, (types) => types.length && saveMaths({ types })),
-        ...(maths.types.some((t) => t !== "times") ? [
-          el("div", { className: "sub-h", textContent: "Numbers up to" }),
-          seg(MAXES.map((m) => [m, String(m)]), maths.max, (max) => saveMaths({ max })),
-        ] : []),
-        ...(maths.types.includes("times") ? [
-          el("div", { className: "sub-h", textContent: "Times tables" }),
-          chips([...Array(12)].map((_, i) => [i + 1, String(i + 1)]), maths.tables, (tables) => tables.length && saveMaths({ tables: tables.sort((a, b) => a - b) }), "chips nums"),
-        ] : []),
-        el("div", { className: "sub-h", textContent: "Answers to pick from" }),
-        seg([2, 3, 4].map((n) => [n, String(n)]), maths.choices, (choices) => saveMaths({ choices })),
-        ...(maths.max <= 10 && maths.types.some((t) => t === "add" || t === "sub") ? [
-          el("div", { className: "row" }, el("span", { className: "grow", textContent: "Draw things to count" }),
-            toggle(maths.pictures, (pictures) => saveMaths({ pictures }))),
-        ] : []));
-    }
+      autoNote(maths.auto));
+    mathsPart.append(
+      fineTune(),
+      el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
+      chips(MATHS_TYPES, maths.types, (types) => types.length && saveMaths({ types })),
+      ...(maths.types.some((t) => t !== "times") ? [
+        el("div", { className: "sub-h", textContent: "Numbers up to" }),
+        seg(MAXES.map((m) => [m, String(m)]), maths.max, (max) => saveMaths({ max })),
+      ] : []),
+      ...(maths.types.includes("times") ? [
+        el("div", { className: "sub-h", textContent: "Times tables" }),
+        chips([...Array(12)].map((_, i) => [i + 1, String(i + 1)]), maths.tables, (tables) => tables.length && saveMaths({ tables: tables.sort((a, b) => a - b) }), "chips nums"),
+      ] : []),
+      el("div", { className: "sub-h", textContent: "Answers to pick from" }),
+      seg([2, 3, 4].map((n) => [n, String(n)]), maths.choices, (choices) => saveMaths({ choices })),
+      ...(maths.max <= 10 && maths.types.some((t) => t === "add" || t === "sub") ? [
+        el("div", { className: "row" }, el("span", { className: "grow", textContent: "Draw things to count" }),
+          toggle(maths.pictures, (pictures) => saveMaths({ pictures }))),
+      ] : []));
   }
 
   // Spelling
   const spellingLevel = spellingLevelOf(spelling);
-  const spellingKey = `${c.id}/spelling`;
-  const spellingOpen = openSetups.has(spellingKey) || !spellingLevel;
   const spellingPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔤 Spelling" }),
-      toggle(spelling.on, (on) => saveSpelling({ on, auto: !!spelling.auto }), "Show Spelling on the TV")));
+    head(toggle(spelling.on, (on) => saveSpelling({ on, auto: !!spelling.auto }), "Show Spelling on the TV")));
   if (spelling.on) {
     const words = spelling.myWords || [];
     spellingPart.append(
       levelSelect(SPELLING_LEVELS, spellingLevel, spelling.auto, (v) => saveSpelling({ ...SPELLING_LEVELS[v - 1][1] }),
         () => saveSpelling({ auto: true })),
-      autoNote(spelling.auto),
-      el("button", { type: "button", className: "more", textContent: spellingOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
-        openSetups[spellingOpen ? "delete" : "add"](spellingKey);
-        renderGames(c);
-      } }));
-    if (spellingOpen) {
-      const saveWords = (change) => saveSpelling({ ...change, auto: !!spelling.auto });
-      const wordInput = el("input", { type: "text", placeholder: "Add words, e.g. said, because, friend", autocapitalize: "off", autocomplete: "off", enterkeyhint: "done" });
-      const addWords = () => {
-        const fresh = wordInput.value.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 2 && w.length <= 12 && !words.some((x) => x.word === w));
-        if (!fresh.length) return;
-        const myWords = [...words, ...fresh.map((word) => ({ word, picture: "" }))];
-        // On auto they're kept for hangman and the word game; otherwise the first words added switch "My words" on.
-        if (spelling.auto) return saveWords({ myWords });
-        const lists = spelling.lists.includes("mine") ? spelling.lists : [...spelling.lists, "mine"];
-        saveSpelling({ myWords, lists });
-      };
-      wordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addWords(); } });
-      spellingPart.append(
-        el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
-        chips(SPELLING_TYPES, spelling.types, (types) => types.length && saveSpelling({ types })),
-        el("div", { className: "sub-h", textContent: "Which words" }),
-        chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["big", "Big words (rabbit, penguin)"], ["phase2", "Phonics Phase 2 (sock, bucket)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
-          spelling.lists, (lists) => lists.length && saveSpelling({ lists })),
-        ...(spelling.types.some((t) => t !== "build") ? [
-          el("div", { className: "sub-h", textContent: "Answers to pick from" }),
-          seg([2, 3, 4].map((n) => [n, String(n)]), spelling.choices, (choices) => saveSpelling({ choices })),
-        ] : []),
-        el("div", { className: "sub-h", textContent: "My words: spellings from school, names, anything. Tap one to give it a picture." }),
-        words.length ? el("div", { className: "words" }, ...words.map((w) => el("span", { className: "word" },
-          w.picture ? pic(w.picture) : "",
-          el("span", { textContent: w.word, onclick: () => pickPicture(w.word, (picture) =>
-            saveWords({ myWords: words.map((x) => (x.word === w.word ? { ...x, picture } : x)) }), w.picture) }),
-          el("button", { type: "button", textContent: "✕", title: `Remove ${w.word}`, onclick: () =>
-            saveWords({ myWords: words.filter((x) => x.word !== w.word) }) })))) : "",
-        el("div", { className: "row" }, wordInput, el("button", { type: "button", textContent: "Add", onclick: addWords })),
-        words.length > 8 && words.some((w) => w.word.length > 8)
-          ? el("div", { className: "muted", textContent: "Words longer than 8 letters are asked as a missing letter instead of spelt letter by letter." })
-          : "");
-    }
+      autoNote(spelling.auto));
+    const saveWords = (change) => saveSpelling({ ...change, auto: !!spelling.auto });
+    const wordInput = el("input", { type: "text", placeholder: "Add words, e.g. said, because, friend", autocapitalize: "off", autocomplete: "off", enterkeyhint: "done" });
+    const addWords = () => {
+      const fresh = wordInput.value.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 2 && w.length <= 12 && !words.some((x) => x.word === w));
+      if (!fresh.length) return;
+      const myWords = [...words, ...fresh.map((word) => ({ word, picture: "" }))];
+      // On auto they're kept for hangman and the word game; otherwise the first words added switch "My words" on.
+      if (spelling.auto) return saveWords({ myWords });
+      const lists = spelling.lists.includes("mine") ? spelling.lists : [...spelling.lists, "mine"];
+      saveSpelling({ myWords, lists });
+    };
+    wordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addWords(); } });
+    spellingPart.append(
+      fineTune(),
+      el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
+      chips(SPELLING_TYPES, spelling.types, (types) => types.length && saveSpelling({ types })),
+      el("div", { className: "sub-h", textContent: "Which words" }),
+      chips([["short", "Short words (cat, dog)"], ["long", "Longer words (frog, house)"], ["big", "Big words (rabbit, penguin)"], ["phase2", "Phonics Phase 2 (sock, bucket)"], ...(words.length ? [["mine", `My words (${words.length})`]] : [])],
+        spelling.lists, (lists) => lists.length && saveSpelling({ lists })),
+      ...(spelling.types.some((t) => t !== "build") ? [
+        el("div", { className: "sub-h", textContent: "Answers to pick from" }),
+        seg([2, 3, 4].map((n) => [n, String(n)]), spelling.choices, (choices) => saveSpelling({ choices })),
+      ] : []),
+      el("div", { className: "sub-h", textContent: "My words: spellings from school, names, anything. Tap one to give it a picture." }),
+      words.length ? el("div", { className: "words" }, ...words.map((w) => el("span", { className: "word" },
+        w.picture ? pic(w.picture) : "",
+        el("span", { textContent: w.word, onclick: () => pickPicture(w.word, (picture) =>
+          saveWords({ myWords: words.map((x) => (x.word === w.word ? { ...x, picture } : x)) }), w.picture) }),
+        el("button", { type: "button", textContent: "✕", title: `Remove ${w.word}`, onclick: () =>
+          saveWords({ myWords: words.filter((x) => x.word !== w.word) }) })))) : "",
+      el("div", { className: "row" }, wordInput, el("button", { type: "button", textContent: "Add", onclick: addWords })),
+      words.length > 8 && words.some((w) => w.word.length > 8)
+        ? el("div", { className: "muted", textContent: "Words longer than 8 letters are asked as a missing letter instead of spelt letter by letter." })
+        : "");
   }
 
   // Telling the time
   const clockLevel = clockLevelOf(clock);
-  const clockKey = `${c.id}/clock`;
-  const clockOpen = openSetups.has(clockKey) || !clockLevel;
   const clockPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🕒 Clock" }),
-      toggle(clock.on, (on) => saveClock({ on, auto: !!clock.auto }), "Show the clock game on the TV")));
+    head(toggle(clock.on, (on) => saveClock({ on, auto: !!clock.auto }), "Show the clock game on the TV")));
   if (clock.on) {
     clockPart.append(
       levelSelect(CLOCK_LEVELS, clockLevel, clock.auto, (v) => saveClock({ ...CLOCK_LEVELS[v - 1][1] }), () => saveClock({ auto: true })),
-      autoNote(clock.auto),
-      el("button", { type: "button", className: "more", textContent: clockOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
-        openSetups[clockOpen ? "delete" : "add"](clockKey);
-        renderGames(c);
-      } }));
-    if (clockOpen) {
-      clockPart.append(
-        el("div", { className: "sub-h", textContent: "Which times (mixed together)" }),
-        chips(CLOCK_TYPES, clock.types, (types) => types.length && saveClock({ types })),
-        el("div", { className: "sub-h", textContent: "Answers to pick from" }),
-        seg([2, 3, 4].map((n) => [n, String(n)]), clock.choices, (choices) => saveClock({ choices })),
-        el("div", { className: "muted", textContent: "A clock face with both hands; the answers are said the British way: quarter past 3, 20 to 5." }));
-    }
+      autoNote(clock.auto));
+    clockPart.append(
+      fineTune(),
+      el("div", { className: "sub-h", textContent: "Which times (mixed together)" }),
+      chips(CLOCK_TYPES, clock.types, (types) => types.length && saveClock({ types })),
+      el("div", { className: "sub-h", textContent: "Answers to pick from" }),
+      seg([2, 3, 4].map((n) => [n, String(n)]), clock.choices, (choices) => saveClock({ choices })),
+      el("div", { className: "muted", textContent: "A clock face with both hands; the answers are said the British way: quarter past 3, 20 to 5." }));
   }
 
   // Flags of the world (the clipart picker's flags)
   const flagLevel = flagLevelOf(flags);
-  const flagKey = `${c.id}/flags`;
-  const flagOpen = openSetups.has(flagKey) || !flagLevel;
   const flagsPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🏳️ Flags" }),
-      toggle(flags.on, (on) => saveFlags({ on, auto: !!flags.auto }), "Show the flag game on the TV")));
+    head(toggle(flags.on, (on) => saveFlags({ on, auto: !!flags.auto }), "Show the flag game on the TV")));
   if (flags.on) {
     flagsPart.append(
       levelSelect(FLAG_LEVELS, flagLevel, flags.auto, (v) => saveFlags({ ...FLAG_LEVELS[v - 1][1] }), () => saveFlags({ auto: true })),
-      autoNote(flags.auto),
-      el("button", { type: "button", className: "more", textContent: flagOpen ? "Hide the details ▴" : "Change what it asks ▾", onclick: () => {
-        openSetups[flagOpen ? "delete" : "add"](flagKey);
-        renderGames(c);
-      } }));
-    if (flagOpen) {
-      flagsPart.append(
-        el("div", { className: "sub-h", textContent: "Which flags" }),
-        chips(FLAG_REGIONS, flags.regions, (regions) => regions.length && saveFlags({ regions })),
-        el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
-        chips(FLAG_TYPES, flags.types, (types) => types.length && saveFlags({ types })),
-        el("div", { className: "sub-h", textContent: "Answers to pick from" }),
-        seg([2, 3, 4].map((n) => [n, String(n)]), flags.choices, (choices) => saveFlags({ choices })),
-        el("div", { className: "muted", textContent: "Country names are read out as each answer is picked, for children who can't read them yet." }));
-    }
+      autoNote(flags.auto));
+    flagsPart.append(
+      fineTune(),
+      el("div", { className: "sub-h", textContent: "Which flags" }),
+      chips(FLAG_REGIONS, flags.regions, (regions) => regions.length && saveFlags({ regions })),
+      el("div", { className: "sub-h", textContent: "Kinds of question (mixed together)" }),
+      chips(FLAG_TYPES, flags.types, (types) => types.length && saveFlags({ types })),
+      el("div", { className: "sub-h", textContent: "Answers to pick from" }),
+      seg([2, 3, 4].map((n) => [n, String(n)]), flags.choices, (choices) => saveFlags({ choices })),
+      el("div", { className: "muted", textContent: "Country names are read out as each answer is picked, for children who can't read them yet." }));
   }
 
   // Photo jigsaws
   const jigsaw = g.jigsaw ?? 3;
   const jigsawPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🧩 Photo jigsaws" }),
-      toggle(jigsaw > 0, (on) => save({ jigsaw: on ? 3 : 0 }), "Show jigsaws of the family photos on the TV")));
+    head(toggle(jigsaw > 0, (on) => save({ jigsaw: on ? 3 : 0 }), "Show jigsaws of the family photos on the TV")));
   if (jigsaw > 0) {
     jigsawPart.append(
       el("div", { className: "sub-h", textContent: "Pieces" }),
@@ -361,8 +331,7 @@ function renderGames(c) {
   const saveHangman = (change) => save({ hangman: { ...hangman, ...change } });
   const myWordCount = (spelling.myWords || []).length;
   const hangmanPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🎈 Hangman" }),
-      toggle(hangman.on, (on) => saveHangman({ on }), "Show Hangman on the TV")));
+    head(toggle(hangman.on, (on) => saveHangman({ on }), "Show Hangman on the TV")));
   if (hangman.on) {
     hangmanPart.append(
       el("div", { className: "row" }, el("span", { className: "grow", textContent: "Say the word and show its picture" }),
@@ -379,15 +348,14 @@ function renderGames(c) {
       seg([4, 6, 8].map((n) => [n, String(n)]), hangman.balloons, (balloons) => saveHangman({ balloons })),
       el("div", { className: "sub-h", textContent: "Words to find in a game" }),
       seg([1, 2, 3, 5].map((n) => [n, String(n)]), hangman.words, (words) => saveHangman({ words })),
-      el("div", { className: "muted", textContent: myWordCount ? "My words are the spelling words above." : "Add your own words under Spelling to use them here too." }));
+      el("div", { className: "muted", textContent: myWordCount ? "My words are the ones added in Quizzes, under Spelling." : "Add your own words in Quizzes, under Spelling, to use them here too." }));
   }
 
   // The word game: unjumble a word, or make words from letters
   const scramble = { ...SCRAMBLE_DEFAULT, ...(g.scramble || {}) };
   const saveScramble = (change) => save({ scramble: { ...scramble, ...change } });
   const scramblePart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔠 Word jumble" }),
-      toggle(scramble.on, (on) => saveScramble({ on }), "Show the word game on the TV")));
+    head(toggle(scramble.on, (on) => saveScramble({ on }), "Show the word game on the TV")));
   if (scramble.on) {
     const level = Math.min(SCRAMBLE_LEVELS.length, Math.max(1, scramble.level || 1));
     scramblePart.append(
@@ -413,8 +381,7 @@ function renderGames(c) {
   const memory = { ...MEMORY_DEFAULT, ...(g.memory || {}) };
   const saveMemory = (change) => save({ memory: { ...memory, ...change } });
   const memoryPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🃏 Memory pairs" }),
-      toggle(memory.on, (on) => saveMemory({ on }), "Show Pairs on the TV")));
+    head(toggle(memory.on, (on) => saveMemory({ on }), "Show Pairs on the TV")));
   if (memory.on) {
     memoryPart.append(
       el("div", { className: "sub-h", textContent: "Pairs to find" }),
@@ -431,8 +398,7 @@ function renderGames(c) {
   const story = { ...STORY_DEFAULT, ...(g.story || {}) };
   const saveStory = (change) => save({ story: { ...story, ...change } });
   const storyPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "📖 Story maker" }),
-      toggle(story.on, (on) => saveStory({ on }), "Show the story maker on the TV")));
+    head(toggle(story.on, (on) => saveStory({ on }), "Show the story maker on the TV")));
   if (story.on) {
     storyPart.append(
       el("div", { className: "sub-h", textContent: `${c.name}'s age (sets how long and simple each part is)` }),
@@ -451,7 +417,7 @@ function renderGames(c) {
   // Sound effects (app/.../ui/Sounds.kt)
   const sounds = g.sounds || "silly";
   const soundsPart = el("div", { className: "game" },
-    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🔊 Game sounds" })),
+    el("div", { className: "sub-h", textContent: "Sound effects in every game" }),
     seg([["off", "Off"], ["calm", "Calm"], ["silly", "Silly"]], sounds, (v) => save({ sounds: v })),
     el("div", { className: "muted", textContent: {
       off: "No sound effects, just the voice.",
@@ -486,27 +452,73 @@ function renderGames(c) {
       ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV. A whole learning, exercise or story video wins one the first time it's watched all the way through, without skipping."
       : "No game wins a treat, so treats stay locked." }));
 
-  $("games").replaceChildren(
-    mathsPart,
-    spellingPart,
-    clockPart,
-    flagsPart);
-  $("playGames").replaceChildren(
-    hangmanPart,
-    scramblePart,
-    jigsawPart,
-    memoryPart,
-    storyPart);
-  $("treatRules").replaceChildren(
+  const roundSize = g.roundSize || 10;
+  const treatRulesPart = el("div", { className: "stack" },
     treatsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
-      select(ROUND_SIZES.map((n) => [n, `${n}`]), g.roundSize || 10, (v) => save({ roundSize: v }))),
+      select(ROUND_SIZES.map((n) => [n, `${n}`]), roundSize, (v) => save({ roundSize: v }))),
     el("div", { className: "muted", textContent: hasTreats
       ? TIER_HELP + " A quiz is won by answering all its questions."
-      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }),
-    soundsPart,
-    musicPart);
+      : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }));
+
+  // Each game's page, and the one line its row in the list shows.
+  const levelText = (s, level, levels) => !s.on ? "Off" : s.auto ? `Auto, now level ${level || 1}` : level ? `Level ${level}: ${levels[level - 1][0]}` : "Your own mix";
+  const scrambleLevel = Math.min(SCRAMBLE_LEVELS.length, Math.max(1, scramble.level || 1));
+  const parts = {
+    maths: { on: maths.on, part: mathsPart, summary: levelText(maths, mathsLevel, MATHS_LEVELS) },
+    spelling: { on: spelling.on, part: spellingPart, summary: levelText(spelling, spellingLevel, SPELLING_LEVELS) },
+    clock: { on: clock.on, part: clockPart, summary: levelText(clock, clockLevel, CLOCK_LEVELS) },
+    flags: { on: flags.on, part: flagsPart, summary: levelText(flags, flagLevel, FLAG_LEVELS) },
+    hangman: { on: hangman.on, part: hangmanPart, summary: hangman.on ? `${hangman.words} word${hangman.words === 1 ? "" : "s"}, ${hangman.balloons} balloons` : "Off" },
+    scramble: { on: scramble.on, part: scramblePart, summary: !scramble.on ? "Off" : scramble.auto ? `Auto, now level ${scrambleLevel}` : `Level ${scrambleLevel}` },
+    jigsaw: { on: jigsaw > 0, part: jigsawPart, summary: jigsaw > 0 ? `${jigsaw} × ${jigsaw} pieces` : "Off" },
+    memory: { on: memory.on, part: memoryPart, summary: memory.on ? `${memory.pairs} pairs of ${{ clipart: "animals", photos: "photos", both: "animals and photos" }[memory.pictures]}` : "Off" },
+    story: { on: story.on, part: storyPart, summary: story.on ? `Age ${story.age}, ${story.turns} pictures${kept.length ? `, ${kept.length} kept` : ""}` : "Off" },
+    treats: { part: treatRulesPart, summary: treatGames.length ? `${roundSize} right answers win a treat` : "Nothing wins a treat" },
+    sounds: { part: soundsPart, summary: { off: "Off", calm: "Calm", silly: "Silly" }[sounds] },
+    music: { part: musicPart, summary: `${music ? "Music on" : "No music"}, ${{ auto: "decorations by the date", off: "no decorations" }[season] || "decorations always on"}` },
+  };
+  const ON_TOGGLE = {
+    maths: (on) => saveMaths({ on, auto: !!maths.auto }), spelling: (on) => saveSpelling({ on, auto: !!spelling.auto }),
+    clock: (on) => saveClock({ on, auto: !!clock.auto }), flags: (on) => saveFlags({ on, auto: !!flags.auto }),
+    hangman: (on) => saveHangman({ on }), scramble: (on) => saveScramble({ on }), jigsaw: (on) => save({ jigsaw: on ? 3 : 0 }),
+    memory: (on) => saveMemory({ on }), story: (on) => saveStory({ on }),
+  };
+  const row = (key) => {
+    const p = parts[key];
+    const info = GAME_PAGES[key];
+    const wins = p.on && treatGames.includes(key);
+    return el("div", { className: "nav-row" + (p.on === false ? " off" : ""), role: "button", tabIndex: 0, onclick: () => openPage(key) },
+      el("span", { className: "nav-icon", textContent: info.icon }),
+      el("span", { className: "grow" },
+        el("b", { textContent: info.name }),
+        el("span", { className: "nav-sub", textContent: p.summary + (wins ? " · ⭐" : "") })),
+      ON_TOGGLE[key] ? el("span", { onclick: (e) => e.stopPropagation() }, toggle(p.on, ON_TOGGLE[key], `Show ${info.name} on the TV`)) : "",
+      el("span", { className: "chev", textContent: "›" }));
+  };
+
+  $("games").replaceChildren(...["maths", "spelling", "clock", "flags"].map(row));
+  $("playGames").replaceChildren(...["hangman", "scramble", "jigsaw", "memory", "story"].map(row));
+  $("treatRules").replaceChildren(...["treats", "sounds", "music"].map(row));
+  if (parts[page]) $("pageBody").replaceChildren(el("div", { className: "card stack" }, parts[page].part));
 }
+
+// The pages a game's row opens: which tab it's in, its picture and its name.
+const GAME_PAGES = {
+  maths: { tab: "quizzes", icon: "🔢", name: "Maths" },
+  spelling: { tab: "quizzes", icon: "🔤", name: "Spelling" },
+  clock: { tab: "quizzes", icon: "🕒", name: "Clock" },
+  flags: { tab: "quizzes", icon: "🏳️", name: "Flags" },
+  hangman: { tab: "games", icon: "🎈", name: "Hangman" },
+  scramble: { tab: "games", icon: "🔠", name: "Word jumble" },
+  jigsaw: { tab: "games", icon: "🧩", name: "Photo jigsaws" },
+  memory: { tab: "games", icon: "🃏", name: "Memory pairs" },
+  story: { tab: "games", icon: "📖", name: "Story maker" },
+  treats: { tab: "games", icon: "⭐", name: "Treats" },
+  sounds: { tab: "games", icon: "🔊", name: "Game sounds" },
+  music: { tab: "games", icon: "🎵", name: "Music and decorations" },
+};
+for (const [key, info] of Object.entries(GAME_PAGES)) PAGES[key] = { tab: info.tab, title: `${info.icon} ${info.name}`, render: () => renderGames(child(selected)) };
 
 // --- Saved stories (the TV's story maker) --------------------------------------
 

@@ -126,6 +126,16 @@ code). Its output ends with "The server's voice works." or says why Piper didn't
 https://wonder.psybob.uk/api/wonder/voice should say `"voice": true`; if it doesn't, its
 `problem` says what's missing.
 
+## More than one grown-up
+
+The first account (made in the dashboard) owns the family. In the phone app, **Family >
+Grown-ups > Invite a grown-up** makes a link to send to someone else; it works once, for 7
+days. Opening it lets them choose their own email and password, and they then see and change
+the same children, videos, photos, quizzes and TVs. Their account has `family` set to the
+owner's, and the API acts on the owner's things for them (`familyOf` in `wonderbox_lib.js`,
+routes in `family.pb.js`). The owner can remove them (their account is deleted, nothing else
+is), and they can leave. Only a hash of each invite code is stored, in `invites`.
+
 ## Setting it up on the Plesk server
 
 Same as BlockbusterTV, with its own subdomain, folder, port (8096) and service (`wonderbox`).
@@ -162,7 +172,8 @@ The database lives in a separate folder that deploys never touch.
    get the app page instead, the hooks aren't loaded: restart the service
    (`systemctl restart wonderbox`, or run the step 4 task again).
 7. **Create your account:** in the dashboard, **Collections > users > New record**
-   (email and password). There is no public sign-up.
+   (email and password). There is no public sign-up. Other grown-ups join your family from
+   the phone app instead (see below), so you only do this once.
 
 Recommended in the dashboard (**Settings**): set the application URL, turn on rate limits,
 add `X-Real-IP` as the trusted proxy header, and schedule backups.

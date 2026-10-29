@@ -680,6 +680,26 @@ try:
     call("POST", "/api/wonder/stories/remove", {"id": story["id"]}, device_key=key, expect=401)
     assert call("POST", "/api/wonder/stories/remove", {"id": story["id"]}, token)["stories"] == []
 
+    # A second grown-up joins with an invite and shares the family, TVs included.
+    invite = call("POST", "/api/wonder/family/invite", {}, token)
+    assert len(invite["invites"]) == 1 and invite["days"] == 7, invite
+    assert sam in [c["id"] for c in call("GET", "/api/wonder/library", token=token)["children"]]
+    names = call("GET", f"/api/wonder/join?code={invite['code']}")["children"]
+    assert names == [c["name"] for c in call("GET", "/api/wonder/library", token=token)["children"]], names
+    call("GET", "/api/wonder/join?code=nope", expect=404)
+    joiner = f"joiner-{uuid.uuid4().hex[:8]}@example.com"
+    call("POST", "/api/wonder/join", {"code": invite["code"], "email": joiner, "password": "short"}, expect=400)
+    joined = call("POST", "/api/wonder/join", {"code": invite["code"], "email": joiner, "password": "longenough1"})
+    other = joined["token"]
+    call("POST", "/api/wonder/join", {"code": invite["code"], "email": "x" + joiner, "password": "longenough1"}, expect=404)
+    assert call("GET", "/api/wonder/library", token=other)["children"] == call("GET", "/api/wonder/library", token=token)["children"]
+    assert [t["name"] for t in call("GET", "/api/wonder/devices", token=other)] == ["Living room"]
+    family = call("GET", "/api/wonder/family", token=other)
+    assert [g["owner"] for g in family["grownUps"]] == [True, False] and family["invites"] == [], family
+    call("POST", "/api/wonder/family/remove", {"id": family["owner"]}, other, expect=400)
+    assert len(call("POST", "/api/wonder/family/remove", {"id": family["you"]}, token)["grownUps"]) == 1
+    call("GET", "/api/wonder/library", token=other, expect=401)
+
     tvs = call("GET", "/api/wonder/devices", token=token)
     assert [t["name"] for t in tvs] == ["Living room"]
     call("POST", "/api/wonder/devices/remove", {"id": tvs[0]["id"]}, token)
