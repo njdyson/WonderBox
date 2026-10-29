@@ -425,6 +425,24 @@ function renderGames(c) {
       silly: "Boings, squeaks and farts for right answers, and a silly noise to try again. Wrong answers never get a fart.",
     }[sounds] }));
 
+  // The menus' quiet music and decorations for the time of year (app/.../ui/Music.kt, Seasons.kt)
+  const music = g.music !== false;
+  const season = g.season || "auto";
+  const seasonSelect = el("select", { onchange: () => save({ season: seasonSelect.value }) },
+    ...[["auto", "By the date"], ["off", "Off"], ["halloween", "Halloween"], ["bonfire", "Bonfire Night"], ["christmas", "Christmas"], ["valentine", "Valentine's Day"], ["easter", "Easter"]]
+      .map(([v, label]) => el("option", { value: v, textContent: label, selected: v === season })));
+  const musicPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🎵 Menu music" }),
+      toggle(music, (on) => save({ music: on }), "Play quiet music on the TV menus")),
+    el("div", { className: "muted", textContent: music
+      ? "A soft music-box tune on the TV's menus, quieter while titles are read out. It stops for games and videos. Halloween and Christmas have their own tunes."
+      : "No music on the menus." }),
+    el("div", { className: "sub-h", textContent: "🎃 Decorations" }),
+    seasonSelect,
+    el("div", { className: "muted", textContent: season === "auto"
+      ? "Ghosts and bats for Halloween (from 17 Oct), fireworks for Bonfire Night, snow for December, hearts for Valentine's and chicks at Easter. Plain the rest of the year."
+      : season === "off" ? "Plain menus all year." : "These stay on until you change it back to By the date." }));
+
   // Which games win a treat: the learning ones by default, so it isn't all jigsaws.
   const treatGames = g.treatGames || TREAT_DEFAULT;
   const treatsPart = el("div", { className: "game" },
@@ -458,6 +476,7 @@ function renderGames(c) {
     story: { on: story.on, part: storyPart, summary: story.on ? `Age ${story.age}, ${story.turns} pictures${kept.length ? `, ${kept.length} kept` : ""}` : "Off" },
     treats: { part: treatRulesPart, summary: treatGames.length ? `${roundSize} right answers win a treat` : "Nothing wins a treat" },
     sounds: { part: soundsPart, summary: { off: "Off", calm: "Calm", silly: "Silly" }[sounds] },
+    music: { part: musicPart, summary: `${music ? "Music on" : "No music"}, ${{ auto: "decorations by the date", off: "no decorations" }[season] || "decorations always on"}` },
   };
   const ON_TOGGLE = {
     maths: (on) => saveMaths({ on, auto: !!maths.auto }), spelling: (on) => saveSpelling({ on, auto: !!spelling.auto }),
@@ -480,7 +499,7 @@ function renderGames(c) {
 
   $("games").replaceChildren(...["maths", "spelling", "clock", "flags"].map(row));
   $("playGames").replaceChildren(...["hangman", "scramble", "jigsaw", "memory", "story"].map(row));
-  $("treatRules").replaceChildren(...["treats", "sounds"].map(row));
+  $("treatRules").replaceChildren(...["treats", "sounds", "music"].map(row));
   if (parts[page]) $("pageBody").replaceChildren(el("div", { className: "card stack" }, parts[page].part));
 }
 
@@ -497,6 +516,7 @@ const GAME_PAGES = {
   story: { tab: "games", icon: "📖", name: "Story maker" },
   treats: { tab: "games", icon: "⭐", name: "Treats" },
   sounds: { tab: "games", icon: "🔊", name: "Game sounds" },
+  music: { tab: "games", icon: "🎵", name: "Music and decorations" },
 };
 for (const [key, info] of Object.entries(GAME_PAGES)) PAGES[key] = { tab: info.tab, title: `${info.icon} ${info.name}`, render: () => renderGames(child(selected)) };
 

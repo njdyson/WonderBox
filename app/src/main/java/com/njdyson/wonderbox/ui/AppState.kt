@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.njdyson.wonderbox.BuildConfig
+import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.Library
 import com.njdyson.wonderbox.data.SavedStoryPart
 import com.njdyson.wonderbox.data.Server
@@ -197,6 +198,12 @@ class AppState(context: Context) {
     /** Reads questions and titles aloud: the server's voice, or this TV's. */
     val voice = Voice(context) { deviceKey?.let { serverUrl to it } }.also { it.serverHasVoice = library.voice }
 
+    /** The tune behind the menus; quieter while something's read aloud. */
+    val music = Music { voice.speaking }
+
+    /** [child]'s decorations today (their phone app setting, or the date's), or null for none. */
+    fun seasonFor(child: Child) = Season.of(child.games.season)
+
     /** Fetches the latest children and videos. Keeps the cached ones if the network is down. */
     suspend fun sync() {
         val key = deviceKey ?: return
@@ -293,5 +300,6 @@ class AppState(context: Context) {
     fun close() {
         voice.close()
         sounds.close()
+        music.close()
     }
 }

@@ -35,8 +35,10 @@ import com.njdyson.wonderbox.ui.HangmanScreen
 import com.njdyson.wonderbox.ui.JigsawScreen
 import com.njdyson.wonderbox.ui.LinkScreen
 import com.njdyson.wonderbox.ui.MemoryScreen
+import com.njdyson.wonderbox.ui.Music
 import com.njdyson.wonderbox.ui.PhotosScreen
 import com.njdyson.wonderbox.ui.ProfileScreen
+import com.njdyson.wonderbox.ui.Season
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.StoryLibraryScreen
@@ -77,6 +79,8 @@ class MainActivity : ComponentActivity() {
 
     // Bumped every time we come back to the foreground, e.g. after a video closes.
     private val resumeCount = mutableIntStateOf(0)
+    // On screen, not behind a video: the menus' music only plays then.
+    private val foreground = mutableStateOf(false)
     private var app: AppState? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -147,6 +151,9 @@ class MainActivity : ComponentActivity() {
                 if (here is Screen.Videos && here.childId in won) open(Screen.PickTreat(here.childId))
             }
             BackHandler(enabled = stack.size > 1) { back() }
+
+            val tune = if (app.linked) menuTune(app, stack.last()) else null
+            LaunchedEffect(tune, foreground.value) { app.music.play(if (foreground.value) tune else null) }
 
             WonderBoxTheme {
                 if (!app.linked) {
@@ -419,11 +426,40 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeCount.intValue++
+        foreground.value = true
         EventLog.flush()
+    }
+
+    override fun onPause() {
+        // Straight away, not on the next frame: there may not be one once a video's on top.
+        foreground.value = false
+        app?.music?.play(null)
+        super.onPause()
     }
 
     override fun onDestroy() {
         app?.close()
         super.onDestroy()
     }
+}
+
+/**
+ * The tune for [screen]: only the menus have one (not games, which talk, nor photos or the
+ * grown-ups' screens), and only for a child with music on in the phone app. Before anyone's
+ * picked, it plays if any child has it on.
+ */
+private fun menuTune(app: AppState, screen: Screen): Music.Tune? {
+    val children = app.library.children
+    val childId = when (screen) {
+        Screen.Profiles -> return if (children.any { it.games.music }) Music.Tune.of(Season.forFamily(children)) else null
+        is Screen.Home -> screen.childId
+        is Screen.Games -> screen.childId
+        is Screen.Videos -> screen.childId
+        is Screen.Treats -> screen.childId
+        is Screen.PickTreat -> screen.childId
+        is Screen.PhotoGrid -> screen.childId
+        else -> return null
+    }
+    val child = children.firstOrNull { it.id == childId } ?: return null
+    return if (child.games.music) Music.Tune.of(app.seasonFor(child)) else null
 }

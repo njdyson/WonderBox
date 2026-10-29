@@ -42,7 +42,7 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
         }
 
     private var serverFailures = 0
-    private var player: MediaPlayer? = null
+    @Volatile private var player: MediaPlayer? = null
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -207,6 +207,9 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
             }
         }.start()
     }
+
+    /** Something is being read aloud now (asked from any thread: [Music] goes quieter). */
+    val speaking get() = player != null || runCatching { tts?.isSpeaking == true }.getOrDefault(false)
 
     fun stop() {
         onDone = null
