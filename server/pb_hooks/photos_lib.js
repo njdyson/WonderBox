@@ -2,13 +2,19 @@
 
 // Helpers for photos.pb.js, loaded with require() like wonderbox_lib.js.
 
-/** The user's photos, newest first, as the TV and the phone app list them. Each says which children it's for. */
-function photoList(userId) {
-  const records = $app.findRecordsByFilter("photos", "user = {:u}", "-created", 5000, 0, { u: userId })
+/**
+ * The user's photos and home videos, newest first, as the TV and the phone app list them. Each
+ * says which children it's for. A video has "video" (its MP4's path) and "duration" in seconds;
+ * the phone app also gets the ones still uploading, converting or failed ("status", "problem"),
+ * which the TVs ([forTv]) never see.
+ */
+function photoList(userId, forTv) {
+  const records = $app.findRecordsByFilter("photos", forTv ? "user = {:u} && status = ''" : "user = {:u}", "-created", 5000, 0, { u: userId })
   const list = []
   for (let i = 0; i < records.length; i++) {
     const p = records[i]
-    list.push({
+    const status = p.getString("status")
+    const item = {
       id: p.id,
       image: `/api/wonder/photos/${p.id}/image`,
       thumb: `/api/wonder/photos/${p.id}/thumb`,
@@ -16,7 +22,17 @@ function photoList(userId) {
       width: p.getInt("width"),
       height: p.getInt("height"),
       created: p.getString("created"),
-    })
+    }
+    if (p.getString("video")) {
+      item.video = `/api/wonder/photos/${p.id}/video`
+      item.duration = p.getFloat("duration")
+      item.size = p.getInt("size")
+    }
+    if (status) {
+      item.status = status
+      item.problem = p.getString("problem")
+    }
+    list.push(item)
   }
   return list
 }

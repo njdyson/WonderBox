@@ -190,7 +190,11 @@ data class Library(
     fun treatShelvesFor(childId: String) = shelvesFor(childId).filter { it.treat }
 }
 
-/** A family photo, for the [children] it's for. [image] and [thumb] are paths on the server. */
+/**
+ * A family photo or home video, for the [children] it's for. [image] and [thumb] are paths on
+ * the server; for a video they're stills from it, and [video] is the path of its MP4 (720p
+ * H.264, made by the server), [duration] its length in seconds.
+ */
 @Serializable
 data class Photo(
     val id: String,
@@ -199,7 +203,11 @@ data class Photo(
     val width: Int = 0,
     val height: Int = 0,
     val children: List<String> = emptyList(),
-)
+    val video: String = "",
+    val duration: Double = 0.0,
+) {
+    val isVideo get() = video.isNotBlank()
+}
 
 /** GET /api/wonder/photos: newest first. */
 @Serializable

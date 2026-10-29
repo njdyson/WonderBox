@@ -6,7 +6,7 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 | Folder | What it is |
 |---|---|
 | `pb_migrations/` | Database setup: `children` (with game levels and setups), `quizzes` and `quiz_images`, `videos`, `channels`, `photos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
-| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos (`photos.pb.js`), quizzes and their pictures (`quizzes.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
+| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos and home videos (`photos.pb.js`, `home_video_lib.js`), quizzes and their pictures (`quizzes.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
 | `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, each child's games and the parent's quizzes (`quizzes.js`, with the clipart catalogue in `clipart/`), family photos, stats (`stats.js`), linked TVs, the TV menu pictures (`menu.js`). |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
@@ -61,14 +61,31 @@ Search needs the API key. Each search uses 100 of the key's 10,000 free daily un
 100 searches a day, fewer with channel refreshes), so the server keeps each search's results
 for an hour.
 
-## Family photos
+## Family photos and home videos
 
 The phone app shrinks each photo before sending it: a JPEG at most 1920 pixels on its
 longest side (plenty for a 1080p TV) and a 400 pixel thumbnail, typically a few hundred KB
 in all instead of several MB. The originals stay on the phone. The files live in the data
 folder under `storage/` and are protected: they're only served through
 `/api/wonder/photos/{id}/image` to the signed-in parent and their linked TVs, never by a
-public link. Every child sees the same photos.
+public link. Each photo is for the children the parent chooses, like videos.
+
+Home videos from the phone go in the same list and show on the TV among the photos. The phone
+sends each one in 8 MB pieces (`/api/wonder/photos/video/start`, `…/{id}/piece?n=`, `…/{id}/finish`),
+so Plesk's 10 MB upload limit can stay, and a dropped piece is just sent again. The pieces wait in
+`<data>/home-videos/` while **ffmpeg** (`pb_hooks/home_video.sh`, started in the background)
+makes a 720p H.264 MP4 at most 30 frames a second, with AAC sound, phone HDR toned down to
+normal colours and the location taken out, plus a still and a thumbnail. That's what every Fire
+Stick plays best, and about 15 MB a minute, so 100 one-minute clips take about 1.5 GB. A cron
+job moves each finished video into its record every minute; until then the phone shows it as
+getting ready and the TVs don't see it. The upload is deleted once it's converted. The MP4 is
+served, protected like the photos, at `/api/wonder/photos/{id}/video` (in ranges, so the TV can
+start it straight away). Videos up to 4 GB can be sent; the phone app shows how much space the
+family's videos use.
+
+The install task installs ffmpeg: the system's own if it has one, otherwise a static build (about
+80 MB) in `/opt/wonderbox/ffmpeg`. `FFMPEG_BIN` and `FFPROBE_BIN` in the service say where it
+is. Without it the phone app says videos can't be added yet.
 
 ## Games and quizzes
 
