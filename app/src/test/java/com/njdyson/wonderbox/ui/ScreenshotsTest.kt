@@ -31,6 +31,12 @@ import com.njdyson.wonderbox.games.Jigsaw
 import com.njdyson.wonderbox.games.Memory
 import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.ScrambleSetup
+import com.njdyson.wonderbox.games.StoryPart
+import com.njdyson.wonderbox.games.StoryPick
+import com.njdyson.wonderbox.games.StorySetup
+import com.njdyson.wonderbox.data.SavedStories
+import com.njdyson.wonderbox.data.SavedStory
+import com.njdyson.wonderbox.data.SavedStoryPart
 import kotlin.random.Random
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
@@ -380,6 +386,7 @@ class ScreenshotsTest {
                             val bitmap = BitmapFactory.decodeFile(File("../server/pb_public/clipart/flags/$flag.png").absolutePath)
                             return SuccessResult(BitmapDrawable(context.resources, bitmap), chain.request, DataSource.MEMORY)
                         }
+                        if ("/api/wonder/stories/" in url) return SuccessResult(BitmapDrawable(context.resources, picture(4)), chain.request, DataSource.MEMORY)
                         if ("/api/wonder/photos/" !in url) return chain.proceed(chain.request)
                         val n = Regex("p(\\d)").find(url)?.groupValues?.get(1)?.toInt() ?: 1
                         return SuccessResult(BitmapDrawable(context.resources, picture(n)), chain.request, DataSource.MEMORY)
@@ -414,6 +421,56 @@ class ScreenshotsTest {
         p.color = 0xFFFFF59D.toInt(); c.drawRect(310f, 700f, 400f, 780f, p)
         p.color = 0xFF5D4037.toInt(); c.drawRect(460f, 760f, 540f, 900f, p)
         return bmp
+    }
+
+    private val storyParts = listOf(
+        StoryPart(StoryPick("owl", "🦉"), "Once upon a time, there was a sleepy little owl called Olly. Every night, Olly flew over the treetops, saying hello to the moon.", ai = true),
+        StoryPart(StoryPick("castle", "🏰"), "One evening, Olly spotted a sparkly castle on a hill. Summer was waving from the gate! \"Come and see,\" she called.", ai = true),
+        StoryPart(StoryPick("cake", "🎂"), "Inside, there was a giant strawberry cake with candles that twinkled like stars. Olly hooted with joy.", ai = true),
+        StoryPart(StoryPick("music", "🎵"), "Everyone danced to happy music until the sun came up. Then Olly flew home, full of cake and very happy.", ai = true),
+    )
+
+    @Test fun storyStart() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { StoryScreen(app, summer.copy(games = summer.games.copy(story = StorySetup(turns = 4))), false, {}, {}, {}, random = Random(1)) } }
+        settle()
+        shoot("story-start")
+    }
+
+    @Test fun storyPart() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { StoryScreen(app, summer.copy(games = summer.games.copy(story = StorySetup(turns = 4))), false, {}, {}, {}, random = Random(2), startParts = storyParts.take(2)) } }
+        settle()
+        shoot("story-part")
+    }
+
+    @Test fun storyWriting() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { StoryScreen(app, summer.copy(games = summer.games.copy(story = StorySetup(turns = 4))), false, {}, {}, {}, random = Random(2), startParts = storyParts.take(1), startWriting = true) } }
+        settle()
+        compose.mainClock.advanceTimeBy(1_300)
+        shoot("story-writing")
+    }
+
+    @Test fun storyEnd() {
+        val app = app()
+        compose.setContent { WonderBoxTheme { StoryScreen(app, summer.copy(games = summer.games.copy(story = StorySetup(turns = 4))), true, {}, {}, {}, startParts = storyParts) } }
+        settle()
+        shoot("story-end")
+    }
+
+    @Test fun storyLibrary() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val saved = listOf(
+            SavedStory("s1", summer.id, "The Owl and the Castle", storyParts.map { SavedStoryPart(it.pick.word, it.pick.picture, it.text) }, "/api/wonder/stories/s1/picture"),
+            SavedStory("s2", summer.id, "The Dragon in Space", listOf(SavedStoryPart("dragon", "🐉", "Once upon a time…"), SavedStoryPart("space", "🚀", "Up they went."), SavedStoryPart("star", "⭐", "A star!"))),
+        )
+        val app = app(withPhotos = true)
+        context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit().putString("stories", json.encodeToString(SavedStories.serializer(), SavedStories(saved))).commit()
+        val withStories = AppState(context)
+        compose.setContent { WonderBoxTheme { StoryLibraryScreen(withStories, summer) } }
+        settle()
+        shoot("story-library")
     }
 
     // The end of a round of a game on auto that's just moved up a level.

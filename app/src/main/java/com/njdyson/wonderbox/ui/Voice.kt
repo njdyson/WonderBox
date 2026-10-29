@@ -12,6 +12,8 @@ import android.speech.tts.UtteranceProgressListener
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
 
@@ -81,6 +83,7 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
                 main.post {
                     ttsWorked = true
                     refresh()
+                    if (utteranceId == "wonderbox$utterances" && player == null) done()
                 }
             }
 
@@ -158,14 +161,52 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
 
     private val useServer get() = serverHasVoice && serverFailures < MAX_SERVER_FAILURES
 
-    /** Reads [text] aloud, replacing anything still being said. */
-    fun say(text: String) {
-        if (text.isBlank()) return
+    /** Called once when what's being said now has been said; dropped when something else is said or it's stopped. */
+    private var onDone: (() -> Unit)? = null
+
+    /** Reads [text] aloud, replacing anything still being said. [onDone] once it's been said (not if it's cut short). */
+    fun say(text: String, onDone: (() -> Unit)? = null) {
+        if (text.isBlank()) {
+            onDone?.invoke()
+            return
+        }
         val address = server()
         if (useServer && address != null) play(text, address) else sayHere(text)
+        this.onDone = onDone
+    }
+
+    private fun done() {
+        val callback = onDone ?: return
+        onDone = null
+        callback()
+    }
+
+    /**
+     * Has the server's voice make clips of [texts] now, in the background, so they start
+     * straight away when they're said (the server keeps each clip once made).
+     */
+    fun prepare(texts: List<String>) {
+        val address = server() ?: return
+        if (!useServer) return
+        val (baseUrl, key) = address
+        Thread {
+            texts.filter { it.isNotBlank() }.forEach { text ->
+                runCatching {
+                    val conn = URL(baseUrl.trimEnd('/') + "/api/wonder/speech?text=" + URLEncoder.encode(text, "UTF-8")).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 15_000
+                    conn.readTimeout = 60_000
+                    conn.setRequestProperty("X-Device-Key", key)
+                    conn.inputStream.use { input ->
+                        val buffer = ByteArray(16 * 1024)
+                        while (input.read(buffer) >= 0) Unit
+                    }
+                }
+            }
+        }.start()
     }
 
     fun stop() {
+        onDone = null
         player?.let { runCatching { it.stop() }; it.release() }
         player = null
         tts?.stop()
@@ -204,7 +245,10 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
             p.setOnPreparedListener { if (player === it) it.start() }
             p.setOnCompletionListener {
                 it.release()
-                if (player === it) player = null
+                if (player === it) {
+                    player = null
+                    done()
+                }
             }
             p.setOnErrorListener { mp, _, _ ->
                 mp.release()

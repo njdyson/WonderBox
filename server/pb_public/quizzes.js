@@ -56,6 +56,7 @@ const JIGSAW_SIZES = [2, 3, 4, 5];
 // Hangman and memory pairs (app/.../games/Hangman.kt and Memory.kt; the server keeps the same lists).
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true };
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
+const STORY_DEFAULT = { on: true, age: 5, turns: 5 };
 const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
 // The word game (app/.../games/WordGame.kt, pb_hooks/games_lib.js): levels 1 and 2 unjumble a
 // word, 3 to 5 make words from 5, 6 or 7 letters.
@@ -109,7 +110,7 @@ const FLAG_LEVELS = [
 const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
 const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
 // The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["videos", "Watching a whole learning, exercise or story video"]];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["story", "Story maker"], ["videos", "Watching a whole learning, exercise or story video"]];
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
@@ -172,6 +173,7 @@ function renderGames(c) {
   // The learning games are in the Quizzes tab; the rest, and the treat rules, in the Games tab.
   for (const id of ["gamesHeading", "games", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
   if (!c) return;
+  loadStories();
   $("gamesHeading").textContent = `${c.name.toUpperCase()}'S QUIZZES`;
   $("playHeading").textContent = `${c.name.toUpperCase()}'S GAMES`;
   const g = c.games || {};
@@ -425,6 +427,27 @@ function renderGames(c) {
         : `Cards with ${c.name}'s photos from the Photos tab; animals fill in if there aren't enough.` }));
   }
 
+  // The story maker (pb_hooks/story_lib.js): Gemini writes as the child picks pictures
+  const story = { ...STORY_DEFAULT, ...(g.story || {}) };
+  const saveStory = (change) => save({ story: { ...story, ...change } });
+  const storyPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "📖 Story maker" }),
+      toggle(story.on, (on) => saveStory({ on }), "Show the story maker on the TV")));
+  if (story.on) {
+    storyPart.append(
+      el("div", { className: "sub-h", textContent: `${c.name}'s age (sets how long and simple each part is)` }),
+      seg([3, 4, 5, 6, 7, 8, 9].map((n) => [n, String(n)]), story.age, (age) => saveStory({ age })),
+      el("div", { className: "sub-h", textContent: "Pictures to pick in a story" }),
+      seg([3, 4, 5, 6].map((n) => [n, String(n)]), story.turns, (turns) => saveStory({ turns })),
+      el("div", { className: "muted", textContent: library.stories
+        ? `${c.name} picks a hero, a place, what happens and how it ends, and Gemini writes each part, read aloud. Finished stories are kept, with a picture Gemini draws.`
+        : "The server has no Gemini key yet, so the TV tells a simple built-in story. Add GEMINI_API_KEY in the install task (server README) for real stories." }));
+  }
+  const kept = savedStories.filter((st) => st.child === c.id);
+  if (kept.length) {
+    storyPart.append(el("button", { type: "button", className: "more", textContent: `${c.name}'s stories (${kept.length}) ▸`, onclick: () => storiesSheet(c) }));
+  }
+
   // Sound effects (app/.../ui/Sounds.kt)
   const sounds = g.sounds || "silly";
   const soundsPart = el("div", { className: "game" },
@@ -454,7 +477,8 @@ function renderGames(c) {
     hangmanPart,
     scramblePart,
     jigsawPart,
-    memoryPart);
+    memoryPart,
+    storyPart);
   $("treatRules").replaceChildren(
     treatsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
@@ -463,6 +487,56 @@ function renderGames(c) {
       ? TIER_HELP + " A quiz is won by answering all its questions."
       : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }),
     soundsPart);
+}
+
+// --- Saved stories (the TV's story maker) --------------------------------------
+
+let savedStories = [];
+let storiesLoaded = false;
+
+/** Fetches the saved stories once, then shows the Games tab again with them. */
+async function loadStories() {
+  if (storiesLoaded) return;
+  storiesLoaded = true;
+  try {
+    savedStories = (await api("/api/wonder/stories")).stories || [];
+    const c = child(selected);
+    if (c && savedStories.length) renderGames(c);
+  } catch (_) {}
+}
+
+/** A child's stories, newest first: tap one to read it. */
+function storiesSheet(c) {
+  const list = savedStories.filter((st) => st.child === c.id);
+  openSheet(
+    el("h2", { textContent: `${c.name}'s stories` }),
+    ...list.map((st) => el("div", { className: "quiz-row", onclick: () => storySheet(c, st) },
+      pic((st.parts[0] && st.parts[0].picture) || "📖"),
+      el("div", { className: "grow" },
+        el("div", { className: "t", textContent: st.title || "Story" }),
+        el("div", { className: "muted", textContent: new Date(st.created.replace(" ", "T")).toLocaleDateString() })))),
+    el("button", { type: "button", className: "ghost", textContent: "Close", onclick: closeSheet }));
+}
+
+/** One story: its picture and every part, with a button to delete it. */
+function storySheet(c, st) {
+  const img = el("img", { className: "story-picture", alt: "" });
+  img.hidden = true;
+  if (st.picture) photoUrl(st.picture).then((url) => { img.src = url; img.hidden = false; }).catch(() => {});
+  openSheet(
+    el("h2", { textContent: st.title || "Story" }),
+    img,
+    ...st.parts.map((p) => el("p", { textContent: `${p.picture || ""} ${p.text}`.trim() })),
+    el("button", { type: "button", className: "ghost", textContent: "Back", onclick: () => storiesSheet(c) }),
+    el("button", { type: "button", className: "ghost", textContent: "Delete this story", onclick: async () => {
+      if (!confirm("Delete this story?")) return;
+      try {
+        savedStories = (await api("/api/wonder/stories/remove", { id: st.id })).stories || [];
+        closeSheet();
+        renderGames(c);
+        toast("Story deleted");
+      } catch (e) { showError(e); }
+    } }));
 }
 
 // --- Quizzes -----------------------------------------------------------------

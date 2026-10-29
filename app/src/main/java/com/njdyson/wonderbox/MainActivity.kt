@@ -21,6 +21,8 @@ import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
 import com.njdyson.wonderbox.games.SCRAMBLE
+import com.njdyson.wonderbox.games.STORY
+import com.njdyson.wonderbox.games.STORY_LIBRARY
 import com.njdyson.wonderbox.games.gamesFor
 import com.njdyson.wonderbox.player.PlayerActivity
 import com.njdyson.wonderbox.ui.Category
@@ -38,6 +40,8 @@ import com.njdyson.wonderbox.ui.PhotosScreen
 import com.njdyson.wonderbox.ui.ProfileScreen
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
+import com.njdyson.wonderbox.ui.StoryLibraryScreen
+import com.njdyson.wonderbox.ui.StoryScreen
 import com.njdyson.wonderbox.ui.VideosScreen
 import com.njdyson.wonderbox.ui.WordGameScreen
 import kotlinx.coroutines.delay
@@ -64,6 +68,8 @@ private sealed interface Screen {
     data class Hangman(val childId: String) : Screen
     data class WordGame(val childId: String) : Screen
     data class Memory(val childId: String) : Screen
+    data class Story(val childId: String) : Screen
+    data class StoryLibrary(val childId: String) : Screen
     data object Gate : Screen
     data object Settings : Screen
 }
@@ -186,7 +192,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Games -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
                             val games = child?.let { c ->
-                                app.library.gamesFor(c, photos = app.photosFor(c.id).isNotEmpty())
+                                app.library.gamesFor(c, photos = app.photosFor(c.id).isNotEmpty(), stories = app.storiesFor(c.id).isNotEmpty())
                                     .filter { it.isQuiz == (screen.category == Category.Quizzes) }
                             }
                             if (child == null || games.isNullOrEmpty()) {
@@ -199,6 +205,8 @@ class MainActivity : ComponentActivity() {
                                             HANGMAN -> Screen.Hangman(child.id)
                                             SCRAMBLE -> Screen.WordGame(child.id)
                                             MEMORY -> Screen.Memory(child.id)
+                                            STORY -> Screen.Story(child.id)
+                                            STORY_LIBRARY -> Screen.StoryLibrary(child.id)
                                             else -> Screen.Playing(child.id, it.key)
                                         },
                                     )
@@ -365,6 +373,30 @@ class MainActivity : ComponentActivity() {
                                     onPickTreat = { pickTreat(child.id) },
                                     onBack = { back() },
                                 )
+                            }
+                        }
+                        is Screen.Story -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            if (child == null || !child.games.story.on) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                val treat = earnsTreat(child.id, STORY)
+                                StoryScreen(
+                                    app,
+                                    child,
+                                    hasTreats = treat,
+                                    onFinished = { if (treat) winTreat(child.id, "story.finish", STORY) },
+                                    onPickTreat = { pickTreat(child.id) },
+                                    onBack = { back() },
+                                )
+                            }
+                        }
+                        is Screen.StoryLibrary -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            if (child == null || app.storiesFor(screen.childId).isEmpty()) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                StoryLibraryScreen(app, child)
                             }
                         }
                         is Screen.PhotoGrid -> app.library.children.firstOrNull { it.id == screen.childId }.let { child ->

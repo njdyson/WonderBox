@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Settings for the TV's hangman, word game and memory pairs (app/.../games/Hangman.kt,
-// WordGame.kt and Memory.kt), loaded with require(). Each child's are kept in
+// Settings for the TV's hangman, word game, memory pairs and story maker (app/.../games/Hangman.kt,
+// WordGame.kt, Memory.kt and Story.kt), loaded with require(). Each child's are kept in
 // children.game_setup next to maths and spelling; anything missing or odd gets the default.
 
 const WORD_LISTS = ["short", "long", "big", "mine"]
@@ -16,6 +16,11 @@ const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" }
 const SCRAMBLE_LISTS = ["phase2", "short", "long", "big", "mine"]
 const SCRAMBLE_LEVELS = 5
 const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true }
+// The story maker (story_lib.js): how old the listener is (it sets how long and how simple each
+// part is) and how many pictures they pick in a story.
+const STORY_AGES = [3, 4, 5, 6, 7, 8, 9]
+const STORY_TURNS = [3, 4, 5, 6]
+const STORY_DEFAULT = { on: true, age: 5, turns: 5 }
 
 /** The nearest of [allowed] to [value], or [fallback] when it isn't a number. */
 function nearest(value, allowed, fallback) {
@@ -65,4 +70,14 @@ function memorySetup(value) {
   }
 }
 
-module.exports = { hangmanSetup, scrambleSetup, memorySetup, SCRAMBLE_LEVELS }
+/** A child's story maker: {on, age, turns}. */
+function storySetup(value) {
+  const v = value && typeof value === "object" ? value : {}
+  return {
+    on: v.on === undefined ? STORY_DEFAULT.on : !!v.on,
+    age: nearest(v.age, STORY_AGES, STORY_DEFAULT.age),
+    turns: nearest(v.turns, STORY_TURNS, STORY_DEFAULT.turns),
+  }
+}
+
+module.exports = { hangmanSetup, scrambleSetup, memorySetup, storySetup, SCRAMBLE_LEVELS }

@@ -28,6 +28,10 @@ class Store(context: Context) {
         }.apply()
 
     /** The last photo list fetched; the pictures themselves are cached on disk by Coil. */
+    var stories: List<SavedStory>
+        get() = prefs.getString("stories", null)?.let { runCatching { json.decodeFromString(SavedStories.serializer(), it).stories }.getOrNull() }.orEmpty()
+        set(value) = prefs.edit().putString("stories", json.encodeToString(SavedStories.serializer(), SavedStories(value))).apply()
+
     var photos: List<Photo>
         get() = prefs.getString("photos", null)?.let { runCatching { json.decodeFromString(Photos.serializer(), it).photos }.getOrNull() }.orEmpty()
         set(value) = prefs.edit().putString("photos", json.encodeToString(Photos.serializer(), Photos(value))).apply()

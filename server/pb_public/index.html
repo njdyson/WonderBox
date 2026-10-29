@@ -43,6 +43,7 @@
   }
   button.ghost { background: rgba(255,255,255,.12); color: var(--text); font-weight: 600; }
   button.small { padding: 6px 10px; font-size: 14px; }
+  img.story-picture { width: 100%; border-radius: 14px; margin: 6px 0; }
   button:disabled { opacity: .4; }
   .card { background: var(--card); border-radius: 14px; padding: 16px; margin-top: 12px; }
   .stack { display: grid; gap: 10px; }
@@ -428,7 +429,7 @@ async function load() {
 }
 
 function setLibrary(data) {
-  library = { children: data.children || [], quizzes: data.quizzes || [], videos: data.videos || [], channels: data.channels || [] };
+  library = { children: data.children || [], quizzes: data.quizzes || [], videos: data.videos || [], channels: data.channels || [], stories: !!data.stories };
   if (!child(selected)) selected = library.children[0] ? library.children[0].id : "";
   render();
 }

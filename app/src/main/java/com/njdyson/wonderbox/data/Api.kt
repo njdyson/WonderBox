@@ -8,11 +8,14 @@ import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.Quiz
 import com.njdyson.wonderbox.games.ScrambleSetup
 import com.njdyson.wonderbox.games.SpellingSetup
+import com.njdyson.wonderbox.games.StorySetup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.net.HttpURLConnection
@@ -39,8 +42,8 @@ data class Child(
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
  * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
  * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "scramble" (the
- * word game), "memory", "jigsaw", and "videos" (watching a whole free video, not music, for the
- * first time). [hangman], [memory] and [scramble] are those games' setups.
+ * word game), "memory", "jigsaw", "story" (the story maker), and "videos" (watching a whole free
+ * video, not music, for the first time). [hangman], [memory], [scramble] and [story] are those games' setups.
  */
 @Serializable
 data class GameSettings(
@@ -59,6 +62,7 @@ data class GameSettings(
     val flags: Int = 1,
     val flagSetup: FlagSetup? = null,
     val scramble: ScrambleSetup = ScrambleSetup(),
+    val story: StorySetup = StorySetup(),
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)
@@ -130,6 +134,8 @@ data class Library(
     val channels: List<Channel> = emptyList(),
     /** The server can read things aloud in its own voice (GET /api/wonder/speech). */
     val voice: Boolean = false,
+    /** The server can write stories with Gemini (POST /api/wonder/story); otherwise the TV tells simple ones. */
+    val stories: Boolean = false,
 ) {
     fun videosFor(childId: String) = videos.filter { childId in it.children }
 
@@ -194,6 +200,24 @@ data class Photo(
 @Serializable
 data class Photos(val photos: List<Photo> = emptyList())
 
+/** A story a child finished in the story maker, kept in their library. [picture] is the server path of the picture Gemini drew for it, or "". */
+@Serializable
+data class SavedStory(
+    val id: String,
+    val child: String = "",
+    val title: String = "",
+    val parts: List<SavedStoryPart> = emptyList(),
+    val picture: String = "",
+    val created: String = "",
+)
+
+@Serializable
+data class SavedStoryPart(val word: String = "", val picture: String = "", val text: String = "")
+
+/** GET /api/wonder/stories: newest first. */
+@Serializable
+data class SavedStories(val stories: List<SavedStory> = emptyList())
+
 /** Thrown when the server no longer accepts this TV's key (it was unlinked from the phone app). */
 class UnlinkedException : Exception("This TV was unlinked")
 
@@ -233,10 +257,42 @@ class Server(private val baseUrl: String, private val deviceKey: String) {
         request(baseUrl, "/api/wonder/events", body, deviceKey)
     }
 
+    /**
+     * The three possible next parts of [childId]'s story, one for each of [options] (words), in
+     * that order. [story] is the parts so far as (word, text). A part that didn't come out
+     * right is "".
+     */
+    fun story(childId: String, story: List<Pair<String, String>>, options: List<String>): List<String> {
+        val body = buildJsonObject {
+            put("child", childId)
+            put("story", JsonArray(story.map { (word, text) -> buildJsonObject { put("word", word); put("text", text) } }))
+            put("options", JsonArray(options.map { JsonPrimitive(it) }))
+        }
+        val reply = json.decodeFromString(StoryReply.serializer(), request(baseUrl, "/api/wonder/story", body, deviceKey))
+        return options.map { word -> reply.parts.firstOrNull { it.word == word }?.text.orEmpty() }
+    }
+
+    fun stories(): List<SavedStory> = json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories", deviceKey = deviceKey)).stories
+
+    /** Saves a finished story in the child's library; returns the library. */
+    fun saveStory(childId: String, parts: List<SavedStoryPart>): List<SavedStory> {
+        val body = buildJsonObject {
+            put("child", childId)
+            put("parts", json.encodeToJsonElement(ListSerializer(SavedStoryPart.serializer()), parts))
+        }
+        return json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories/save", body, deviceKey)).stories
+    }
+
     fun forget() {
         request(baseUrl, "/api/wonder/devices/forget", JsonObject(emptyMap()), deviceKey)
     }
 }
+
+@Serializable
+private data class StoryReply(val parts: List<StoryReplyPart> = emptyList())
+
+@Serializable
+private data class StoryReplyPart(val word: String = "", val text: String = "")
 
 /** Linking a TV: show a code, the parent approves it in the phone app, the TV receives its key. */
 object Pairing {

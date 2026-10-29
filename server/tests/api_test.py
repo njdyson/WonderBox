@@ -113,7 +113,7 @@ try:
     call("POST", "/api/collections/users/records", {"email": "x@example.com", "password": password, "passwordConfirm": password}, expect=403)
     call("GET", "/api/wonder/library", expect=401)
     empty = call("GET", "/api/wonder/library", token=token)
-    assert {k: v for k, v in empty.items() if k != "voice"} == {"children": [], "quizzes": [], "videos": [], "channels": []}, empty
+    assert {k: v for k, v in empty.items() if k not in ("voice", "stories")} == {"children": [], "quizzes": [], "videos": [], "channels": []}, empty
     assert isinstance(empty["voice"], bool)
 
     # Children
@@ -517,6 +517,29 @@ try:
     call("POST", "/api/wonder/events", ups, device_key=key)
     call("POST", "/api/wonder/events", {"events": [change("maths", 5)]}, device_key=key)
     assert next(c for c in call("GET", "/api/wonder/library", token=token)["children"] if c["id"] == sam)["games"]["maths"] == 2
+
+    # The story maker: settings, writing (needs a Gemini key: without one it's 503 and the TV
+    # tells its own story), and the story library.
+    lib = call("POST", "/api/wonder/children/games", {"id": sam, "story": {"age": 6, "turns": 9}}, token)
+    g = next(c for c in lib["children"] if c["id"] == sam)["games"]
+    assert g["story"] == {"on": True, "age": 6, "turns": 6}, g["story"]
+    assert "story" not in g["treatGames"], "the story maker doesn't win treats until the parent says"
+    if not lib["stories"]:
+        call("POST", "/api/wonder/story", {"child": sam, "story": [], "options": ["cat", "dog", "owl"]}, device_key=key, expect=503)
+    call("POST", "/api/wonder/story", {"child": sam, "options": ["$$$"]}, device_key=key, expect=400)
+    call("POST", "/api/wonder/story", {"child": "nope", "options": ["cat"]}, device_key=key, expect=404)
+    parts = [{"word": "fox", "picture": "🦊", "text": "Once upon a time there was a fox."},
+             {"word": "castle", "picture": "<b>", "text": "The fox went to the castle."}]
+    saved = call("POST", "/api/wonder/stories/save", {"child": sam, "parts": parts}, device_key=key)
+    story = next(st for st in saved["stories"] if st["id"] == saved["saved"])
+    assert story["title"] == "The Fox and the Castle" and story["child"] == sam, story
+    assert story["parts"][0]["picture"] == "🦊" and story["parts"][1]["picture"] == "", story["parts"]
+    assert story["picture"] == ""
+    call("POST", "/api/wonder/stories/save", {"child": sam, "parts": []}, device_key=key, expect=400)
+    assert [st["id"] for st in call("GET", "/api/wonder/stories", token=token)["stories"]] == [story["id"]]
+    call("GET", f"/api/wonder/stories/{story['id']}/picture", device_key=key, expect=404)
+    call("POST", "/api/wonder/stories/remove", {"id": story["id"]}, device_key=key, expect=401)
+    assert call("POST", "/api/wonder/stories/remove", {"id": story["id"]}, token)["stories"] == []
 
     tvs = call("GET", "/api/wonder/devices", token=token)
     assert [t["name"] for t in tvs] == ["Living room"]

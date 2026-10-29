@@ -68,6 +68,8 @@ function library(userId) {
     quizzes: require(`${__hooks}/quizzes_lib.js`).quizList(userId),
     // The server can read things aloud for the TV (speech.pb.js).
     voice: require(`${__hooks}/speech_lib.js`).available(),
+    // The story maker can ask Gemini to write (story_lib.js); without it the TV tells a simple story itself.
+    stories: require(`${__hooks}/story_lib.js`).available(),
     videos: videoRecords(userId).map((v) => ({
       id: v.id,
       youtubeId: v.getString("youtube_id"),
@@ -130,13 +132,14 @@ function games(child) {
     clockSetup: quiz.clockSetup(stored.clock, clockLevel),
     flags: flagLevel,
     flagSetup: quiz.flagSetup(stored.flags, flagLevel),
-    // Which games win a treat: maths, spelling, clock, flags, quizzes, hangman, scramble, memory, jigsaw, videos (learning and exercise).
+    // Which games win a treat: maths, spelling, clock, flags, quizzes, hangman, scramble, memory, jigsaw, story, videos (learning and exercise).
     treatGames: quiz.treatGames(stored.treats, stored.treatsOffered),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
     hangman: extra.hangmanSetup(stored.hangman),
     scramble: extra.scrambleSetup(stored.scramble),
     memory: extra.memorySetup(stored.memory),
+    story: extra.storySetup(stored.story),
   }
 }
 
@@ -154,9 +157,9 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, scramble, memory}: how hard a child's games are (jigsaw 0 is off),
- * which of them win a treat, and their sound effects. hangman, scramble (the word game) and
- * memory are whole setups (pb_hooks/games_lib.js).
+ * jigsaw, sounds, hangman, scramble, memory, story}: how hard a child's games are (jigsaw 0 is off),
+ * which of them win a treat, and their sound effects. hangman, scramble (the word game),
+ * memory and story are whole setups (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -184,6 +187,7 @@ function saveGames(userId, body) {
   setup.hangman = body.hangman ? extra.hangmanSetup(body.hangman) : current.hangman
   setup.scramble = body.scramble ? extra.scrambleSetup(body.scramble) : current.scramble
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
+  setup.story = body.story ? extra.storySetup(body.story) : current.story
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
   let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
   if (body.mathsSetup) {
@@ -874,7 +878,7 @@ function cleanupPairings() {
 }
 
 module.exports = {
-  caller, requireUser, library, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
+  caller, requireUser, library, games, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
   saveGames, autoLevel, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
   refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,

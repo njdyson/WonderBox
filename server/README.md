@@ -26,6 +26,13 @@ free key at pixabay.com/api/docs and run the install task again with `PIXABAY_AP
 added (step 4). It's kept in the same file as the YouTube key; without it the picker just
 shows clipart.
 
+The TV's **story maker** game asks Google's Gemini to write each part of the story. Get a key
+at aistudio.google.com (Get API key; it needs billing turned on for the paid tier, and costs a
+fraction of a penny per story on a Flash model) and run the install task again with
+`GEMINI_API_KEY='…'` added (step 4). `GEMINI_MODEL='…'` changes the model (default
+`gemini-3.6-flash`, see `pb_hooks/story_lib.js`). Without a key the TV tells a simple story of
+its own. At most 300 parts are written per family per day.
+
 ## Channels and playlists
 
 Paste a channel link (`youtube.com/@name`, `/channel/UC…`, `/c/…` or `/user/…`) and the
@@ -118,7 +125,7 @@ The database lives in a separate folder that deploys never touch.
    system user **root**, **Run a command**, with this command (your email, a new password,
    and optionally the YouTube key), press **Run Now**, then delete the task (it holds the password):
    ```
-   ADMIN_EMAIL='you@example.com' ADMIN_PASSWORD='a-new-password' YOUTUBE_API_KEY='' PIXABAY_API_KEY='' APP_DIR=/var/www/vhosts/psybob.uk/wonder.psybob.uk bash /var/www/vhosts/psybob.uk/wonder.psybob.uk/server/deploy/install.sh
+   ADMIN_EMAIL='you@example.com' ADMIN_PASSWORD='a-new-password' YOUTUBE_API_KEY='' PIXABAY_API_KEY='' GEMINI_API_KEY='' APP_DIR=/var/www/vhosts/psybob.uk/wonder.psybob.uk bash /var/www/vhosts/psybob.uk/wonder.psybob.uk/server/deploy/install.sh
    ```
    It downloads PocketBase, sets it up as a service that starts with the server, adds the
    auto restart after deploys, and creates the dashboard admin. The database goes in

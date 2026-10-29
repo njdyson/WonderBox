@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.njdyson.wonderbox.BuildConfig
 import com.njdyson.wonderbox.data.Library
+import com.njdyson.wonderbox.data.SavedStoryPart
 import com.njdyson.wonderbox.data.Server
 import com.njdyson.wonderbox.data.Store
 import com.njdyson.wonderbox.data.UnlinkedException
@@ -13,6 +14,8 @@ import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.AutoLevel
+import com.njdyson.wonderbox.games.StoryPart
+import com.njdyson.wonderbox.games.StoryPick
 import com.njdyson.wonderbox.games.autoLevel
 import com.njdyson.wonderbox.games.withLevel
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +38,26 @@ class AppState(context: Context) {
 
     var library by mutableStateOf(store.library ?: Library())
         private set
+
+    /** The children's finished stories, newest first. */
+    var stories by mutableStateOf(store.stories)
+        private set
+
+    /** One child's stories, newest first. */
+    fun storiesFor(childId: String) = stories.filter { it.child == childId }
+
+    /**
+     * Saves a finished story in [childId]'s library (the server then draws its picture). If the
+     * server can't be reached the story is just not kept.
+     */
+    suspend fun saveStory(childId: String, parts: List<StoryPart>) {
+        val key = deviceKey ?: return
+        val saved = parts.map { SavedStoryPart(it.pick.word, it.pick.picture, it.text) }
+        runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).saveStory(childId, saved) } }.onSuccess {
+            stories = it
+            store.stories = it
+        }
+    }
 
     /** The family photos, newest first, each for one or more children. */
     var photos by mutableStateOf(store.photos)
@@ -188,6 +211,10 @@ class AppState(context: Context) {
                 photos = it
                 store.photos = it
             }
+            runCatching { withContext(Dispatchers.IO) { server.stories() } }.onSuccess {
+                stories = it
+                store.stories = it
+            }
         } catch (e: UnlinkedException) {
             forgetLink()
         } catch (e: Exception) {
@@ -211,6 +238,8 @@ class AppState(context: Context) {
         store.deviceKey = null
         store.library = null
         store.photos = emptyList()
+        store.stories = emptyList()
+        stories = emptyList()
         deviceKey = null
         library = Library()
         photos = emptyList()
@@ -233,9 +262,22 @@ class AppState(context: Context) {
         if (speakTitles) say(text)
     }
 
-    /** Reads [text] aloud even when titles aren't read: the games' questions need it. */
-    fun say(text: String) {
-        voice.say(text)
+    /** Reads [text] aloud even when titles aren't read: the games' questions need it. [onDone] when it's been said. */
+    fun say(text: String, onDone: (() -> Unit)? = null) {
+        voice.say(text, onDone)
+    }
+
+    /**
+     * The three possible next parts of a child's story, written by the server (Gemini), one for
+     * each of [options]; "" for one that didn't come out right. Null when the server can't write
+     * stories (no key) or can't be reached: the TV then tells a simple story itself.
+     */
+    suspend fun storyParts(childId: String, story: List<StoryPart>, options: List<StoryPick>): List<String>? {
+        val key = deviceKey ?: return null
+        if (!library.stories) return null
+        return runCatching {
+            withContext(Dispatchers.IO) { Server(serverUrl, key).story(childId, story.map { it.pick.word to it.text }, options.map { it.word }) }
+        }.getOrNull()
     }
 
     fun stopSpeaking() {

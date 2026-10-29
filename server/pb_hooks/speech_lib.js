@@ -5,7 +5,7 @@
 // puts Piper and a voice in /opt/wonderbox/piper and sets PIPER_BIN and PIPER_VOICE. Each
 // clip is made once and kept in <data>/speech, named by a hash of the voice and the text.
 
-const MAX_TEXT = 300
+const MAX_TEXT = 700
 
 function config() {
   const bin = $os.getenv("PIPER_BIN")
