@@ -64,8 +64,9 @@ private sealed interface Screen {
     data class Treats(val childId: String) : Screen
     /** Picking a treat to save, straight after winning one. */
     data class PickTreat(val childId: String) : Screen
-    data class PhotoGrid(val childId: String) : Screen
-    data class Photos(val childId: String, val start: Int) : Screen
+    /** [seed] shuffles the photos; it's new each time the Photos section is opened. */
+    data class PhotoGrid(val childId: String, val seed: Long) : Screen
+    data class Photos(val childId: String, val start: Int, val seed: Long) : Screen
     /** [game] is a [com.njdyson.wonderbox.games.GameEntry] key: "maths", "spelling" or "quiz/<id>". */
     data class Playing(val childId: String, val game: String) : Screen
     data class Jigsaw(val childId: String) : Screen
@@ -193,7 +194,7 @@ class MainActivity : ComponentActivity() {
                                             Category.Treats -> if (app.treatsFor(child.id) > 0) Screen.PickTreat(child.id) else Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
                                             Category.Learning, Category.Music, Category.Exercise, Category.Stories -> Screen.Videos(child.id, it)
-                                            Category.Photos -> Screen.PhotoGrid(child.id)
+                                            Category.Photos -> Screen.PhotoGrid(child.id, Random.nextLong())
                                         },
                                     )
                                 })
@@ -431,10 +432,10 @@ class MainActivity : ComponentActivity() {
                             if (child == null || app.photosFor(screen.childId).isEmpty()) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                PhotoGridScreen(app, child, onOpen = { open(Screen.Photos(child.id, it)) })
+                                PhotoGridScreen(app, child, screen.seed, onOpen = { open(Screen.Photos(child.id, it, screen.seed)) })
                             }
                         }
-                        is Screen.Photos -> PhotosScreen(app, screen.childId, screen.start)
+                        is Screen.Photos -> PhotosScreen(app, screen.childId, screen.start, screen.seed)
                         Screen.Gate -> GrownUpGate(onPassed = {
                             stack.removeAt(stack.lastIndex)
                             open(Screen.Settings)

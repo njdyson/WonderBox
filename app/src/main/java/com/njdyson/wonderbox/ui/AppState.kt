@@ -20,6 +20,7 @@ import com.njdyson.wonderbox.games.StoryPart
 import com.njdyson.wonderbox.games.StoryPick
 import com.njdyson.wonderbox.games.autoLevel
 import com.njdyson.wonderbox.games.withLevel
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.put
@@ -281,6 +282,14 @@ class AppState(context: Context) {
 
     /** One child's photos and home videos, newest first. */
     fun photosFor(childId: String) = photos.filter { childId in it.children }
+
+    /**
+     * One child's photos and home videos in a shuffled order, so the Photos section feels fresh
+     * each time it's opened. The same [seed] always gives the same order, and each photo's place
+     * comes from its own id, so a photo arriving in a sync slots in without moving the others.
+     */
+    fun shuffledPhotosFor(childId: String, seed: Long) =
+        photosFor(childId).sortedBy { Random(seed xor it.id.hashCode().toLong()).nextLong() }
 
     /** One child's photos without the videos, for the photo games. */
     fun stillsFor(childId: String) = photosFor(childId).filter { !it.isVideo }

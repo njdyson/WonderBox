@@ -274,13 +274,13 @@ class ScreenshotsTest {
 
     @Test fun photoGrid() {
         val app = app(withPhotos = true)
-        compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, {}) } }
+        compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, 0L, {}) } }
         shoot("photos-summer")
     }
 
     @Test fun photoGridWithVideos() {
         val app = app(withPhotos = true, withVideos = true)
-        compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, {}) } }
+        compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, 0L, {}) } }
         shoot("photos-videos-summer")
     }
 
