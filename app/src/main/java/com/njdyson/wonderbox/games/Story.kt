@@ -39,12 +39,20 @@ object StoryPictures {
         "elephant" to "🐘", "hedgehog" to "🦔", "frog" to "🐸", "turtle" to "🐢", "butterfly" to "🦋", "ladybird" to "🐞",
         "panda" to "🐼", "tiger" to "🐯", "duck" to "🦆", "pig" to "🐷", "mouse" to "🐭", "octopus" to "🐙",
         "dolphin" to "🐬", "koala" to "🐨", "snail" to "🐌", "giraffe" to "🦒", "sloth" to "🦥", "squirrel" to "🐿️",
+        "hamster" to "🐹", "horse" to "🐴", "zebra" to "🦓", "kangaroo" to "🦘", "raccoon" to "🦝", "otter" to "🦦",
+        "beaver" to "🦫", "flamingo" to "🦩", "peacock" to "🦚", "swan" to "🦢", "hen" to "🐔", "seal" to "🦭",
+        "llama" to "🦙", "deer" to "🦌", "gorilla" to "🦍", "wolf" to "🐺", "sheep" to "🐑", "goat" to "🐐",
+        "cow" to "🐄", "bat" to "🦇", "shark" to "🦈", "bee" to "🐝", "caterpillar" to "🐛", "moose" to "🫎",
+        "donkey" to "🫏", "goose" to "🪿", "badger" to "🦡", "lizard" to "🦎", "mammoth" to "🦣", "whale" to "🐳",
     )
 
     val PLACES = listOf(
         "castle" to "🏰", "mountain" to "⛰️", "volcano" to "🌋", "desert" to "🏜️", "house" to "🏠", "school" to "🏫",
         "woods" to "🌳", "space" to "🚀", "moon" to "🌙", "rainbow" to "🌈", "ship" to "🚢", "campsite" to "⛺",
         "park" to "⛲", "farm" to "🚜", "snow" to "☃️", "sky" to "☁️", "train" to "🚂", "garden" to "🌷",
+        "cave" to "🪨", "river" to "🛶", "pond" to "🪷", "coral reef" to "🪸", "meadow" to "🌼", "snowy hill" to "🛷",
+        "stadium" to "🏟️", "little hut" to "🛖", "bakery" to "🍞", "seaside" to "⚓", "jungle" to "🦜", "cactus land" to "🌵",
+        "toy shop" to "🧩",
     )
 
     val THINGS = listOf(
@@ -55,11 +63,20 @@ object StoryPictures {
         "shell" to "🐚", "feather" to "🪶", "star" to "⭐", "snowman" to "☃️", "bubbles" to "🫧", "parcel" to "📦",
         "letter" to "✉️", "ladder" to "🪜", "compass" to "🧭", "mushroom" to "🍄", "owl" to "🦉", "butterfly" to "🦋",
         "ladybird" to "🐞", "puppy" to "🐶", "crab" to "🦀", "whale" to "🐳", "bee" to "🐝", "parrot" to "🦜",
+        "ribbon" to "🎀", "backpack" to "🎒", "magic hat" to "🎩", "violin" to "🎻", "tennis ball" to "🎾", "football" to "⚽",
+        "basket" to "🧺", "broom" to "🧹", "magnifying glass" to "🔍", "bell" to "🔔", "radio" to "📻", "mirror" to "🪞",
+        "shield" to "🛡️", "flute" to "🪈", "maracas" to "🪇", "banjo" to "🪕", "doughnut" to "🍩", "honey" to "🍯",
+        "carrot" to "🥕", "cherries" to "🍒", "grapes" to "🍇", "lemon" to "🍋", "coconut" to "🥥", "waffle" to "🧇",
+        "acorn" to "🌰", "rose" to "🌹", "log" to "🪵", "bucket" to "🪣", "suitcase" to "🧳", "glasses" to "👓",
+        "scarf" to "🧣", "gloves" to "🧤", "socks" to "🧦", "comet" to "☄️", "egg" to "🥚", "ticket" to "🎫",
+        "old scroll" to "📜", "crayon" to "🖍️", "pencil" to "✏️", "magic door" to "🚪", "jigsaw" to "🧩", "wool" to "🧶",
     )
 
     val ENDINGS = listOf(
         "party" to "🎂", "home" to "🏠", "bedtime" to "🛏", "rainbow" to "🌈", "prize" to "🏆", "picnic" to "🧺",
         "music" to "🎵", "balloon ride" to "🎈", "crown" to "👑", "stars" to "⭐", "cookies" to "🍪", "boat trip" to "⛵",
+        "tea party" to "🫖", "pancakes" to "🥞", "bubble bath" to "🛁", "parade" to "🥁", "rocket ride" to "🚀", "train ride" to "🚂",
+        "hot chocolate" to "☕", "story time" to "📖", "campfire" to "🔥", "pizza party" to "🍕", "concert" to "🎸", "presents" to "🎀",
     )
 
     /** What [turn] (1 to [turns]) asks for: who, where, what, then how it ends. */

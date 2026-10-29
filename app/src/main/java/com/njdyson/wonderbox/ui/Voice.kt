@@ -338,7 +338,12 @@ class Voice(context: Context, private val server: () -> Pair<String, String>?) {
                 it.release()
                 if (player === it) {
                     player = null
-                    done()
+                    // A pause before whatever comes next: going straight from a story clip into
+                    // another voice's clip made a burst of static on the TV (Nick, 2026-10-29), and
+                    // the story library, which already paused, never did. Anything said or stopped
+                    // meanwhile drops this.
+                    val id = request
+                    main.postDelayed({ if (id == request) done() }, if (slow) 700L else 250L)
                 }
             }
             p.setOnErrorListener { mp, _, _ ->
