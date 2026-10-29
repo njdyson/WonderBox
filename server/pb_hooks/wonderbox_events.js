@@ -130,6 +130,44 @@ function top(map, n) {
   return Object.values(map).sort((a, b) => b.watchSeconds - a.watchSeconds || b.plays - a.plays).slice(0, n)
 }
 
+// The activity feed: these say nothing on their own (they're steps inside something
+// that has its own line, or bookkeeping), so they're left out.
+const FEED_SKIP = new Set(["app.start", "profile.pick", "treats.count", "video.watch", "quiz.answer", "category.open",
+  "hangman.word", "scramble.word", "scramble.found", "scramble.skip", "story.pick", "jigsaw.start", "memory.start", "photoquiz.start"])
+// One line for a run of these, whatever each one's subject (e.g. "Looked at 12 photos").
+const FEED_RUNS = new Set(["photo.view", "homevideo.play", "story.read", "reward.earn"])
+const FEED_GAP_MS = 15 * 60 * 1000
+const FEED_SIZE = 100
+// The data kept in a feed line, so the answer stays small (a story's whole text is left out).
+const FEED_DATA = ["title", "total", "wrong", "words", "from", "to", "reason", "game", "size", "pairs", "level", "missed"]
+
+/**
+ * Adds event [r] to [feed] (oldest first): a new line, or one more in the run it continues. A
+ * video's line also gets the seconds watched from its `video.watch`.
+ */
+function addToFeed(feed, r, type, subject, value, ms, videoInfo) {
+  let data = {}
+  try { data = JSON.parse(r.getString("data") || "{}") || {} } catch (_) {}
+  if (type === "video.watch") {
+    for (let i = feed.length - 1; i >= 0 && i >= feed.length - 5; i--) {
+      if (feed[i].type === "video.play" && feed[i].subject === subject) { feed[i].seconds = (feed[i].seconds || 0) + value; break }
+    }
+    return
+  }
+  if (FEED_SKIP.has(type)) return
+  const prev = feed[feed.length - 1]
+  if (prev && prev.type === type && ms - prev.last < FEED_GAP_MS && (FEED_RUNS.has(type) || prev.subject === subject)) {
+    prev.count++
+    prev.value += value
+    prev.last = ms
+    return
+  }
+  const kept = {}
+  for (const k of FEED_DATA) if (data[k] !== undefined) kept[k] = data[k]
+  if (type === "video.play") kept.title = (videoInfo[subject] || {}).title || data.title || subject
+  feed.push({ type, subject, value, count: 1, at: ms, last: ms, data: kept })
+}
+
 /**
  * Totals for the phone app, per child, over the last [days] days. [tzOffset] is the phone's
  * Date.getTimezoneOffset(), so each day starts at the parent's midnight.
@@ -160,7 +198,7 @@ function stats(userId, days, tzOffset) {
     perChild[c.id] = { id: c.id, name: c.getString("name"), avatar: c.getString("avatar"), color: c.getString("color") }
   }
   const summary = {}
-  const blank = () => ({ watchSeconds: 0, plays: 0, answers: 0, correct: 0, byType: {}, daily: {}, videos: {}, channels: {}, games: {} })
+  const blank = () => ({ watchSeconds: 0, plays: 0, answers: 0, correct: 0, byType: {}, daily: {}, videos: {}, channels: {}, games: {}, feed: [] })
   for (const id of order) summary[id] = blank()
 
   // A game's totals; a parent's own quiz (subject quiz/<id>) also carries its name, from the event.
@@ -191,6 +229,8 @@ function stats(userId, days, tzOffset) {
     t.count++
     t.total += value
     const day = bump(s.daily, localDay(ms), () => ({ watchSeconds: 0, plays: 0, answers: 0, correct: 0 }))
+
+    addToFeed(s.feed, r, type, subject, value, ms, videoInfo)
 
     if (type === "video.play" || type === "video.watch") {
       const data = JSON.parse(r.getString("data") || "{}") || {}
@@ -236,6 +276,8 @@ function stats(userId, days, tzOffset) {
     topChannels: top(s.channels, 5).map((c) => ({ ...c, watchSeconds: Math.round(c.watchSeconds) })),
     games: Object.values(s.games).sort((a, b) => b.answers - a.answers),
     byType: s.byType,
+    // What they did and when, newest first.
+    feed: s.feed.slice(-FEED_SIZE).reverse().map((f) => ({ ...f, at: new Date(f.at).toISOString(), last: new Date(f.last).toISOString() })),
   })
   const treats = treatCounts(userId)
   return {

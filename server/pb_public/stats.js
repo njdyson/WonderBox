@@ -27,6 +27,12 @@ document.head.append(el("style", { textContent: `
   .stat-row img { width: 56px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 4px; background: #000; flex: none; }
   .stat-row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat-row .n { flex: none; color: var(--muted); text-align: right; }
+  .feed-day { font-size: 13px; font-weight: 700; margin: 12px 0 2px; }
+  .stat-row.feed { align-items: flex-start; }
+  .stat-row .feed-time { width: 64px; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .feed-icon { flex: none; width: 22px; text-align: center; }
+  .feed-words { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .feed-more { margin-top: 8px; width: 100%; }
 `}));
 
 /** "1 h 5 min", "12 min", "40 s". */
@@ -116,15 +122,8 @@ function statCard(c, days) {
       el("div", { className: "t", textContent: g.title || gameName(g.game) }),
       el("div", { className: "n", textContent: `${g.correct}/${g.answers} right` + (g.rounds ? ` · best ${g.bestScore}` : "") }))));
   }
-  // Anything else that was logged, so new kinds of activity show up before they get their own section.
-  const known = new Set(["video.play", "video.watch", "quiz.answer", "quiz.finish", "profile.pick", "app.start", "treats.count"]);
-  const other = Object.entries(c.byType).filter(([type]) => !known.has(type));
-  if (other.length) {
-    parts.push(el("div", { className: "stat-h", textContent: "OTHER ACTIVITY" }), ...other.map(([type, t]) => el("div", { className: "stat-row" },
-      el("div", { className: "t", textContent: gameName(type) }),
-      el("div", { className: "n", textContent: `${t.count}×` }))));
-  }
-  if (!c.plays && !c.answers && !other.length) parts.push(el("div", { className: "empty", textContent: "Nothing yet in this time." }));
+  if (c.feed && c.feed.length) parts.push(el("div", { className: "stat-h", textContent: "WHAT THEY DID" }), ...activityFeed(c.feed));
+  if (!c.plays && !c.answers && !(c.feed && c.feed.length)) parts.push(el("div", { className: "empty", textContent: "Nothing yet in this time." }));
   return el("div", { className: "card" }, ...parts);
 }
 
@@ -137,6 +136,61 @@ function treatTile(t) {
   const n = t.saved + t.toPick;
   return el("div", { className: "tile" }, el("b", { textContent: `⭐ ${n}` }),
     el("span", { textContent: (n === 1 ? "treat now" : "treats now") + (t.toPick ? ` · ${t.toPick} to pick` : "") }));
+}
+
+const GAME_NAMES = { maths: "Maths", spelling: "Spelling", clock: "Clock", flags: "Flags", photoquiz: "Photo quiz", hangman: "Hangman",
+  scramble: "Word jumble", memory: "Memory pairs", jigsaw: "Jigsaw", story: "Story maker", videos: "a whole video" };
+const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+
+/** One feed line as [emoji, words]: what the child did, in plain words. */
+function describe(f) {
+  const d = f.data || {};
+  const game = d.title || GAME_NAMES[f.subject] || gameName(f.subject);
+  const times = f.count > 1 ? ` (${f.count} times)` : "";
+  switch (f.type) {
+    case "video.play": return ["▶️", `Watched ${d.title}` + (f.seconds >= 30 ? ` · ${duration(f.seconds)}` : "") + times];
+    case "quiz.finish": return ["🧠", `${game}: ${f.value}${d.total ? `/${d.total}` : ""} right` + times];
+    case "jigsaw.finish": return ["🧩", `Finished a ${f.value}-piece jigsaw` + times];
+    case "hangman.finish": return ["🎈", `Hangman: found ${plural(f.value, "word")}` + times];
+    case "scramble.finish": return ["🔤", `Word jumble: ${plural(f.value, "word")}` + times];
+    case "memory.finish": return ["🃏", `Memory pairs: matched ${plural(f.value, "pair")}` + times];
+    case "story.start": return ["📖", "Started a story in the story maker" + times];
+    case "story.finish": return ["📖", "Finished a story" + (Array.isArray(d.words) && d.words.length ? `, picking ${d.words.join(", ")}` : "")];
+    case "story.read": return ["📖", f.count > 1 ? `Listened to ${f.count} saved stories again` : "Listened to a saved story again"];
+    case "photo.view": return ["🖼️", `Looked at ${plural(f.count, "photo")}`];
+    case "homevideo.play": return ["🎥", f.count > 1 ? `Watched ${f.count} home videos` : "Watched a home video"];
+    case "reward.earn": return ["⭐", f.count > 1 ? `Won ${f.count} treats` : `Won a treat` + (d.game ? ` (${GAME_NAMES[d.game] || gameName(d.game)})` : "")];
+    case "reward.unlock": return ["🎁", `Picked a treat: ${d.title || "a video"}`];
+    case "level.change": return [d.to > d.from ? "📈" : "📉", `${GAME_NAMES[f.subject] || gameName(f.subject)} went ${d.to > d.from ? "up" : "down"} to level ${d.to}`];
+    default: return ["•", gameName(f.type) + times];
+  }
+}
+
+const dayHeading = (iso) => {
+  const days = Math.round((new Date().setHours(12, 0, 0, 0) - new Date(iso).setHours(12, 0, 0, 0)) / 86400000);
+  return days <= 0 ? "Today" : days === 1 ? "Yesterday" : new Date(iso).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+};
+
+/** The feed, newest first, under a heading per day; the first few, then a button for the rest. */
+function activityFeed(feed, shown = 15) {
+  const list = el("div");
+  const draw = (n) => {
+    let day = "";
+    const rows = [];
+    for (const f of feed.slice(0, n)) {
+      const heading = dayHeading(f.at);
+      if (heading !== day) { day = heading; rows.push(el("div", { className: "feed-day", textContent: heading })); }
+      const [icon, words] = describe(f);
+      rows.push(el("div", { className: "stat-row feed" },
+        el("div", { className: "n feed-time", textContent: new Date(f.at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) }),
+        el("div", { className: "feed-icon", textContent: icon }),
+        el("div", { className: "feed-words", textContent: words })));
+    }
+    if (feed.length > n) rows.push(el("button", { className: "small ghost feed-more", textContent: `Show ${Math.min(30, feed.length - n)} more`, onclick: () => draw(n + 30) }));
+    list.replaceChildren(...rows);
+  };
+  draw(shown);
+  return [list];
 }
 
 /** Watching time per day as bars in the child's colour; tap a bar for its numbers. */
