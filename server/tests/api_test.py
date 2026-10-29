@@ -633,6 +633,10 @@ try:
     assert len(s["daily"]) == 7 and s["daily"][-1]["plays"] == 1
     assert stats["other"]["byType"]["app.start"]["count"] == 2
     assert s["recentVideos"][0]["youtubeId"] == "jNQXAC9IVRw" and s["recentVideos"][0]["lastAt"], s["recentVideos"]
+    # The feed: newest first, the video with its watched seconds, answers left out (the round has its own line).
+    feed = s["feed"]
+    assert [f["type"] for f in feed] == ["photo.view", "quiz.finish", "video.play"], feed
+    assert feed[2]["data"]["title"] == "Zoo" and feed[2]["seconds"] == 19.5 and feed[1]["data"]["total"] == 10
     # Treats are kept on the TVs: the latest treats.count from each TV, added up; none until one says.
     assert s["treats"] is None and stats["children"][1]["treats"] is None
     call("POST", "/api/wonder/events", {"events": [

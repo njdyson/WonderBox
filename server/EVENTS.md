@@ -82,4 +82,6 @@ All under `/api/wonder`. TVs send their `X-Device-Key`; the phone app its sign-i
 - `GET /stats?days=7&tz=<Date.getTimezoneOffset()>` totals per child over the last few
   days: watch time, plays, answers and right answers, a day-by-day list, top videos and
   channels, each game's answers, rounds and best score (with a quiz's `title`), and `byType` (count and total
-  `value` of every event type). Phone app only.
+  `value` of every event type), `recentVideos`, `treats` (from `treats.count`) and `feed`: what
+  the child did, newest first, one line per video, round, story or treat, with runs (photos
+  looked at, home videos) and repeats within 15 minutes made one line with a `count`. Phone app only.
