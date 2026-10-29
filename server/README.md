@@ -7,7 +7,7 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 |---|---|
 | `pb_migrations/` | Database setup: `children` (with game levels and setups), `quizzes` and `quiz_images`, `videos`, `channels`, `photos`, `devices` (linked TVs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
 | `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos (`photos.pb.js`), quizzes and their pictures (`quizzes.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
-| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, each child's games and the parent's quizzes (`quizzes.js`, with the clipart catalogue in `clipart/`), family photos, stats (`stats.js`), linked TVs. |
+| `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, each child's games and the parent's quizzes (`quizzes.js`, with the clipart catalogue in `clipart/`), family photos, stats (`stats.js`), linked TVs, the TV menu pictures (`menu.js`). |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
 
@@ -32,6 +32,13 @@ fraction of a penny per story on a Flash model) and run the install task again w
 `GEMINI_API_KEY='…'` added (step 4). `GEMINI_MODEL='…'` changes the model (default
 `gemini-3.6-flash`, see `pb_hooks/story_lib.js`). Without a key the TV tells a simple story of
 its own. At most 300 parts are written per family per day.
+
+With the same key, Gemini also draws a picture for each of the TV's **menu tiles** (the home
+page categories and the Games and Quizzes tiles), all in one style, once per family
+(`pb_hooks/menu_lib.js`, 17 pictures at roughly 3p each on the default image model). They appear on the TV within a
+few minutes of the key being added; until then, and on a TV that can't fetch them, the tiles
+show their emoji. The phone app's Family tab shows them, and a tap draws one again (at most 40
+pictures per family per day). `GEMINI_IMAGE_MODEL='…'` changes the drawing model.
 
 ## Channels and playlists
 

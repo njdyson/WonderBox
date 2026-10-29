@@ -248,6 +248,9 @@
     <h2>YOUR TVS</h2>
     <div class="card" id="tvs"></div>
 
+    <h2>TV MENU PICTURES</h2>
+    <div class="card stack" id="menuPictures"></div>
+
     <h2>YOU</h2>
     <div class="card row">
       <span class="grow" id="who"></span>
@@ -416,6 +419,7 @@ async function start(user) {
   showPairing();
   loadPhotos();
   loadTvs();
+  loadMenuPictures();
   loadStats();
 }
 
@@ -744,7 +748,7 @@ $("tabbar").onclick = (e) => {
   showTab(button.dataset.tab);
   // Fresh numbers and TVs each time those tabs are opened.
   if (tab === "stats") loadStats();
-  if (tab === "family") loadTvs();
+  if (tab === "family") { loadTvs(); loadMenuPictures(); }
 };
 
 /** Who it's for, and whether it's a treat, music, exercise or a story. */
@@ -1148,5 +1152,6 @@ if (window.visualViewport) window.visualViewport.addEventListener("resize", reme
 </script>
 <script src="/stats.js"></script>
 <script src="/quizzes.js"></script>
+<script src="/menu.js"></script>
 </body>
 </html>
