@@ -1,7 +1,12 @@
 package com.njdyson.wonderbox.ui
 
 import android.content.Context
+import android.net.Uri
 import android.os.SystemClock
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.VideoView
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -20,6 +25,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
@@ -62,6 +71,10 @@ private const val SLIDE_MS = 6_000L
  * flip through them (wrapping round at the ends), OK starts or stops the slideshow, Back goes
  * back to the Photos screen. The next and previous photos load in the background so flipping
  * is instant. Only [childId]'s photos are shown.
+ *
+ * Home videos are in among the photos, showing their still with a big ▶ until OK plays them;
+ * OK then pauses and carries on. In the slideshow a video plays by itself, to the end, and then
+ * the slideshow moves on.
  */
 @Composable
 fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
@@ -82,9 +95,25 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
     }
     val current = index.mod(photos.size)
     val photo = photos[current]
+    // The video on screen: started, paused, or it wouldn't play. Reset when the photo changes.
+    var videoOn by remember(photo.id) { mutableStateOf(false) }
+    var videoPaused by remember(photo.id) { mutableStateOf(false) }
+    var videoFailed by remember(photo.id) { mutableStateOf(false) }
 
     fun step(delta: Int) {
         index = (current + delta).mod(photos.size)
+    }
+
+    fun playOrPause() {
+        when {
+            !photo.isVideo -> playing = !playing
+            videoFailed -> Unit
+            !videoOn -> {
+                videoOn = true
+                videoPaused = false
+            }
+            else -> videoPaused = !videoPaused
+        }
     }
 
     Box(
@@ -98,7 +127,7 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
                 when (event.nativeKeyEvent.keyCode) {
                     AndroidKeyEvent.KEYCODE_DPAD_LEFT, AndroidKeyEvent.KEYCODE_MEDIA_REWIND, AndroidKeyEvent.KEYCODE_MEDIA_PREVIOUS -> step(-1)
                     AndroidKeyEvent.KEYCODE_DPAD_RIGHT, AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD, AndroidKeyEvent.KEYCODE_MEDIA_NEXT -> step(1)
-                    AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> playing = !playing
+                    AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> playOrPause()
                     // Up and down do nothing, rather than moving focus off the photo.
                     AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_DPAD_DOWN -> Unit
                     else -> return@onPreviewKeyEvent false
@@ -113,6 +142,31 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),
         )
+        if (photo.isVideo && videoOn) {
+            HomeVideoPlayer(
+                url = app.photoUrl(photo.video),
+                deviceKey = app.deviceKey.orEmpty(),
+                paused = videoPaused,
+                onEnd = {
+                    if (playing && photos.size > 1) step(1) else videoOn = false
+                },
+                onError = {
+                    videoOn = false
+                    videoFailed = true
+                    pressed++
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (photo.isVideo && (!videoOn || videoPaused)) {
+            // The big play button on a video's still (or while it's paused).
+            Box(
+                Modifier.align(Alignment.Center).size(132.dp).background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (videoFailed) "✕" else "▶", color = Color.White, fontSize = 60.sp, modifier = Modifier.padding(start = if (videoFailed) 0.dp else 10.dp))
+            }
+        }
 
         AnimatedVisibility(
             visible = showOverlay,
@@ -128,22 +182,42 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
                 Text("◀", color = Tangerine, fontSize = 26.sp, fontWeight = FontWeight.Black)
                 Text("${current + 1} of ${photos.size}", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text("▶", color = Tangerine, fontSize = 26.sp, fontWeight = FontWeight.Black)
-                Text(if (playing) "OK to stop" else "OK to play", color = Color.White.copy(alpha = 0.7f), fontSize = 18.sp)
+                val hint = when {
+                    !photo.isVideo -> if (playing) "OK to stop" else "OK to play"
+                    videoFailed -> "This video won't play"
+                    !videoOn -> "Video, ${videoLength(photo.duration)}. OK to watch"
+                    videoPaused -> "OK to carry on"
+                    else -> "OK to pause"
+                }
+                Text(hint, color = Color.White.copy(alpha = 0.7f), fontSize = 18.sp)
             }
         }
     }
 
     LaunchedEffect(Unit) { focus.requestFocusWhenReady() }
-    LaunchedEffect(pressed, playing) {
+    LaunchedEffect(pressed, playing, videoPaused) {
         showOverlay = true
+        // It stays while a video is paused, so it's clear how to carry on.
+        if (videoPaused) return@LaunchedEffect
         delay(if (playing) 2_500 else 4_000)
         showOverlay = false
     }
     // The slideshow: a key press restarts the timer, so a photo someone just flipped to stays up.
+    // A video plays instead, and the slideshow moves on when it ends (or straight away if it won't play).
     LaunchedEffect(playing, current, pressed) {
         if (!playing) return@LaunchedEffect
-        delay(SLIDE_MS)
+        if (photo.isVideo && !videoFailed) {
+            if (!videoOn) {
+                videoOn = true
+                videoPaused = false
+            }
+            return@LaunchedEffect
+        }
+        delay(if (videoFailed) 2_000 else SLIDE_MS)
         step(1)
+    }
+    LaunchedEffect(photo.id, videoOn) {
+        if (photo.isVideo && videoOn) EventLog.log("homevideo.play", childId, subject = photo.id, value = photo.duration)
     }
     // The activity log: how long each photo stayed up, logged as it's left.
     DisposableEffect(photo.id) {
@@ -159,6 +233,53 @@ fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
             val next = photos[(current + delta).mod(photos.size)]
             context.imageLoader.enqueue(photoRequest(context, app, next, crossfade = false))
         }
+    }
+}
+
+/** A video's length as 0:42 or 12:05. */
+internal fun videoLength(seconds: Double): String {
+    val s = seconds.toInt().coerceAtLeast(0)
+    return "${s / 60}:${(s % 60).toString().padStart(2, '0')}"
+}
+
+/**
+ * A home video playing, fitted to the screen. Android's own VideoView plays it: the server
+ * makes every video a plain H.264 MP4, which every Fire Stick can play, and sends it in ranges
+ * so it starts quickly. It never takes the remote's focus, so the slideshow's keys still work.
+ */
+@Composable
+private fun HomeVideoPlayer(url: String, deviceKey: String, paused: Boolean, onEnd: () -> Unit, onError: () -> Unit, modifier: Modifier = Modifier) {
+    val end by rememberUpdatedState(onEnd)
+    val error by rememberUpdatedState(onError)
+    var view by remember { mutableStateOf<VideoView?>(null) }
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            FrameLayout(context).apply {
+                descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+                isFocusable = false
+                val video = VideoView(context).apply {
+                    isFocusable = false
+                    isFocusableInTouchMode = false
+                    setOnCompletionListener { end() }
+                    setOnErrorListener { _, _, _ ->
+                        error()
+                        true
+                    }
+                    setVideoURI(Uri.parse(url), mapOf("X-Device-Key" to deviceKey))
+                    start()
+                }
+                addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+                view = video
+            }
+        },
+    )
+    LaunchedEffect(paused, view) {
+        val video = view ?: return@LaunchedEffect
+        if (paused) video.pause() else video.start()
+    }
+    DisposableEffect(Unit) {
+        onDispose { view?.stopPlayback() }
     }
 }
 
@@ -222,16 +343,32 @@ fun PhotosRow(
     }
 }
 
+/** A photo's thumbnail. A home video's has a ▶ and its length in the corner. */
 @Composable
 internal fun PhotoThumb(app: AppState, photo: Photo, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(app.photoUrl(photo.thumb.ifBlank { photo.image }))
-            .addHeader("X-Device-Key", app.deviceKey.orEmpty())
-            .build(),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier,
-    )
+    Box(modifier) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(app.photoUrl(photo.thumb.ifBlank { photo.image }))
+                .addHeader("X-Device-Key", app.deviceKey.orEmpty())
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (photo.isVideo) {
+            Text(
+                "▶ ${videoLength(photo.duration)}",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp)
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+            )
+        }
+    }
 }

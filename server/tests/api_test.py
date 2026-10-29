@@ -10,6 +10,7 @@ and channels needs the server to reach YouTube.
 import base64
 import json
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,6 +40,70 @@ JPEG = base64.b64decode(
     "BAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpj"
     "ZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6"
     "/9oADAMBAAIRAxEAPwDqKKKK+ZPQP//Z"
+)
+
+# A one-second 96x64 clip with sound, standing in for a video from a phone.
+MP4 = base64.b64decode(
+    "AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAADbZtZGF0AAACsAYF//+s3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2"
+    "NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3Jn"
+    "L3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTE2IGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDM6MHgxMzMgbWU9dW1oIHN1Ym1lPTEwIHBz"
+    "eT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MjQgY2hyb21hX21lPTEgdHJlbGxpcz0yIDh4OGRjdD0xIGNxbT0wIGRlYWR6"
+    "b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MiBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRz"
+    "PTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTggYl9weXJhbWlk"
+    "PTIgYl9hZGFwdD0yIGJfYmlhcz0wIGRpcmVjdD0zIHdlaWdodGI9MSBvcGVuX2dvcD0wIHdlaWdodHA9MiBrZXlpbnQ9MjUwIGtleWludF9taW49MTAg"
+    "c2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD02MCByYz1jcmYgbWJ0cmVlPTEgY3JmPTQwLjAgcWNvbXA9MC42MCBxcG1pbj0w"
+    "IHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlvPTEuNDAgYXE9MToxLjAwAIAAAAJkZYiBABP/1LqG29ul0NEOHX6IVpCEX4aje6oc1N9ITwlA9PyF4CkS"
+    "hx4mPSKNb+609B+mDlLoYx8B3pu3ff6/0Nek64vsLStubgqX19HDKS2ZO1YXlwv+rbGSMgP5nFRLvqVRXEB/5uVBsHemOLFYLRPK++sLNVQFgRZxyBCI"
+    "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"
 )
 
 
@@ -83,6 +148,19 @@ def upload(path, files, fields, token, expect=200):
     return json.loads(text)
 
 
+def send(path, data, token, expect=200):
+    """A raw POST, as the phone app sends a piece of a video."""
+    headers = {"Content-Type": "application/octet-stream", "Authorization": token}
+    req = urllib.request.Request(BASE + path, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as res:
+            status, text = res.status, res.read().decode()
+    except urllib.error.HTTPError as e:
+        status, text = e.code, e.read().decode()
+    assert status == expect, f"POST {path}: expected {expect}, got {status}: {text[:300]}"
+    return json.loads(text)
+
+
 # A 1x1 transparent PNG.
 TINY_PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
@@ -90,9 +168,10 @@ TINY_PNG = bytes.fromhex(
 )
 
 
-def fetch(path, token=None, device_key=None, expect=200):
+def fetch(path, token=None, device_key=None, expect=200, headers=None):
     """Raw bytes, for the photo files."""
-    headers = {"Authorization": token} if token else {"X-Device-Key": device_key} if device_key else {}
+    headers = dict(headers or {})
+    headers.update({"Authorization": token} if token else {"X-Device-Key": device_key} if device_key else {})
     req = urllib.request.Request(BASE + path, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=30) as res:
@@ -113,7 +192,7 @@ try:
     call("POST", "/api/collections/users/records", {"email": "x@example.com", "password": password, "passwordConfirm": password}, expect=403)
     call("GET", "/api/wonder/library", expect=401)
     empty = call("GET", "/api/wonder/library", token=token)
-    assert {k: v for k, v in empty.items() if k not in ("voice", "stories")} == {"children": [], "quizzes": [], "videos": [], "channels": []}, empty
+    assert {k: v for k, v in empty.items() if k not in ("voice", "stories", "menuPictures")} == {"children": [], "quizzes": [], "videos": [], "channels": []}, empty
     assert isinstance(empty["voice"], bool)
 
     # Children
@@ -382,7 +461,7 @@ try:
 
     # Photos: the phone uploads a shrunk picture and a thumbnail; newest first.
     call("GET", "/api/wonder/photos", expect=401)
-    assert call("GET", "/api/wonder/photos", token=token) == {"photos": []}
+    assert call("GET", "/api/wonder/photos", token=token)["photos"] == []
     upload("/api/wonder/photos/add", {}, {}, token, expect=400)
     upload("/api/wonder/photos/add", {"image": b"not a picture"}, {}, token, expect=400)
     first = upload("/api/wonder/photos/add", {"image": JPEG}, {"width": 2, "height": 2}, token)["saved"]
@@ -465,6 +544,54 @@ try:
     assert [p["id"] for p in tv_photos] == [second]
     assert fetch(tv_photos[0]["image"], device_key=key) == JPEG
     call("POST", "/api/wonder/photos/remove", {"id": second}, device_key=key, expect=401)
+
+    # Home videos: sent in pieces, converted by the server's ffmpeg (picked up by a cron job
+    # within a minute or two), then on the TV. A TV never sees one until it's ready.
+    problem = call("GET", "/api/wonder/photos", token=token)["videoProblem"]
+    if problem:
+        print("Skipping home videos:", problem)
+    else:
+        call("POST", "/api/wonder/photos/video/start", {"size": 0}, token, expect=400)
+        call("POST", "/api/wonder/photos/video/start", {"size": len(MP4)}, device_key=key, expect=401)
+        started = call("POST", "/api/wonder/photos/video/start", {"size": len(MP4), "children": [sam]}, token)
+        assert started["piece"] >= 1024 * 1024, started
+        clip = started["id"]
+        listed = call("GET", "/api/wonder/photos", token=token)["photos"]
+        assert listed[0]["id"] == clip and listed[0]["status"] == "uploading", listed[0]
+        assert clip not in [p["id"] for p in call("GET", "/api/wonder/photos", device_key=key)["photos"]]
+        third = len(MP4) // 3
+        pieces = [MP4[:third], MP4[third:2 * third], MP4[2 * third:]]
+        call("POST", f"/api/wonder/photos/video/{clip}/finish", {"pieces": 3}, token, expect=400)  # nothing sent yet
+        for n, piece in enumerate(pieces):
+            send(f"/api/wonder/photos/video/{clip}/piece?n={n}", piece, token)
+        send(f"/api/wonder/photos/video/{clip}/piece?n=0", b"", token, expect=400)
+        call("POST", f"/api/wonder/photos/video/{clip}/finish", {"pieces": 2}, token, expect=400)  # one too many
+        listed = call("POST", f"/api/wonder/photos/video/{clip}/finish", {"pieces": 3}, token)["photos"]
+        assert listed[0]["status"] == "converting", listed[0]
+        send(f"/api/wonder/photos/video/{clip}/piece?n=3", b"more", token, expect=400)  # too late
+        # Something that isn't a video fails, with a reason for the phone app.
+        bad = call("POST", "/api/wonder/photos/video/start", {"size": 4}, token)["id"]
+        send(f"/api/wonder/photos/video/{bad}/piece?n=0", b"oops", token)
+        call("POST", f"/api/wonder/photos/video/{bad}/finish", {"pieces": 1}, token)
+        for _ in range(60):
+            listed = {p["id"]: p for p in call("GET", "/api/wonder/photos", token=token)["photos"]}
+            if not listed[clip].get("status") and listed[bad].get("status") == "failed":
+                break
+            time.sleep(5)
+        video, failed = listed[clip], listed[bad]
+        assert failed["status"] == "failed" and failed["problem"], failed
+        assert "status" not in video and video["video"] == f"/api/wonder/photos/{clip}/video", video
+        assert 0.8 <= video["duration"] <= 1.3 and video["size"] > 0 and (video["width"], video["height"]) == (96, 64), video
+        tv = call("GET", "/api/wonder/photos", device_key=key)["photos"]
+        assert [p["id"] for p in tv] == [clip, second], tv
+        mp4 = fetch(video["video"], device_key=key)
+        assert mp4[4:8] == b"ftyp" and len(mp4) == video["size"]
+        assert fetch(video["image"], device_key=key)[:2] == b"\xff\xd8"  # a JPEG still
+        assert fetch(video["thumb"], token=token)[:2] == b"\xff\xd8"
+        assert len(fetch(video["video"], device_key=key, headers={"Range": "bytes=0-99"}, expect=206)) == 100
+        fetch(video["video"], expect=401)
+        call("POST", "/api/wonder/photos/remove", {"id": bad}, token)
+        call("POST", "/api/wonder/photos/remove", {"id": clip}, token)
     # The TV gets the quizzes and their pictures, but can't change them.
     assert call("GET", "/api/wonder/library", device_key=key)["quizzes"][0]["id"] == animals
     assert fetch(pic["path"], device_key=key) == JPEG

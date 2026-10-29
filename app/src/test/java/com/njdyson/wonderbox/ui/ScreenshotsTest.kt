@@ -101,7 +101,13 @@ class ScreenshotsTest {
 
     private fun Child.inSeason(season: Season) = copy(games = games.copy(season = season.key))
 
-    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false, season: Season? = null): AppState {
+    // Two home videos of Summer's, newest, so first.
+    private val homeVideos = listOf(
+        Photo("p3video", "/api/wonder/photos/p3video/image", "/api/wonder/photos/p3video/thumb", 1280, 720, listOf(summer.id), video = "/api/wonder/photos/p3video/video", duration = 42.0),
+        Photo("p1video", "/api/wonder/photos/p1video/image", "/api/wonder/photos/p1video/thumb", 1280, 720, listOf(summer.id), video = "/api/wonder/photos/p1video/video", duration = 125.0),
+    )
+
+    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false, withVideos: Boolean = false, season: Season? = null): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (withPhotos || menuPictures) fakePhotos(context)
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo", "Room on the Broom, read aloud", "Maddie Moate: How Do Bees Make Honey?", "Numberblocks: Make Ten", "Octonauts and the Whale Shark", "Blippi Visits a Farm", "Cosmic Kids Yoga: Squish the Fish")
@@ -111,7 +117,7 @@ class ScreenshotsTest {
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
             .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse).map { if (season != null) it.inSeason(season) else it }, quizzes = quizzes, videos = videos, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
-            .putString("photos", json.encodeToString(Photos.serializer(), Photos(if (withPhotos) photos else emptyList())))
+            .putString("photos", json.encodeToString(Photos.serializer(), Photos((if (withVideos) homeVideos else emptyList()) + (if (withPhotos) photos else emptyList()))))
             .commit()
         return AppState(context)
     }
@@ -267,6 +273,19 @@ class ScreenshotsTest {
         shoot("photos-summer")
     }
 
+    @Test fun photoGridWithVideos() {
+        val app = app(withPhotos = true, withVideos = true)
+        compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, {}) } }
+        shoot("photos-videos-summer")
+    }
+
+    // A home video in the slideshow, before OK plays it: its still with a big play button.
+    @Test fun slideshowVideo() {
+        val app = app(withPhotos = true, withVideos = true)
+        compose.setContent { WonderBoxTheme { PhotosScreen(app, summer.id, start = 0) } }
+        shoot("slideshow-video")
+    }
+
     private fun game(child: Child, key: String, name: String) {
         val app = app()
         fakePhotos(ApplicationProvider.getApplicationContext())
@@ -404,7 +423,7 @@ class ScreenshotsTest {
     private fun memory(child: Child, seed: Int, name: String, withPhotos: Boolean = false) {
         val app = app(withPhotos)
         // The same deal as the screen's, to know where a pair is.
-        val faces = deal(ApplicationProvider.getApplicationContext(), child.games.memory, app.photosFor(child.id), Random(seed)).faces
+        val faces = deal(ApplicationProvider.getApplicationContext(), child.games.memory, app.stillsFor(child.id), Random(seed)).faces
         compose.setContent { WonderBoxTheme { MemoryScreen(app, child, true, {}, {}, {}, random = Random(seed)) } }
         settle()
         val columns = Memory.columns(faces.size)

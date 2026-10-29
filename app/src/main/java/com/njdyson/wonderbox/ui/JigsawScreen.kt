@@ -129,7 +129,7 @@ fun JigsawScreen(
 /** "Pick a photo": the photos row, starting on the one after the last jigsaw's photo. */
 @Composable
 private fun PickPhoto(app: AppState, child: Child, lastPhotoId: String?, onPick: (Photo) -> Unit) {
-    val photos = app.photosFor(child.id)
+    val photos = app.stillsFor(child.id)
     val focus = remember { FocusRequester() }
     var focusedId by remember {
         val last = photos.indexOfFirst { it.id == lastPhotoId }

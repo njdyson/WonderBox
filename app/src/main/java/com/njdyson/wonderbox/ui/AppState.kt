@@ -252,8 +252,11 @@ class AppState(context: Context) {
         photos = emptyList()
     }
 
-    /** One child's photos, newest first. */
+    /** One child's photos and home videos, newest first. */
     fun photosFor(childId: String) = photos.filter { childId in it.children }
+
+    /** One child's photos without the videos, for the photo games. */
+    fun stillsFor(childId: String) = photosFor(childId).filter { !it.isVideo }
 
     /** The full address of a photo file; the server wants this TV's key with it ([deviceKey]). */
     fun photoUrl(path: String) = serverUrl.trimEnd('/') + path
