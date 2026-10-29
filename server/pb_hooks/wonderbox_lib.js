@@ -6,9 +6,23 @@
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const PAIRING_TTL_MS = 10 * 60 * 1000
 
-/** The signed-in parent (phone app token) or the parent a linked TV belongs to (X-Device-Key). */
+/**
+ * The family a signed-in grown-up belongs to: themselves, or for a grown-up who joined with an
+ * invite (family_lib.js), the user who owns the children, videos and TVs.
+ */
+function familyOf(user) {
+  const owner = user.getString("family")
+  if (!owner) return user
+  try {
+    return $app.findRecordById("users", owner)
+  } catch (_) {
+    return user
+  }
+}
+
+/** The signed-in parent's family (phone app token) or the family a linked TV belongs to (X-Device-Key). */
 function caller(e) {
-  if (e.auth && e.auth.collection().name === "users") return e.auth
+  if (e.auth && e.auth.collection().name === "users") return familyOf(e.auth)
   const key = e.request.header.get("X-Device-Key")
   if (key) {
     let device = null
@@ -28,8 +42,9 @@ function caller(e) {
   throw new UnauthorizedError("Sign in, or link this TV again.")
 }
 
+/** The signed-in grown-up's family, which every phone app edit works on. */
 function requireUser(e) {
-  if (e.auth && e.auth.collection().name === "users") return e.auth
+  if (e.auth && e.auth.collection().name === "users") return familyOf(e.auth)
   throw new UnauthorizedError("Sign in first.")
 }
 
@@ -880,7 +895,7 @@ function cleanupPairings() {
 }
 
 module.exports = {
-  caller, requireUser, library, games, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
+  caller, requireUser, familyOf, library, games, own, ownChildIds, childRecords, channelRecords, move, saveChild, setPicture, removeChild,
   saveGames, autoLevel, moveVideo, parseYouTubeId, checkVideo, addVideo, parseChannel, parsePlaylist, checkLink, addChannel,
   refreshChannel, refreshAllChannels, search, updateItem, newPairingCode, findPairing, cleanupPairings,
   PAIRING_TTL_MS,
