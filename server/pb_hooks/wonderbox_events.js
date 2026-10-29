@@ -197,7 +197,8 @@ function stats(userId, days, tzOffset) {
       const info = videoInfo[subject] || {}
       const title = info.title || data.title || subject
       const channel = info.channel || data.channel || ""
-      const v = bump(s.videos, subject, () => ({ youtubeId: subject, title, channel, plays: 0, watchSeconds: 0, finished: 0 }))
+      const v = bump(s.videos, subject, () => ({ youtubeId: subject, title, channel, plays: 0, watchSeconds: 0, finished: 0, lastAt: 0 }))
+      v.lastAt = Math.max(v.lastAt, ms)
       const ch = bump(s.channels, channel || "Other", () => ({ channel: channel || "Other", plays: 0, watchSeconds: 0 }))
       if (type === "video.play") {
         s.plays++; day.plays++; v.plays++; ch.plays++
@@ -229,18 +230,48 @@ function stats(userId, days, tzOffset) {
       return { date, watchSeconds: Math.round(d.watchSeconds), plays: d.plays, answers: d.answers, correct: d.correct }
     }),
     topVideos: top(s.videos, 10).map((v) => ({ ...v, watchSeconds: Math.round(v.watchSeconds) })),
+    // Most recently watched first, each video once.
+    recentVideos: Object.values(s.videos).sort((a, b) => b.lastAt - a.lastAt).slice(0, 10)
+      .map((v) => ({ ...v, watchSeconds: Math.round(v.watchSeconds), lastAt: new Date(v.lastAt).toISOString() })),
     topChannels: top(s.channels, 5).map((c) => ({ ...c, watchSeconds: Math.round(c.watchSeconds) })),
     games: Object.values(s.games).sort((a, b) => b.answers - a.answers),
     byType: s.byType,
   })
+  const treats = treatCounts(userId)
   return {
     days,
     from: new Date(from).toISOString(),
     events: total,
-    children: order.map((id) => ({ ...perChild[id], ...shape(summary[id]) })),
+    children: order.map((id) => ({ ...perChild[id], ...shape(summary[id]), treats: treats[id] || null })),
     // Events not about one child, e.g. the app starting.
     other: shape(summary[""] || blank()),
   }
+}
+
+/**
+ * Each child's treats right now, from the TVs' latest `treats.count` events (the treats are kept
+ * on the TVs): won and not picked yet (toPick), and picked and waiting in their Treats section
+ * (saved), added up over the TVs. A child no TV has reported on is left out.
+ */
+function treatCounts(userId) {
+  const records = $app.findRecordsByFilter("events", "user = {:u} && type = 'treats.count'", "-at", 5000, 0, { u: userId })
+  const seen = {}
+  const counts = {}
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i]
+    const childId = r.getString("child")
+    const key = childId + "/" + r.getString("device")
+    if (!childId || seen[key]) continue
+    seen[key] = true
+    let data = {}
+    try { data = JSON.parse(r.getString("data") || "{}") || {} } catch (_) {}
+    const c = counts[childId] || (counts[childId] = { toPick: 0, saved: 0, at: "" })
+    c.toPick += Math.max(0, Number(data.toPick) || 0)
+    c.saved += Math.max(0, Number(data.saved) || 0)
+    const at = r.getDateTime("at").string()
+    if (at > c.at) c.at = at
+  }
+  return counts
 }
 
 module.exports = { callerDevice, saveEvents, listEvents, stats }

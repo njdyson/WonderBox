@@ -81,6 +81,13 @@ class Store(context: Context) {
         } ?: emptyMap()
         set(value) = prefs.edit().putString("auto_history", json.encodeToString(MapSerializer(String.serializer(), String.serializer()), value)).apply()
 
+    /** The treat counts last logged as `treats.count`, as "<to pick>/<saved>" by child ID (ui/AppState.kt reportTreats). */
+    var reportedTreats: Map<String, String>
+        get() = prefs.getString("reported_treats", null)?.let {
+            runCatching { json.decodeFromString(MapSerializer(String.serializer(), String.serializer()), it) }.getOrNull()
+        } ?: emptyMap()
+        set(value) = prefs.edit().putString("reported_treats", json.encodeToString(MapSerializer(String.serializer(), String.serializer()), value)).apply()
+
     /** Read video titles aloud when they're focused. */
     var speakTitles: Boolean
         get() = prefs.getBoolean("speak_titles", true)

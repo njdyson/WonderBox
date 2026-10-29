@@ -289,7 +289,7 @@
   </section>
 
   <section class="tab" id="statsTab" data-tab="stats" hidden>
-    <div class="tab-title">Stats</div>
+    <div class="tab-title" id="statsTitle">Stats</div>
     <div id="stats"></div>
   </section>
 
@@ -663,7 +663,7 @@ function renderAdding() {
 // --- Children and their videos ---------------------------------------------
 
 function render() {
-  // Videos, Quizzes, Games and Photos are for one child at a time, picked in the header: every
+  // Videos, Quizzes, Games, Photos and Stats are for one child at a time, picked in the header: every
   // child's face, the chosen one with their name. Tapping the chosen one changes them.
   $("kidSwitch").replaceChildren(...library.children.map((c) => el("button", {
     type: "button", className: c.id === selected ? "on" : "", title: c.name,
@@ -682,21 +682,23 @@ function render() {
   $("videosTitle").textContent = whose("videos");
   $("quizzesTitle").textContent = whose("quizzes");
   $("gamesTitle").textContent = whose("games");
+  $("statsTitle").textContent = whose("stats");
   renderVideos(c);
 
   renderPhotos();
   // The games and quizzes are in quizzes.js.
   if (typeof renderGames === "function") { renderGames(c); renderQuizzes(); }
+  if (typeof showStats === "function") showStats();
   for (const note of document.querySelectorAll(".games-empty")) note.hidden = !!c;
   renderFamily();
   renderAdding();
   if (PAGES[page]) $("pageTitle").textContent = PAGES[page].title;
 }
 
-/** The child switcher shows where it matters: not in Stats and Family, which cover everyone. */
+/** The child switcher shows where it matters: not in Family, which covers everyone. */
 function showSwitch() {
   const where = PAGES[page] ? PAGES[page].tab : tab;
-  $("kidSwitch").hidden = $("mainView").hidden || library.children.length < 1 || !["videos", "quizzes", "games", "photos"].includes(where);
+  $("kidSwitch").hidden = $("mainView").hidden || library.children.length < 1 || !["videos", "quizzes", "games", "photos", "stats"].includes(where);
 }
 
 // --- A child's list, one kind at a time -------------------------------------

@@ -632,6 +632,16 @@ try:
     assert s["byType"]["photo.view"] == {"count": 1, "total": 5}
     assert len(s["daily"]) == 7 and s["daily"][-1]["plays"] == 1
     assert stats["other"]["byType"]["app.start"]["count"] == 2
+    assert s["recentVideos"][0]["youtubeId"] == "jNQXAC9IVRw" and s["recentVideos"][0]["lastAt"], s["recentVideos"]
+    # Treats are kept on the TVs: the latest treats.count from each TV, added up; none until one says.
+    assert s["treats"] is None and stats["children"][1]["treats"] is None
+    call("POST", "/api/wonder/events", {"events": [
+        {"type": "treats.count", "child": sam, "subject": "treat", "value": 3, "data": {"toPick": 1, "saved": 2}, "at": "2026-01-01T10:00:00Z"},
+        {"type": "treats.count", "child": sam, "subject": "treat", "value": 2, "data": {"toPick": 0, "saved": 2}, "at": "2026-01-01T11:00:00Z"},
+    ]}, device_key=key)
+    s = call("GET", "/api/wonder/stats?days=1&tz=0", token=token)["children"][0]
+    assert s["treats"]["toPick"] == 0 and s["treats"]["saved"] == 2, s["treats"]
+    assert "treats.count" not in s["byType"]
     call("GET", "/api/wonder/stats", device_key=key, expect=401)
 
     # Auto difficulty: on auto a game is always its level's setup, and the TV's level.change

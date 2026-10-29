@@ -92,12 +92,34 @@ class AppState(context: Context) {
         val fresh = store.treats
         val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
         treats = fresh
+        reportTreats()
         return won
     }
 
     fun earnTreat(childId: String) {
         treats = treats + (childId to treatsFor(childId) + 1)
         store.treats = treats
+        reportTreats()
+    }
+
+    /**
+     * Logs `treats.count` for each child whose treats changed since it was last logged: treats
+     * won and not picked, and picked ones waiting in their Treats section. The phone app's
+     * Stats show the latest, as the treats themselves are only kept on this TV.
+     */
+    private fun reportTreats() {
+        val reported = store.reportedTreats
+        val now = library.children.associate { it.id to "${treatsFor(it.id)}/${savedTreatsFor(it.id).size}" }
+        val changed = now.filter { (id, counts) -> reported[id] != counts }
+        if (changed.isEmpty()) return
+        for ((id, counts) in changed) {
+            val (toPick, saved) = counts.split("/").map { it.toInt() }
+            EventLog.log("treats.count", id, subject = "treat", value = (toPick + saved).toDouble()) {
+                put("toPick", toPick)
+                put("saved", saved)
+            }
+        }
+        store.reportedTreats = reported + changed
     }
 
     /** How the last rounds went at each auto-level game's current level, by "<child>/<game>" ([AutoLevel.step]). */
@@ -152,6 +174,8 @@ class AppState(context: Context) {
     private fun putLibrary(value: Library) {
         library = value
         store.library = value
+        // Also the first report after an update, and a saved treat the parent has since removed.
+        reportTreats()
     }
 
     /** Picked treats waiting in each child's Treats section, as [Video.id]s, by child ID. Kept on this TV. */
@@ -180,6 +204,7 @@ class AppState(context: Context) {
         store.treats = treats
         savedTreats = savedTreats + (childId to savedTreats[childId].orEmpty() + video.id)
         store.savedTreats = savedTreats
+        reportTreats()
         return true
     }
 
@@ -190,6 +215,7 @@ class AppState(context: Context) {
         if (index !in list.indices) return
         savedTreats = savedTreats + (childId to list.filterIndexed { i, _ -> i != index })
         store.savedTreats = savedTreats
+        reportTreats()
     }
 
     /** The games' sound effects. */
