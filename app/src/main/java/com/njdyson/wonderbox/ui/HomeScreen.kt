@@ -340,10 +340,13 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
     }
 }
 
-/** The Photos screen: all of a child's photos, four to a row. OK on one opens the slideshow there. */
+/**
+ * The Photos screen: all of a child's photos, four to a row, shuffled by [seed]. OK on one opens
+ * the slideshow there.
+ */
 @Composable
-fun PhotoGridScreen(app: AppState, child: Child, onOpen: (Int) -> Unit) {
-    val photos = app.photosFor(child.id)
+fun PhotoGridScreen(app: AppState, child: Child, seed: Long, onOpen: (Int) -> Unit) {
+    val photos = app.shuffledPhotosFor(child.id, seed)
     var focused by rememberSaveable { mutableStateOf<String?>(null) }
     val target = photos.firstOrNull { it.id == focused } ?: photos.firstOrNull()
     val restore = remember { FocusRequester() }

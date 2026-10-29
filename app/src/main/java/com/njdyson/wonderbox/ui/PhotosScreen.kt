@@ -70,16 +70,17 @@ private const val SLIDE_MS = 6_000L
  * The family photos, one at a time, filling the screen, starting from [start]. Left and right
  * flip through them (wrapping round at the ends), OK starts or stops the slideshow, Back goes
  * back to the Photos screen. The next and previous photos load in the background so flipping
- * is instant. Only [childId]'s photos are shown.
+ * is instant. Only [childId]'s photos are shown, in the same shuffled order as the Photos screen
+ * that opened it ([seed]).
  *
  * Home videos are in among the photos, showing their still with a big ▶ until OK plays them;
  * OK then pauses and carries on. In the slideshow a video plays by itself, to the end, and then
  * the slideshow moves on.
  */
 @Composable
-fun PhotosScreen(app: AppState, childId: String, start: Int = 0) {
+fun PhotosScreen(app: AppState, childId: String, start: Int = 0, seed: Long = 0L) {
     val context = LocalContext.current
-    val photos = app.photosFor(childId)
+    val photos = app.shuffledPhotosFor(childId, seed)
     var index by rememberSaveable { mutableStateOf(start) }
     var playing by rememberSaveable { mutableStateOf(false) }
     // The counter and hint show for a few seconds after each key press, then get out of the way.
