@@ -231,6 +231,18 @@ try:
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "sounds": "loud"}, token)
     assert lib["children"][0]["games"]["sounds"] == "calm"
 
+    # Menu music and decorations: on and by the date until set; unknown seasons are ignored,
+    # and saving other settings keeps them.
+    g = lib["children"][0]["games"]
+    assert g["music"] is True and g["season"] == "auto", g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "music": False, "season": "halloween"}, token)
+    g = lib["children"][0]["games"]
+    assert g["music"] is False and g["season"] == "halloween", g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "season": "summer", "sounds": "silly"}, token)
+    g = lib["children"][0]["games"]
+    assert g["music"] is False and g["season"] == "halloween" and g["sounds"] == "silly", g
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "music": True, "season": "auto", "sounds": "calm"}, token)
+
     # Hangman and memory pairs: on with defaults until set; odd values snap to the nearest
     # allowed, and saving one leaves the other (and the maths setup) as it was.
     g = lib["children"][0]["games"]

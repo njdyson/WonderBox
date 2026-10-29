@@ -102,7 +102,7 @@ fun ChildScreen(app: AppState, child: Child, title: String? = null, content: @Co
     val ink = color.onColor()
     // Treats saved up, the same number as on the Treats tile.
     val treats = app.savedTreatsFor(child.id).size
-    PlayBackground(color) {
+    PlayBackground(color, season = app.seasonFor(child)) {
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 4.dp),

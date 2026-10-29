@@ -44,6 +44,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.Library
+import com.njdyson.wonderbox.data.EXERCISE
 import com.njdyson.wonderbox.data.MUSIC
 import com.njdyson.wonderbox.data.STORIES
 import com.njdyson.wonderbox.data.TREAT
@@ -71,9 +72,11 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotsTest {
     @get:Rule val compose = createComposeRule()
 
+    // Decorations off, so the screens look the same whatever the date; the seasons have their own below.
     private val summer = Child(
         "c1", "Summer", "🦄", "#FF5C7A",
         games = GameSettings(
+            season = Season.OFF,
             mathsSetup = MathsSetup(types = listOf("missing", "add"), max = 20, choices = 4),
             spellingSetup = SpellingSetup(types = listOf("first"), lists = listOf("mine"), myWords = listOf(MyWord("friend", "👫"))),
         ),
@@ -90,22 +93,24 @@ class ScreenshotsTest {
             questions = listOf(QuizQuestion("What colour is a banana?", "🍌", listOf(QuizAnswer("Yellow"), QuizAnswer("Blue")))),
         ),
     )
-    private val jesse = Child("c2", "Jesse", "🦖", "#4D96FF")
+    private val jesse = Child("c2", "Jesse", "🦖", "#4D96FF", games = GameSettings(season = Season.OFF))
 
     // Summer's photos; the last one is Jesse's only, so it never shows on her screens.
     private val photos = (1..5).map { Photo("p$it", "/api/wonder/photos/p$it/image", "/api/wonder/photos/p$it/thumb", 1600, 1200, listOf(summer.id)) } +
         Photo("p6", "/api/wonder/photos/p6/image", "/api/wonder/photos/p6/thumb", 1600, 1200, listOf(jesse.id))
 
-    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false): AppState {
+    private fun Child.inSeason(season: Season) = copy(games = games.copy(season = season.key))
+
+    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false, season: Season? = null): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (withPhotos || menuPictures) fakePhotos(context)
-        val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo", "Room on the Broom, read aloud", "Maddie Moate: How Do Bees Make Honey?", "Numberblocks: Make Ten", "Octonauts and the Whale Shark", "Blippi Visits a Farm")
+        val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo", "Room on the Broom, read aloud", "Maddie Moate: How Do Bees Make Honey?", "Numberblocks: Make Ten", "Octonauts and the Whale Shark", "Blippi Visits a Farm", "Cosmic Kids Yoga: Squish the Fish")
         val videos = titles.mapIndexed { i, title ->
-            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i in 4..5) TREAT else "free", section = when (i) { 3 -> MUSIC; 6 -> STORIES; else -> "videos" })
+            Video("v$i", "yt$i", title, thumbnail = "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg", children = listOf("c1", "c2"), tier = if (i in 4..5) TREAT else "free", section = when (i) { 3 -> MUSIC; 6 -> STORIES; 11 -> EXERCISE; else -> "videos" })
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
-            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse), quizzes = quizzes, videos = videos, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
+            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse).map { if (season != null) it.inSeason(season) else it }, quizzes = quizzes, videos = videos, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
             .putString("photos", json.encodeToString(Photos.serializer(), Photos(if (withPhotos) photos else emptyList())))
             .commit()
         return AppState(context)
@@ -126,6 +131,39 @@ class ScreenshotsTest {
         val app = app()
         compose.setContent { WonderBoxTheme { ProfileScreen(app, null, {}, {}) } }
         shoot("profiles")
+    }
+
+    // The decorations for each time of year, on the faces screen and a child's home page.
+    @Test fun profilesHalloween() {
+        val app = app(season = Season.Halloween)
+        compose.setContent { WonderBoxTheme { ProfileScreen(app, null, {}, {}) } }
+        shoot("profiles-halloween")
+    }
+
+    private fun homeIn(season: Season, child: Child = summer) {
+        val app = app(withPhotos = true, menuPictures = true, season = season)
+        compose.setContent { WonderBoxTheme { HomeScreen(app, child.inSeason(season), {}) } }
+        shoot("home-${child.name.lowercase()}-${season.key}")
+    }
+
+    @Test fun homeHalloween() = homeIn(Season.Halloween)
+
+    @Test fun homeHalloweenJesse() = homeIn(Season.Halloween, jesse)
+
+    @Test fun homeBonfire() = homeIn(Season.Bonfire)
+
+    @Test fun homeChristmas() = homeIn(Season.Christmas, jesse)
+
+    @Test fun homeValentine() = homeIn(Season.Valentine)
+
+    @Test fun homeEaster() = homeIn(Season.Easter, jesse)
+
+    @Test fun gamesHalloween() {
+        val app = app(withPhotos = true, menuPictures = true, season = Season.Halloween)
+        val child = summer.inSeason(Season.Halloween)
+        val games = app.library.gamesFor(child, photos = true).filter { !it.isQuiz }
+        compose.setContent { WonderBoxTheme { GamesScreen(app, child, "Games", games, {}) } }
+        shoot("games-summer-halloween")
     }
 
     @Test fun home() {

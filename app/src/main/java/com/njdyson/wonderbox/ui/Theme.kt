@@ -175,11 +175,11 @@ private val floaters = listOf(
 
 /**
  * A bright backdrop in [color] (a child's own colour, so they can tell whose screen it is),
- * with soft bubbles, rings and stars drifting slowly upwards. Only the drawing redraws each
- * frame, not the screen on top.
+ * with soft bubbles, rings and stars drifting slowly upwards, or [season]'s decorations
+ * (Seasons.kt) instead. Only the drawing redraws each frame, not the screen on top.
  */
 @Composable
-fun PlayBackground(color: Color, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun PlayBackground(color: Color, modifier: Modifier = Modifier, season: Season? = null, content: @Composable BoxScope.() -> Unit) {
     val time by rememberInfiniteTransition(label = "drift").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -189,8 +189,13 @@ fun PlayBackground(color: Color, modifier: Modifier = Modifier, content: @Compos
     val light = lerp(color, Color.White, 0.18f)
     val dark = lerp(color, Ink, 0.22f)
     val ink = if (color.onColor() == Ink) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.16f)
+    val pictures = rememberSeasonPictures(season)
     Box(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(light, color, dark)))) {
         Canvas(Modifier.fillMaxSize()) {
+            if (season != null) {
+                drawSeason(season, pictures, time)
+                return@Canvas
+            }
             for (f in floaters) {
                 // Up the screen and round again (1.2 screens, so it's off screen when it wraps),
                 // swaying a little from side to side.

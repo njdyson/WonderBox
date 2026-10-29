@@ -44,6 +44,8 @@ data class Child(
  * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "scramble" (the
  * word game), "memory", "jigsaw", "story" (the story maker), and "videos" (watching a whole free
  * video, not music, for the first time). [hangman], [memory], [scramble] and [story] are those games' setups.
+ * [music] plays a quiet tune on the menus (ui/Music.kt); [season] is the menus' decorations:
+ * "auto" by the date, "off", or one season's key (ui/Seasons.kt).
  */
 @Serializable
 data class GameSettings(
@@ -63,6 +65,8 @@ data class GameSettings(
     val flagSetup: FlagSetup? = null,
     val scramble: ScrambleSetup = ScrambleSetup(),
     val story: StorySetup = StorySetup(),
+    val music: Boolean = true,
+    val season: String = "auto",
 ) {
     fun maths() = mathsSetup ?: MathsSetup.preset(maths)
     fun spelling() = spellingSetup ?: SpellingSetup.preset(spelling)

@@ -142,8 +142,14 @@ function games(child) {
     scramble: extra.scrambleSetup(stored.scramble),
     memory: extra.memorySetup(stored.memory),
     story: extra.storySetup(stored.story),
+    // The menus' quiet music (on unless turned off) and decorations (app/.../ui/Music.kt, Seasons.kt).
+    music: stored.music !== false,
+    season: SEASONS.includes(stored.season) ? stored.season : "auto",
   }
 }
+
+// "auto" picks the decorations by the date, "off" has none, and the rest keep one season's on.
+const SEASONS = ["auto", "off", "halloween", "bonfire", "christmas", "valentine", "easter"]
 
 // The games' sound effects on the TV (app/.../ui/Sounds.kt).
 const SOUNDS = ["off", "calm", "silly"]
@@ -159,8 +165,8 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, scramble, memory, story}: how hard a child's games are (jigsaw 0 is off),
- * which of them win a treat, and their sound effects. hangman, scramble (the word game),
+ * jigsaw, sounds, hangman, scramble, memory, story, music, season}: how hard a child's games are (jigsaw 0 is off),
+ * which of them win a treat, their sound effects, and the menus' music and decorations. hangman, scramble (the word game),
  * memory and story are whole setups (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
@@ -220,6 +226,8 @@ function saveGames(userId, body) {
     setup.flags = quiz.flagPreset(flags)
   }
   setup.flagLevel = flags
+  if (typeof body.music === "boolean") setup.music = body.music
+  if (SEASONS.includes(body.season)) setup.season = body.season
   if (Array.isArray(body.treatGames)) setup.treats = quiz.treatGames(body.treatGames, quiz.TREAT_GAMES)
   child.set("maths_level", maths)
   child.set("spelling_level", spelling)
