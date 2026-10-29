@@ -133,7 +133,7 @@ function top(map, n) {
 // The activity feed: these say nothing on their own (they're steps inside something
 // that has its own line, or bookkeeping), so they're left out.
 const FEED_SKIP = new Set(["app.start", "profile.pick", "treats.count", "video.watch", "quiz.answer", "category.open",
-  "hangman.word", "scramble.word", "scramble.found", "scramble.skip", "story.pick", "jigsaw.start", "memory.start", "photoquiz.start"])
+  "hangman.word", "scramble.word", "scramble.found", "scramble.skip", "story.pick", "jigsaw.start", "memory.start", "photoquiz.start", "photo.fail"])
 // One line for a run of these, whatever each one's subject (e.g. "Looked at 12 photos").
 const FEED_RUNS = new Set(["photo.view", "homevideo.play", "story.read", "reward.earn"])
 const FEED_GAP_MS = 15 * 60 * 1000

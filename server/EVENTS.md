@@ -67,6 +67,7 @@ about it.
 | `reward.unlock` | what was unlocked, e.g. a treat video's YouTube ID | | `reason` (`treat.pick`), `tier`, `title` | A treat or reward is unlocked: a won treat picked and saved in the child's Treats section (watching it later logs `video.play`). |
 | `treats.count` | `treat` | treats now (to pick + saved) | `toPick` (won, not picked yet), `saved` (picked, waiting in their Treats section) | A child's treats changed on this TV (won, picked, watched, or the parent removed a saved one), and once after the update that added it. The phone app's Stats show the latest from each TV, added up. |
 | `photo.view` | photo id | seconds looked at | `album` | A photo (or a home video's still, or the video playing) is shown. |
+| `photo.fail` | photo id | which try failed (1, 2, 3) | `error` (what went wrong, short) | A photo in the slideshow wouldn't load on the TV. It's asked for again up to twice, and its thumbnail shows meanwhile. Not in the activity feed. |
 | `homevideo.play` | photo id of the home video | its length in seconds | | A home video in the Photos starts playing (OK on it, or the slideshow reaching it). |
 
 ## The API
