@@ -58,7 +58,7 @@ fun ProfileScreen(app: AppState, lastChildId: String?, onPick: (Child) -> Unit, 
     val color by animateColorAsState(target, tween(450), label = "background")
     val ink = color.onColor()
 
-    PlayBackground(color) {
+    PlayBackground(color, season = Season.forFamily(children)) {
         Column(
             Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

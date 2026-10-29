@@ -459,6 +459,24 @@ function renderGames(c) {
       silly: "Boings, squeaks and farts for right answers, and a silly noise to try again. Wrong answers never get a fart.",
     }[sounds] }));
 
+  // The menus' quiet music and decorations for the time of year (app/.../ui/Music.kt, Seasons.kt)
+  const music = g.music !== false;
+  const season = g.season || "auto";
+  const seasonSelect = el("select", { onchange: () => save({ season: seasonSelect.value }) },
+    ...[["auto", "By the date"], ["off", "Off"], ["halloween", "Halloween"], ["bonfire", "Bonfire Night"], ["christmas", "Christmas"], ["valentine", "Valentine's Day"], ["easter", "Easter"]]
+      .map(([v, label]) => el("option", { value: v, textContent: label, selected: v === season })));
+  const musicPart = el("div", { className: "game" },
+    el("div", { className: "game-head" }, el("span", { className: "grow", textContent: "🎵 Menu music" }),
+      toggle(music, (on) => save({ music: on }), "Play quiet music on the TV menus")),
+    el("div", { className: "muted", textContent: music
+      ? "A soft music-box tune on the TV's menus, quieter while titles are read out. It stops for games and videos. Halloween and Christmas have their own tunes."
+      : "No music on the menus." }),
+    el("div", { className: "sub-h", textContent: "🎃 Decorations" }),
+    seasonSelect,
+    el("div", { className: "muted", textContent: season === "auto"
+      ? "Ghosts and bats for Halloween (from 17 Oct), fireworks for Bonfire Night, snow for December, hearts for Valentine's and chicks at Easter. Plain the rest of the year."
+      : season === "off" ? "Plain menus all year." : "These stay on until you change it back to By the date." }));
+
   // Which games win a treat: the learning ones by default, so it isn't all jigsaws.
   const treatGames = g.treatGames || TREAT_DEFAULT;
   const treatsPart = el("div", { className: "game" },
@@ -486,7 +504,8 @@ function renderGames(c) {
     el("div", { className: "muted", textContent: hasTreats
       ? TIER_HELP + " A quiz is won by answering all its questions."
       : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }),
-    soundsPart);
+    soundsPart,
+    musicPart);
 }
 
 // --- Saved stories (the TV's story maker) --------------------------------------
