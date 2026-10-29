@@ -48,6 +48,10 @@ document.head.append(el("style", { textContent: `
   .clip-grid button { aspect-ratio: 1; padding: 4px; background: rgba(255,255,255,.1); border-radius: 10px; }
   .clip-grid img { width: 100%; height: 100%; object-fit: contain; }
   .sheet-error { background: #6b1f3a; border-radius: 10px; padding: 10px 12px; }
+  .quiz-row img.thumb { width: 64px; height: 44px; object-fit: cover; border-radius: 8px; flex: none; background: rgba(0,0,0,.2); }
+  .pq-level { font-size: 13px; font-weight: 800; color: var(--muted); margin-top: 8px; }
+  .pq-q { background: rgba(0,0,0,.18); border-radius: 10px; padding: 8px 10px; }
+  .pq-q .right { color: var(--good); font-weight: 800; }
 `}));
 
 const ROUND_SIZES = [3, 5, 10, 15, 20, 25, 30];
@@ -57,6 +61,8 @@ const JIGSAW_SIZES = [2, 3, 4, 5];
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true };
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
 const STORY_DEFAULT = { on: true, age: 5, turns: 5 };
+// The photo quiz (pb_hooks/photo_quiz_lib.js): off until the parent turns it on, since it sends photos to Gemini.
+const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" };
 const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
 // The word game (app/.../games/WordGame.kt, pb_hooks/games_lib.js): levels 1 and 2 unjumble a
 // word, 3 to 5 make words from 5, 6 or 7 letters.
@@ -110,7 +116,7 @@ const FLAG_LEVELS = [
 const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
 const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
 // The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["story", "Story maker"], ["videos", "Watching a whole learning, exercise or story video"]];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["story", "Story maker"], ["photoquiz", "Photo quiz"], ["videos", "Watching a whole learning, exercise or story video"]];
 const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
@@ -175,6 +181,7 @@ function renderGames(c) {
     return;
   }
   loadStories();
+  loadPhotoQuiz();
   // The top of a game's page: whether it's on the TV at all.
   const head = (control) => el("div", { className: "game-head" }, el("span", { className: "grow", textContent: `On ${c.name}'s TV` }), control);
   // Between the level and the details it's made of.
@@ -409,6 +416,35 @@ function renderGames(c) {
         ? `${c.name} picks a hero, a place, what happens and how it ends, and Gemini writes each part, read aloud. Finished stories are kept, with a picture Gemini draws.`
         : "The server has no Gemini key yet, so the TV tells a simple built-in story. Add GEMINI_API_KEY in the install task (server README) for real stories." }));
   }
+  // The photo quiz: look at a photo, then answer Gemini's questions about it from memory
+  const photoQuiz = { ...PHOTO_QUIZ_DEFAULT, ...(g.photoQuiz || {}) };
+  const savePhotoQuiz = (change) => save({ photoQuiz: { ...photoQuiz, ...change } }).then(() => loadPhotoQuiz(true));
+  const quizPhotos = (photoQuizList || []).filter((p) => p.children.includes(c.id));
+  const quizReady = quizPhotos.filter((p) => p.state === "done" && !p.off).length;
+  const photoQuizPart = el("div", { className: "game" },
+    head(toggle(photoQuiz.on, (on) => savePhotoQuiz({ on }), "Show the photo quiz on the TV")));
+  if (!photoQuiz.on) {
+    photoQuizPart.append(el("div", { className: "muted", textContent: `${c.name} looks at one of their photos for a few seconds, then it's hidden and the TV asks questions about it, like "What colour was the girl's dress?". Google Gemini looks at each of ${c.name}'s photos to write the questions, so nothing is sent until you turn this on.` }));
+  } else {
+    photoQuizPart.append(
+      el("div", { className: "sub-h", textContent: `${c.name}'s age (sets how hard the questions are)` }),
+      seg([3, 4, 5, 6, 7, 8, 9].map((n) => [n, String(n)]), photoQuiz.age, (age) => savePhotoQuiz({ age })),
+      el("div", { className: "sub-h", textContent: "Seconds to look at the photo" }),
+      seg([5, 10, 15, 20, 30].map((n) => [n, String(n)]), photoQuiz.look, (look) => savePhotoQuiz({ look })),
+      el("div", { className: "sub-h", textContent: "Questions about each photo" }),
+      seg([3, 4, 5, 6].map((n) => [n, String(n)]), photoQuiz.questions, (questions) => savePhotoQuiz({ questions })),
+      el("div", { className: "sub-h", textContent: "Who picks the photo" }),
+      seg([["child", `${c.name} picks`], ["surprise", "A surprise"]], photoQuiz.pick, (pick) => savePhotoQuiz({ pick })),
+      el("div", { className: "muted", textContent: !library.photoQuiz
+        ? "The server has no Gemini key yet, so the photo quiz can't write questions and isn't on the TV. Add GEMINI_API_KEY in the install task (server README)."
+        : photoQuizList === null ? "Checking the questions…"
+        : !quizPhotos.length ? `${c.name} has no photos yet. Add some in the Photos tab and questions are written for them within a few minutes.`
+        : `Questions ready for ${quizReady} of ${c.name}'s ${quizPhotos.length} photo${quizPhotos.length === 1 ? "" : "s"}. New photos get theirs within a few minutes. Their photos are sent to Google Gemini to write them.` }));
+    if (quizPhotos.length) {
+      photoQuizPart.append(el("button", { type: "button", className: "more", textContent: "Check the questions ▸", onclick: () => photoQuizSheet(c) }));
+    }
+  }
+
   const kept = savedStories.filter((st) => st.child === c.id);
   if (kept.length) {
     storyPart.append(el("button", { type: "button", className: "more", textContent: `${c.name}'s stories (${kept.length}) ▸`, onclick: () => storiesSheet(c) }));
@@ -474,6 +510,7 @@ function renderGames(c) {
     jigsaw: { on: jigsaw > 0, part: jigsawPart, summary: jigsaw > 0 ? `${jigsaw} × ${jigsaw} pieces` : "Off" },
     memory: { on: memory.on, part: memoryPart, summary: memory.on ? `${memory.pairs} pairs of ${{ clipart: "animals", photos: "photos", both: "animals and photos" }[memory.pictures]}` : "Off" },
     story: { on: story.on, part: storyPart, summary: story.on ? `Age ${story.age}, ${story.turns} pictures${kept.length ? `, ${kept.length} kept` : ""}` : "Off" },
+    photoquiz: { on: photoQuiz.on, part: photoQuizPart, summary: photoQuiz.on ? `${photoQuiz.questions} questions, ${photoQuiz.look}s to look` : "Off" },
     treats: { part: treatRulesPart, summary: treatGames.length ? `${roundSize} right answers win a treat` : "Nothing wins a treat" },
     sounds: { part: soundsPart, summary: { off: "Off", calm: "Calm", silly: "Silly" }[sounds] },
     music: { part: musicPart, summary: `${music ? "Music on" : "No music"}, ${{ auto: "decorations by the date", off: "no decorations" }[season] || "decorations always on"}` },
@@ -482,7 +519,7 @@ function renderGames(c) {
     maths: (on) => saveMaths({ on, auto: !!maths.auto }), spelling: (on) => saveSpelling({ on, auto: !!spelling.auto }),
     clock: (on) => saveClock({ on, auto: !!clock.auto }), flags: (on) => saveFlags({ on, auto: !!flags.auto }),
     hangman: (on) => saveHangman({ on }), scramble: (on) => saveScramble({ on }), jigsaw: (on) => save({ jigsaw: on ? 3 : 0 }),
-    memory: (on) => saveMemory({ on }), story: (on) => saveStory({ on }),
+    memory: (on) => saveMemory({ on }), story: (on) => saveStory({ on }), photoquiz: (on) => savePhotoQuiz({ on }),
   };
   const row = (key) => {
     const p = parts[key];
@@ -498,7 +535,7 @@ function renderGames(c) {
   };
 
   $("games").replaceChildren(...["maths", "spelling", "clock", "flags"].map(row));
-  $("playGames").replaceChildren(...["hangman", "scramble", "jigsaw", "memory", "story"].map(row));
+  $("playGames").replaceChildren(...["hangman", "scramble", "jigsaw", "memory", "photoquiz", "story"].map(row));
   $("treatRules").replaceChildren(...["treats", "sounds", "music"].map(row));
   if (parts[page]) $("pageBody").replaceChildren(el("div", { className: "card stack" }, parts[page].part));
 }
@@ -514,6 +551,7 @@ const GAME_PAGES = {
   jigsaw: { tab: "games", icon: "🧩", name: "Photo jigsaws" },
   memory: { tab: "games", icon: "🃏", name: "Memory pairs" },
   story: { tab: "games", icon: "📖", name: "Story maker" },
+  photoquiz: { tab: "games", icon: "🔍", name: "Photo quiz" },
   treats: { tab: "games", icon: "⭐", name: "Treats" },
   sounds: { tab: "games", icon: "🔊", name: "Game sounds" },
   music: { tab: "games", icon: "🎵", name: "Music and decorations" },
@@ -568,6 +606,82 @@ function storySheet(c, st) {
         toast("Story deleted");
       } catch (e) { showError(e); }
     } }));
+}
+
+// --- The photo quiz's questions ----------------------------------------------
+
+let photoQuizList = null;
+let photoQuizLoading = false;
+
+/** Fetches every photo's quiz questions (once, or again when [force]), then shows the games again. */
+async function loadPhotoQuiz(force) {
+  if (photoQuizLoading || (photoQuizList && !force)) return;
+  photoQuizLoading = true;
+  try {
+    photoQuizList = (await api("/api/wonder/photo-quiz/list")).photos || [];
+  } catch (_) {
+    photoQuizList = photoQuizList || [];
+  }
+  photoQuizLoading = false;
+  const c = child(selected);
+  if (c) renderGames(c);
+}
+
+const PQ_LEVELS = { 1: "Easy (3 and 4)", 2: "Middle (5 and 6)", 3: "Harder (7 and up)" };
+const pqLevelFor = (age) => (age <= 4 ? 1 : age <= 6 ? 2 : 3);
+
+/** A child's photos in the quiz: tap one to see its questions. */
+function photoQuizSheet(c) {
+  const list = (photoQuizList || []).filter((p) => p.children.includes(c.id));
+  const status = (p) => p.off ? "Left out" : { done: `${p.questions.length} questions`, none: "Nothing to ask about", failed: "Couldn't write questions" }[p.state] || "Writing questions soon";
+  openSheet(
+    el("h2", { textContent: `${c.name}'s photo quiz` }),
+    el("div", { className: "muted", textContent: "Tap a photo to check its questions, ask for new ones, or leave it out." }),
+    ...list.map((p) => {
+      const img = el("img", { className: "thumb", alt: "" });
+      photoUrl(p.thumb).then((url) => { img.src = url; }).catch(() => {});
+      return el("div", { className: "quiz-row", onclick: () => photoQuizPhotoSheet(c, p) },
+        img,
+        el("div", { className: "grow" }, el("div", { className: "t", textContent: status(p) })),
+        el("span", { className: "chev", textContent: "›" }));
+    }),
+    el("button", { type: "button", className: "ghost", textContent: "Close", onclick: closeSheet }));
+}
+
+/** One photo's questions, the child's own level first. */
+function photoQuizPhotoSheet(c, p) {
+  const age = ({ ...PHOTO_QUIZ_DEFAULT, ...((c.games || {}).photoQuiz || {}) }).age;
+  const mine = pqLevelFor(age);
+  const img = el("img", { className: "story-picture", alt: "" });
+  photoUrl(p.thumb.replace(/\/thumb$/, "/image")).then((url) => { img.src = url; }).catch(() => {});
+  const update = async (path, body, done) => {
+    try {
+      photoQuizList = (await api(path, body)).photos || [];
+      const fresh = photoQuizList.find((x) => x.photo === p.photo);
+      renderGames(c);
+      if (fresh) photoQuizPhotoSheet(c, fresh); else closeSheet();
+      toast(done);
+    } catch (e) { showError(e); }
+  };
+  const levels = [mine, ...[1, 2, 3].filter((l) => l !== mine)];
+  openSheet(
+    img,
+    ...(p.state === "done" ? levels.flatMap((level) => {
+      const qs = p.questions.filter((q) => q.level === level);
+      if (!qs.length) return [];
+      return [el("div", { className: "pq-level", textContent: PQ_LEVELS[level] + (level === mine ? ` · ${c.name} gets these` : "") }),
+        ...qs.map((q) => el("div", { className: "pq-q" },
+          el("div", { className: "t", textContent: q.text }),
+          el("div", {}, el("span", { className: "right", textContent: `✓ ${q.right}` }), ` · ${q.wrong.join(" · ")}`)))];
+    }) : [el("div", { className: "muted", textContent: { none: "Gemini couldn't find anything to ask about this photo, so it isn't in the quiz.", failed: "Gemini couldn't write questions for this photo. Try again below." }[p.state] || "The questions for this photo are written within a few minutes." })]),
+    library.photoQuiz ? el("button", { type: "button", textContent: "Write new questions", onclick: (e) => {
+      e.target.disabled = true;
+      e.target.textContent = "Writing…";
+      update("/api/wonder/photo-quiz/redo", { photo: p.photo }, "New questions written");
+    } }) : "",
+    el("button", { type: "button", className: "ghost", textContent: p.off ? "Put this photo back in the quiz" : "Leave this photo out of the quiz",
+      onclick: () => update("/api/wonder/photo-quiz/off", { photo: p.photo, off: !p.off }, p.off ? "Back in the quiz" : "Left out") }),
+    el("button", { type: "button", className: "ghost", textContent: "Back", onclick: () => photoQuizSheet(c) }));
 }
 
 // --- Quizzes -----------------------------------------------------------------

@@ -177,8 +177,9 @@ internal fun Progress(right: Int, goal: Int) {
     }
 }
 
+/** One question: its picture and words, and the answers to pick from. The photo quiz asks with it too. */
 @Composable
-private fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: String, right: Boolean) -> Unit, onRight: () -> Unit) {
+internal fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice: String, right: Boolean) -> Unit, onRight: () -> Unit) {
     val scope = rememberCoroutineScope()
     val wrong = remember { mutableStateListOf<Int>() }
     // For spelling the whole word: the letters (by button) picked so far.

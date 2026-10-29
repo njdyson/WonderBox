@@ -1,10 +1,10 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Google Gemini, for anything on the server that writes or draws (the story maker in
-// story_lib.js so far), loaded with require(). One key for everything: GEMINI_API_KEY in
-// <data>/wonderbox.env (deploy/install.sh). GEMINI_MODEL and GEMINI_IMAGE_MODEL change the
-// default models. Every call has Google's safety filters at their strictest, since it's all
-// for children.
+// story_lib.js, menu pictures, the photo quiz's questions), loaded with require(). One key for
+// everything: GEMINI_API_KEY in <data>/wonderbox.env (deploy/install.sh). GEMINI_MODEL and
+// GEMINI_IMAGE_MODEL change the default models; GEMINI_URL points somewhere else, for tests.
+// Every call has Google's safety filters at their strictest, since it's all for children.
 
 const TEXT_MODEL = "gemini-3.6-flash"
 const IMAGE_MODEL = "gemini-2.5-flash-image"
@@ -45,7 +45,7 @@ function generate(model, body, timeout, fallback) {
   if (!key) throw new ApiError(503, "This needs a Gemini key on the server.")
   body.safetySettings = SAFETY
   const send = () => $http.send({
-    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    url: `${($os.getenv("GEMINI_URL") || "https://generativelanguage.googleapis.com").replace(/\/+$/, "")}/v1beta/models/${model}:generateContent`,
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify(body),
@@ -71,13 +71,15 @@ function answerParts(json) {
 
 /**
  * JSON written to [schema] (Gemini's OpenAPI-style schema), from [system] instructions and a
- * [prompt]. Quick: little thinking. Returns the parsed object, or null.
+ * [prompt]. Quick: little thinking. options.images is pictures for it to look at:
+ * [{type: "image/jpeg", bytes: [...]}]. Returns the parsed object, or null.
  */
 function writeJson(system, prompt, schema, options) {
   const o = options || {}
+  const images = (o.images || []).map((i) => ({ inlineData: { mimeType: i.type, data: base64Text(i.bytes) } }))
   const body = {
     systemInstruction: { parts: [{ text: system }] },
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    contents: [{ role: "user", parts: [...images, { text: prompt }] }],
     generationConfig: {
       temperature: o.temperature === undefined ? 0.9 : o.temperature,
       maxOutputTokens: o.maxTokens || 2048,
@@ -130,4 +132,20 @@ function base64Bytes(text) {
   return out
 }
 
-module.exports = { available, allow, generate, answerParts, writeJson, drawImage, base64Bytes, textModel, imageModel }
+/** Bytes to standard base64, for sending a picture. */
+function base64Text(bytes) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  const out = []
+  let i = 0
+  for (; i + 2 < bytes.length; i += 3) {
+    const n = ((bytes[i] & 255) << 16) | ((bytes[i + 1] & 255) << 8) | (bytes[i + 2] & 255)
+    out.push(alphabet[n >> 18] + alphabet[(n >> 12) & 63] + alphabet[(n >> 6) & 63] + alphabet[n & 63])
+  }
+  if (i < bytes.length) {
+    const n = ((bytes[i] & 255) << 16) | (i + 1 < bytes.length ? (bytes[i + 1] & 255) << 8 : 0)
+    out.push(alphabet[n >> 18] + alphabet[(n >> 12) & 63] + (i + 1 < bytes.length ? alphabet[(n >> 6) & 63] : "=") + "=")
+  }
+  return out.join("")
+}
+
+module.exports = { available, allow, generate, answerParts, writeJson, drawImage, base64Bytes, base64Text, textModel, imageModel }

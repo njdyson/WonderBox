@@ -27,6 +27,7 @@ const SUBJECTS = {
   "game.jigsaw": { title: "Jigsaw", colors: "orange (#FF8A3D to #D9541B)", subject: "four chunky, colourful jigsaw puzzle pieces snapping together" },
   "game.memory": { title: "Pairs", colors: "bright blue (#4D96FF to #2B5FD9)", subject: "two matching playing cards turned face up, both showing the same cute ladybird, with a few face-down cards behind" },
   "game.story": { title: "Stories", colors: "indigo (#7C6CF2 to #4B3BC4)", subject: "an open storybook with a friendly little dragon and swirling stars rising out of it" },
+  "game.photoquiz": { title: "Photo quiz", colors: "teal (#2EC4B6 to #13867C)", subject: "a big friendly magnifying glass looking at a little instant photo of a sunny garden, with little sparkles" },
 }
 
 // Pictures drawn per family per day, counting redraws; more wait until the next day.

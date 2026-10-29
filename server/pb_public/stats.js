@@ -39,6 +39,7 @@ function duration(seconds) {
 
 /** "maths.add" as "Maths add". */
 function gameName(id) {
+  if (id === "photoquiz") return "Photo quiz";
   const s = String(id || "Game").replace(/[._]/g, " ");
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

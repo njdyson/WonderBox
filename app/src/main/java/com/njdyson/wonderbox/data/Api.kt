@@ -6,6 +6,9 @@ import com.njdyson.wonderbox.games.ClockSetup
 import com.njdyson.wonderbox.games.FlagSetup
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.MemorySetup
+import com.njdyson.wonderbox.games.PhotoQuizPhoto
+import com.njdyson.wonderbox.games.PhotoQuizPhotos
+import com.njdyson.wonderbox.games.PhotoQuizSetup
 import com.njdyson.wonderbox.games.Quiz
 import com.njdyson.wonderbox.games.ScrambleSetup
 import com.njdyson.wonderbox.games.SpellingSetup
@@ -44,8 +47,8 @@ data class Child(
  * server sends only the levels). [jigsaw] is pieces along each side of a photo jigsaw (3 is
  * 3 x 3), or 0 for no jigsaws. [treatGames] are the games that win a treat: "maths",
  * "spelling", "clock", "flags", "quizzes" (all the parent's quizzes), "hangman", "scramble" (the
- * word game), "memory", "jigsaw", "story" (the story maker), and "videos" (watching a whole free
- * video, not music, for the first time). [hangman], [memory], [scramble] and [story] are those games' setups.
+ * word game), "memory", "jigsaw", "story" (the story maker), "photoquiz", and "videos" (watching a whole free
+ * video, not music, for the first time). [hangman], [memory], [scramble], [story] and [photoQuiz] are those games' setups.
  * [music] plays a quiet tune on the menus (ui/Music.kt); [season] is the menus' decorations:
  * "auto" by the date, "off", or one season's key (ui/Seasons.kt).
  */
@@ -67,6 +70,7 @@ data class GameSettings(
     val flagSetup: FlagSetup? = null,
     val scramble: ScrambleSetup = ScrambleSetup(),
     val story: StorySetup = StorySetup(),
+    val photoQuiz: PhotoQuizSetup = PhotoQuizSetup(),
     val music: Boolean = true,
     val season: String = "auto",
 ) {
@@ -142,6 +146,8 @@ data class Library(
     val voice: Boolean = false,
     /** The server can write stories with Gemini (POST /api/wonder/story); otherwise the TV tells simple ones. */
     val stories: Boolean = false,
+    /** The server can write the photo quiz's questions with Gemini (GET /api/wonder/photo-quiz); without it there's no photo quiz. */
+    val photoQuiz: Boolean = false,
     /**
      * Pictures Gemini drew for the menu tiles, by key ("home.games", "game.jigsaw"): server
      * paths. A tile without one shows its emoji.
@@ -315,6 +321,10 @@ class Server(private val baseUrl: String, private val deviceKey: String) {
         }
         return json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories/save", body, deviceKey)).stories
     }
+
+    /** The photos [childId] can be quizzed on, with their questions. */
+    fun photoQuiz(childId: String): List<PhotoQuizPhoto> =
+        json.decodeFromString(PhotoQuizPhotos.serializer(), request(baseUrl, "/api/wonder/photo-quiz?child=${URLEncoder.encode(childId, "UTF-8")}", deviceKey = deviceKey)).photos
 
     fun forget() {
         request(baseUrl, "/api/wonder/devices/forget", JsonObject(emptyMap()), deviceKey)

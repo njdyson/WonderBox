@@ -15,6 +15,7 @@ import com.njdyson.wonderbox.data.Shelf
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.AutoLevel
+import com.njdyson.wonderbox.games.PhotoQuizPhoto
 import com.njdyson.wonderbox.games.StoryPart
 import com.njdyson.wonderbox.games.StoryPick
 import com.njdyson.wonderbox.games.autoLevel
@@ -317,6 +318,16 @@ class AppState(context: Context) {
         return runCatching {
             withContext(Dispatchers.IO) { Server(serverUrl, key).story(childId, story.map { it.pick.word to it.text }, options.map { it.word }) }
         }.getOrNull()
+    }
+
+    /**
+     * The photos [childId] can be quizzed on and their questions, from the server (it may write
+     * the first ones there and then, so this can take a few seconds). Null when it can't be reached.
+     */
+    suspend fun photoQuiz(childId: String): List<PhotoQuizPhoto>? {
+        val key = deviceKey ?: return null
+        if (!library.photoQuiz) return null
+        return runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).photoQuiz(childId) } }.getOrNull()
     }
 
     fun stopSpeaking() {

@@ -500,7 +500,7 @@ async function load() {
 }
 
 function setLibrary(data) {
-  library = { children: data.children || [], quizzes: data.quizzes || [], videos: data.videos || [], channels: data.channels || [], stories: !!data.stories };
+  library = { children: data.children || [], quizzes: data.quizzes || [], videos: data.videos || [], channels: data.channels || [], stories: !!data.stories, photoQuiz: !!data.photoQuiz };
   if (!child(selected)) selected = library.children[0] ? library.children[0].id : "";
   render();
 }
@@ -1588,8 +1588,8 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("orientationchange", remeasure);
 if (window.visualViewport) window.visualViewport.addEventListener("resize", remeasure);
 </script>
-<script src="/stats.js?v=56"></script>
-<script src="/quizzes.js?v=56"></script>
+<script src="/stats.js?v=57"></script>
+<script src="/quizzes.js?v=57"></script>
 <script src="/menu.js?v=56"></script>
 </body>
 </html>

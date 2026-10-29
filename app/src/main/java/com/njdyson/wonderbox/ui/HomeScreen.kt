@@ -53,6 +53,7 @@ import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.PHOTO_QUIZ
 import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.STORY
 import com.njdyson.wonderbox.games.gamesFor
@@ -299,6 +300,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
             HANGMAN -> TILE_COLORS[4]
             SCRAMBLE -> TILE_COLORS[5]
             MEMORY -> TILE_COLORS[0]
+            PHOTO_QUIZ -> TILE_COLORS[3]
             // The same as the home page's Stories tile.
             STORY -> Category.Stories.colors
             else -> TILE_COLORS[index % TILE_COLORS.size]

@@ -30,6 +30,10 @@ import com.njdyson.wonderbox.games.HangmanSetup
 import com.njdyson.wonderbox.games.Jigsaw
 import com.njdyson.wonderbox.games.Memory
 import com.njdyson.wonderbox.games.MemorySetup
+import com.njdyson.wonderbox.games.PhotoQuiz
+import com.njdyson.wonderbox.games.PhotoQuizPhoto
+import com.njdyson.wonderbox.games.PhotoQuizQuestion
+import com.njdyson.wonderbox.games.PhotoQuizSetup
 import com.njdyson.wonderbox.games.ScrambleSetup
 import com.njdyson.wonderbox.games.StoryPart
 import com.njdyson.wonderbox.games.StoryPick
@@ -79,6 +83,7 @@ class ScreenshotsTest {
             season = Season.OFF,
             mathsSetup = MathsSetup(types = listOf("missing", "add"), max = 20, choices = 4),
             spellingSetup = SpellingSetup(types = listOf("first"), lists = listOf("mine"), myWords = listOf(MyWord("friend", "👫"))),
+            photoQuiz = PhotoQuizSetup(on = true, age = 5, look = 10, questions = 3),
         ),
     )
     private val quizzes = listOf(
@@ -116,7 +121,7 @@ class ScreenshotsTest {
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
-            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse).map { if (season != null) it.inSeason(season) else it }, quizzes = quizzes, videos = videos, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
+            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse).map { if (season != null) it.inSeason(season) else it }, quizzes = quizzes, videos = videos, photoQuiz = true, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
             .putString("photos", json.encodeToString(Photos.serializer(), Photos((if (withVideos) homeVideos else emptyList()) + (if (withPhotos) photos else emptyList()))))
             .commit()
         return AppState(context)
@@ -600,6 +605,80 @@ class ScreenshotsTest {
         shoot("finished-level-up")
     }
 
+    // The photo quiz, with questions about the stand-in photo (a house, a rainbow and the sun).
+    // Summer is 5, so she gets the level 2 questions first.
+    private fun photoQuizPhotos(first: PhotoQuizQuestion) = photos.take(5).map { photo ->
+        PhotoQuizPhoto(
+            photo.id,
+            listOf(
+                first,
+                PhotoQuizQuestion(1, "Was the sun out?", "yes", listOf("no")),
+                PhotoQuizQuestion(1, "How many houses were there?", "one", listOf("two", "three")),
+                PhotoQuizQuestion(3, "What was over the house?", "a rainbow", listOf("a plane", "a kite", "a cloud")),
+            ),
+        )
+    }
+    private val roofQuestion = PhotoQuizQuestion(2, "What colour was the roof of the house?", "brown", listOf("blue", "pink", "green"))
+    private val skyQuestion = PhotoQuizQuestion(2, "What was in the sky?", "a rainbow", listOf("a plane", "a balloon", "a kite"))
+
+    /** The photo quiz on [startPhoto] (or picking one). The clock is held first, so the photo's time to look doesn't run out while the screen sets up. */
+    private fun photoQuiz(first: PhotoQuizQuestion, startPhoto: Photo? = null, hasTreats: Boolean = false, seed: Int = 1) {
+        val app = app(withPhotos = true)
+        compose.mainClock.autoAdvance = false
+        compose.setContent { WonderBoxTheme { PhotoQuizScreen(app, summer, hasTreats, {}, {}, {}, startQuizzes = photoQuizPhotos(first), startPhoto = startPhoto, random = Random(seed)) } }
+        settle()
+    }
+
+    @Test fun photoQuizPick() {
+        photoQuiz(roofQuestion)
+        shoot("photoquiz-pick")
+    }
+
+    @Test fun photoQuizLook() {
+        photoQuiz(roofQuestion, photos[0])
+        shoot("photoquiz-look")
+    }
+
+    @Test fun photoQuizHidden() {
+        photoQuiz(roofQuestion, photos[0])
+        compose.mainClock.advanceTimeBy(7_400)
+        compose.onRoot().captureRoboImage("build/screenshots/photoquiz-hidden.png")
+    }
+
+    private fun photoQuizAsking(first: PhotoQuizQuestion, name: String) {
+        photoQuiz(first, photos[0])
+        compose.mainClock.advanceTimeBy(9_500)
+        shoot(name)
+    }
+
+    @Test fun photoQuizColours() = photoQuizAsking(roofQuestion, "photoquiz-question-colours")
+
+    @Test fun photoQuizWords() = photoQuizAsking(skyQuestion, "photoquiz-question-words")
+
+    @Test fun photoQuizDone() {
+        photoQuiz(skyQuestion, photos[1], hasTreats = true, seed = 4)
+        compose.mainClock.advanceTimeBy(9_500)
+        // The same questions, in the same order, as the screen made with the same seed.
+        val random = Random(4)
+        val asked = PhotoQuiz.pick(photoQuizPhotos(skyQuestion)[1].questions, summer.games.photoQuiz.age, summer.games.photoQuiz.questions, random)
+            .map { PhotoQuiz.toQuestion(it, summer.games.photoQuiz.age, random) }
+        asked.forEachIndexed { i, q ->
+            val right = q.choices.indexOf(q.answer)
+            // The first one wrong, then right: two of three remembered first time.
+            if (i == 0) {
+                val wrong = if (right == 0) 1 else 0
+                press(List(wrong) { Key.DirectionRight } + Key.DirectionCenter)
+                compose.mainClock.advanceTimeBy(800)
+                press(List(wrong) { Key.DirectionLeft } + List(right) { Key.DirectionRight } + Key.DirectionCenter)
+            } else {
+                press(List(right) { Key.DirectionRight } + Key.DirectionCenter)
+            }
+            compose.mainClock.advanceTimeBy(1_600)
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        shoot("photoquiz-done")
+    }
+
     @Test fun settings() {
         val app = app()
         compose.setContent { WonderBoxTheme { SettingsScreen(app, 0) } }
@@ -638,4 +717,5 @@ private val MENU_STAND_INS = mapOf(
     "game.jigsaw" to (listOf(0xFFFF8A3D, 0xFFD9541B) to listOf("1f9e9")),
     "game.memory" to (listOf(0xFF4D96FF, 0xFF2B5FD9) to listOf("1f0cf", "1f41e")),
     "game.story" to (listOf(0xFF7C6CF2, 0xFF4B3BC4) to listOf("1f409")),
+    "game.photoquiz" to (listOf(0xFF2EC4B6, 0xFF13867C) to listOf("1f50d", "1f4f7")),
 )
