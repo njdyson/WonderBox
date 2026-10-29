@@ -11,8 +11,8 @@
 const TEXT_MODEL = "gemini-3.6-flash"
 const IMAGE_MODEL = "gemini-2.5-flash-image"
 const TTS_MODEL = "gemini-3.8-flash-tts"
-// One of Gemini's prebuilt voices: Achernar is the one Google calls "soft".
-const VOICE = "Achernar"
+// The storyteller: Nick's pick from Google AI Studio's voice library (2026-10-29).
+const VOICE = "Riko"
 
 const SAFETY = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]
   .map((category) => ({ category, threshold: "BLOCK_LOW_AND_ABOVE" }))
@@ -33,9 +33,34 @@ function ttsModel() {
   return ($os.getenv("GEMINI_TTS_MODEL") || TTS_MODEL).replace(/[^a-zA-Z0-9.\-_]/g, "")
 }
 
-/** The storyteller's voice: a prebuilt name, or a voice_… ID from Google AI Studio's voice library. */
+/**
+ * The storyteller's voice for the TTS models: a voice_… ID as it is, otherwise the name as AI
+ * Studio shows it (like "Riko"), looked up once in the voice library for its ID. A prebuilt
+ * name, or one the library doesn't know, is used as it is.
+ */
 function voice() {
-  return ($os.getenv("GEMINI_VOICE") || VOICE).replace(/[^a-zA-Z0-9.\-_]/g, "")
+  const name = ($os.getenv("GEMINI_VOICE") || VOICE).replace(/[^a-zA-Z0-9.\-_]/g, "")
+  if (/^voice(key)?_/.test(name)) return name
+  const cacheKey = `wonderbox_gemini:voice:${name}`
+  const cached = $app.store().get(cacheKey)
+  if (cached) return cached
+  let id = name
+  try {
+    const res = $http.send({
+      url: apiUrl(`voices?search=${encodeURIComponent(name)}&page_size=50`),
+      method: "GET",
+      headers: { "x-goog-api-key": $os.getenv("GEMINI_API_KEY") || "" },
+      timeout: 15,
+    })
+    const found = ((res.statusCode === 200 && res.json && res.json.voices) || [])
+      .find((v) => String(v.displayName || v.display_name || "").toLowerCase() === name.toLowerCase())
+    if (found) id = String(found.id || String(found.name || "").replace(/^voices\//, "") || name)
+    else console.log(`gemini voices: no voice called ${name} (answered ${res.statusCode}), trying the name as it is`)
+  } catch (err) {
+    console.log(`gemini voices: ${err}`)
+  }
+  $app.store().set(cacheKey, id)
+  return id
 }
 
 function apiUrl(path) {

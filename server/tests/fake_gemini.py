@@ -6,7 +6,8 @@
 
 It answers every request with the same nine photo quiz questions (plus a few the server must
 drop), after checking that a photo came with it as base64 JPEG or PNG. Text-to-speech requests
-(the Interactions API) get a short beep as bare PCM, like the older TTS models send. Anything
+(the Interactions API) in the voice Riko (looked up in the fake voice library) get a short beep as
+bare PCM, like the older TTS models send. Anything
 else, such as the story maker, gets a 400, so those checks see Gemini as failing.
 """
 import math
@@ -56,10 +57,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(reply).encode())
 
+    def do_GET(self):
+        # The voice library: knows Riko, by another ID.
+        if self.path.startswith("/v1beta/voices") and "search=Riko" in self.path:
+            reply = {"voices": [{"id": "riko-library-id", "displayName": "Riko"}, {"id": "x", "displayName": "Rikodo"}]}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(reply).encode())
+            return
+        self.send_response(404)
+        self.end_headers()
+
     def speak(self, body):
         text = (((body.get("input") or [{}])[0].get("content") or [{}])[0]).get("text")
         voice = ((body.get("generation_config") or {}).get("speech_config") or [{}])[0].get("voice")
-        if not (text and voice and "tts" in body.get("model", "") and self.headers.get("x-goog-api-key")):
+        if not (text and voice == "riko-library-id" and "tts" in body.get("model", "") and self.headers.get("x-goog-api-key")):
             self.send_response(400)
             self.end_headers()
             self.wfile.write(b'{"error": "not a speech request"}')

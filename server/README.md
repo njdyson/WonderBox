@@ -132,11 +132,11 @@ a little slower than its own pace (`PACE` in `pb_hooks/speech_lib.js`), and the 
 items, questions and answers, but not video titles.
 
 Stories (`slow=1`) are read by Gemini's text-to-speech instead when the server has a Gemini key:
-a soft storyteller voice (`gemini-3.8-flash-tts`, prebuilt voice Achernar), made once per story
+a storyteller voice (`gemini-3.8-flash-tts`, voice Riko from the voice library, looked up by name), made once per story
 part and kept like Piper's clips, at most 300 new parts per family per day. If Gemini fails,
-Piper reads it slowly. To try another voice, audition them in Google AI Studio (the voice
-library has British ones) and run the install task again with `GEMINI_VOICE='…'` (a prebuilt
-name like `Sulafat`, or a `voice_…` ID). `GEMINI_TTS_MODEL` changes the model.
+Piper reads it slowly. To try another voice, audition them in Google AI Studio and run the
+install task again with `GEMINI_VOICE='…'` (the name AI Studio shows, or a `voice_…` ID from
+Voice design). `GEMINI_TTS_MODEL` changes the model.
 `/api/wonder/voice` says `"storyteller": true` when it's on.
 
 To switch it on, run the step 4 install task again (after Plesk has deployed the latest
