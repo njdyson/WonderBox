@@ -1,16 +1,16 @@
-// The phone app's stats: what each child watched and how their games went, from
-// GET /api/wonder/stats. Loaded after the main script in index.html and uses its helpers
-// ($, el, api, face, showError). The events behind it are described in server/EVENTS.md.
+// The phone app's stats: what the child picked in the header watched, how their games went and
+// the treats they have, from GET /api/wonder/stats. Loaded after the main script in index.html
+// and uses its helpers ($, el, api, child, selected, showError). The events behind it are
+// described in server/EVENTS.md.
 
 let statsDays = Number(localStorage.getItem("wonderbox_stats_days")) || 7;
+let statsData = null; // the last answer, so changing child doesn't wait for the server
 
 document.head.append(el("style", { textContent: `
   .range { display: flex; gap: 6px; }
   .range button { flex: 1; }
   .range button:not(.on) { background: rgba(255,255,255,.12); color: var(--text); font-weight: 600; }
-  .stat-kid { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; }
-  .stat-kid .face { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; }
-  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .tile { background: rgba(0,0,0,.18); border-radius: 10px; padding: 10px; }
   .tile b { display: block; font-size: 22px; font-weight: 900; line-height: 1.1; }
   .tile span { font-size: 12px; color: var(--muted); }
@@ -43,6 +43,16 @@ function gameName(id) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** When a video was last watched: "15:40" today, "Yesterday", "Mon", or "12 Oct". */
+function whenWatched(iso) {
+  const d = new Date(iso);
+  const days = Math.round((new Date().setHours(12, 0, 0, 0) - new Date(d).setHours(12, 0, 0, 0)) / 86400000);
+  if (days <= 0) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  if (days === 1) return "Yesterday";
+  if (days < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 const dayLabel = (date, days) => {
   const d = new Date(date + "T12:00:00");
   return days <= 7 ? d.toLocaleDateString(undefined, { weekday: "short" }) : String(d.getDate());
@@ -51,22 +61,25 @@ const dayLabel = (date, days) => {
 async function loadStats() {
   if (!$("stats")) return;
   try {
-    const data = await api(`/api/wonder/stats?days=${statsDays}&tz=${new Date().getTimezoneOffset()}`);
-    renderStats(data);
+    statsData = await api(`/api/wonder/stats?days=${statsDays}&tz=${new Date().getTimezoneOffset()}`);
+    showStats();
   } catch (e) {
     showError(e);
   }
 }
 
-function renderStats(data) {
+/** The picked child's stats from the last answer (the main script calls this when the child changes). */
+function showStats() {
+  if (!statsData || !$("stats")) return;
+  const data = statsData;
   const range = el("div", { className: "range" }, ...[[1, "Today"], [7, "7 days"], [30, "30 days"]].map(([d, label]) =>
     el("button", { className: "small" + (d === statsDays ? " on" : ""), textContent: label, onclick: () => {
       statsDays = d;
       localStorage.setItem("wonderbox_stats_days", String(d));
       loadStats();
     } })));
-  const cards = data.children.map((c) => statCard(c, data.days));
-  $("stats").replaceChildren(range, ...(cards.length ? cards : [el("div", { className: "card empty", textContent: "Add a child to see their stats." })]));
+  const c = data.children.find((k) => k.id === selected) || data.children[0];
+  $("stats").replaceChildren(range, c ? statCard(c, data.days) : el("div", { className: "card empty", textContent: "Add a child to see their stats." }));
 }
 
 function statCard(c, days) {
@@ -75,16 +88,21 @@ function statCard(c, days) {
     el("div", { className: "tile" }, el("b", { textContent: String(c.plays) }), el("span", { textContent: c.plays === 1 ? "video" : "videos" })),
     el("div", { className: "tile" },
       el("b", { textContent: c.answers ? `${Math.round((100 * c.correct) / c.answers)}%` : "–" }),
-      el("span", { textContent: c.answers ? `right of ${c.answers}` : "no quizzes" })));
+      el("span", { textContent: c.answers ? `right of ${c.answers}` : "no quizzes" })),
+    treatTile(c.treats));
 
-  const parts = [el("div", { className: "stat-kid" }, face(c), c.name), tiles];
+  const parts = [tiles];
   if (days > 1) parts.push(...dailyChart(c, days));
 
+  const videoRow = (v, note) => el("div", { className: "stat-row" },
+    el("img", { src: `https://i.ytimg.com/vi/${v.youtubeId}/default.jpg`, alt: "", loading: "lazy" }),
+    el("div", { className: "t", textContent: v.title }),
+    el("div", { className: "n", textContent: note }));
+  if (c.recentVideos && c.recentVideos.length) {
+    parts.push(el("div", { className: "stat-h", textContent: "MOST RECENT" }), ...c.recentVideos.slice(0, 5).map((v) => videoRow(v, whenWatched(v.lastAt))));
+  }
   if (c.topVideos.length) {
-    parts.push(el("div", { className: "stat-h", textContent: "MOST WATCHED" }), ...c.topVideos.slice(0, 5).map((v) => el("div", { className: "stat-row" },
-      el("img", { src: `https://i.ytimg.com/vi/${v.youtubeId}/default.jpg`, alt: "", loading: "lazy" }),
-      el("div", { className: "t", textContent: v.title }),
-      el("div", { className: "n", textContent: `${duration(v.watchSeconds)} · ${v.plays}×` }))));
+    parts.push(el("div", { className: "stat-h", textContent: "MOST WATCHED" }), ...c.topVideos.slice(0, 5).map((v) => videoRow(v, `${duration(v.watchSeconds)} · ${v.plays}×`)));
   }
   const channels = c.topChannels.filter((ch) => ch.channel !== "Other" || c.topChannels.length > 1);
   if (channels.length > 1) {
@@ -98,7 +116,7 @@ function statCard(c, days) {
       el("div", { className: "n", textContent: `${g.correct}/${g.answers} right` + (g.rounds ? ` · best ${g.bestScore}` : "") }))));
   }
   // Anything else that was logged, so new kinds of activity show up before they get their own section.
-  const known = new Set(["video.play", "video.watch", "quiz.answer", "quiz.finish", "profile.pick", "app.start"]);
+  const known = new Set(["video.play", "video.watch", "quiz.answer", "quiz.finish", "profile.pick", "app.start", "treats.count"]);
   const other = Object.entries(c.byType).filter(([type]) => !known.has(type));
   if (other.length) {
     parts.push(el("div", { className: "stat-h", textContent: "OTHER ACTIVITY" }), ...other.map(([type, t]) => el("div", { className: "stat-row" },
@@ -107,6 +125,17 @@ function statCard(c, days) {
   }
   if (!c.plays && !c.answers && !other.length) parts.push(el("div", { className: "empty", textContent: "Nothing yet in this time." }));
   return el("div", { className: "card" }, ...parts);
+}
+
+/**
+ * The treats they have now, whatever the time range: picked and waiting in their Treats section,
+ * plus any won and not picked yet. Null when no TV has said yet (it needs the TV's latest update).
+ */
+function treatTile(t) {
+  if (!t) return el("div", { className: "tile" }, el("b", { textContent: "–" }), el("span", { textContent: "treats (update the TV)" }));
+  const n = t.saved + t.toPick;
+  return el("div", { className: "tile" }, el("b", { textContent: `⭐ ${n}` }),
+    el("span", { textContent: (n === 1 ? "treat now" : "treats now") + (t.toPick ? ` · ${t.toPick} to pick` : "") }));
 }
 
 /** Watching time per day as bars in the child's colour; tap a bar for its numbers. */
