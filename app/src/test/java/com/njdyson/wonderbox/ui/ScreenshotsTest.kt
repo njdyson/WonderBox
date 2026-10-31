@@ -272,6 +272,16 @@ class ScreenshotsTest {
         shoot("treats-summer")
     }
 
+    // Straight after picking one: a celebration of it, then back to their menu.
+    @Test fun treatSaved() {
+        val app = app()
+        app.earnTreat(summer.id)
+        val video = app.library.mixedTreatsFor(summer.id, seed = 7).first().videos.first()
+        app.saveTreat(summer.id, video)
+        compose.setContent { WonderBoxTheme { TreatSavedScreen(app, summer, video, more = false) {} } }
+        shoot("treat-saved-summer")
+    }
+
     @Test fun photoGrid() {
         val app = app(withPhotos = true)
         compose.setContent { WonderBoxTheme { PhotoGridScreen(app, summer, 0L, {}) } }

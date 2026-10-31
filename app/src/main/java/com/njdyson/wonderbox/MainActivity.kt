@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
@@ -45,10 +44,10 @@ import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.StoryLibraryScreen
 import com.njdyson.wonderbox.ui.StoryScreen
+import com.njdyson.wonderbox.ui.TreatSavedScreen
 import com.njdyson.wonderbox.ui.VideosScreen
 import com.njdyson.wonderbox.ui.WordGameScreen
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 import kotlin.random.Random
 
@@ -64,6 +63,8 @@ private sealed interface Screen {
     data class Treats(val childId: String) : Screen
     /** Picking a treat to save, straight after winning one. */
     data class PickTreat(val childId: String) : Screen
+    /** A celebration of the treat just picked, before they're taken back to their menu. */
+    data class TreatSaved(val childId: String, val video: Video) : Screen
     /** [seed] shuffles the photos; it's new each time the Photos section is opened. */
     data class PhotoGrid(val childId: String, val seed: Long) : Screen
     data class Photos(val childId: String, val start: Int, val seed: Long) : Screen
@@ -99,7 +100,6 @@ class MainActivity : ComponentActivity() {
             var lastChildId by remember { mutableStateOf<String?>(null) }
             // Each screen keeps what was focused while another is on top of it.
             val saved = rememberSaveableStateHolder()
-            val scope = rememberCoroutineScope()
 
             // The parent can change the videos from the phone at any time.
             LaunchedEffect(resumeCount.intValue, app.linked) { app.sync() }
@@ -128,10 +128,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
             fun back() { if (stack.size > 1) saved.removeState(stack.removeAt(stack.lastIndex).toString()) }
-            // Won a treat: the game gives way to picking one, then they're back in the Quizzes or Games.
-            fun pickTreat(childId: String) {
+            // In place of the screen on top, so BACK doesn't go back to it.
+            fun replace(screen: Screen) {
                 saved.removeState(stack.last().toString())
-                stack[stack.lastIndex] = Screen.PickTreat(childId)
+                stack[stack.lastIndex] = screen
+            }
+            // Won a treat: the game gives way to picking one.
+            fun pickTreat(childId: String) = replace(Screen.PickTreat(childId))
+            // All their treats picked and celebrated: into their Treats section if that's where they
+            // came from (the Treats tile, or a treat that wouldn't play), otherwise their home page.
+            // Not back to the game or video list: that left Jesse thinking he hadn't got his treat.
+            fun afterTreats(childId: String) {
+                if (stack.getOrNull(stack.lastIndex - 1) == Screen.Treats(childId)) return back()
+                val home = stack.indexOfLast { it == Screen.Home(childId) }
+                if (home < 0) return back()
+                while (stack.lastIndex > home) back()
             }
             // Saves [video] in the child's Treats section with one of their won treats.
             fun saveTreat(childId: String, video: Video): Boolean {
@@ -141,20 +152,25 @@ class MainActivity : ComponentActivity() {
                     put("tier", video.tier)
                     put("title", video.title)
                 }
-                app.say("${video.title}. Saved in your treats!")
                 return true
             }
-            fun play(video: Video, childId: String) {
+            // [savedTreat]: one of their saved treats, used up to play it; the player gives it back if it won't play.
+            fun play(video: Video, childId: String, savedTreat: Boolean = false) {
                 app.stopSpeaking()
                 // Watching a whole free video (not music, not a treat) can win a treat, if the parent chose that.
                 val earns = !video.isTreat && !video.isMusic && earnsTreat(childId, GameSettings.VIDEOS)
-                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns))
+                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns, savedTreat))
             }
-            // Back from a video: tick it if it was watched all through, and pick the treat if that won one.
+            // Back from a video: tick it if it was watched all through, and pick the treat if that won
+            // one, or if it was a treat that wouldn't play (they get a new one instead).
             LaunchedEffect(resumeCount.intValue) {
                 val won = app.reloadFromPlayer()
-                val here = stack.last()
-                if (here is Screen.Videos && here.childId in won) open(Screen.PickTreat(here.childId))
+                val childId = when (val here = stack.last()) {
+                    is Screen.Videos -> here.childId
+                    is Screen.Treats -> here.childId
+                    else -> null
+                }
+                if (childId != null && childId in won) open(Screen.PickTreat(childId))
             }
             BackHandler(enabled = stack.size > 1) { back() }
 
@@ -255,7 +271,7 @@ class MainActivity : ComponentActivity() {
                                     empty = "Win a quiz to save up a treat!",
                                     onPlay = { video ->
                                         app.useSavedTreat(child.id, video)
-                                        play(video, child.id)
+                                        play(video, child.id, savedTreat = true)
                                     },
                                 )
                             }
@@ -276,16 +292,24 @@ class MainActivity : ComponentActivity() {
                                     stars = true,
                                     greeting = "Pick a treat to save!",
                                     onPlay = { video ->
-                                        // Saved for later, and back to learning once they've heard it's saved;
-                                        // any treats still to pick wait here.
-                                        if (saveTreat(child.id, video) && app.treatsFor(child.id) <= 0) {
-                                            scope.launch {
-                                                delay(2_500)
-                                                if (stack.lastOrNull() == screen) back()
-                                            }
-                                        }
+                                        // Saved for later, with a celebration so they know it's theirs.
+                                        if (saveTreat(child.id, video)) replace(Screen.TreatSaved(child.id, video))
                                     },
                                 )
+                            }
+                        }
+                        is Screen.TreatSaved -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            if (child == null) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                TreatSavedScreen(app, child, screen.video, more = app.treatsFor(child.id) > 0, onDone = {
+                                    // Only if it's still on top (it may have been left already).
+                                    if (stack.lastOrNull() == screen) {
+                                        // Any treats still to pick come next.
+                                        if (app.treatsFor(child.id) > 0) pickTreat(child.id) else afterTreats(child.id)
+                                    }
+                                })
                             }
                         }
                         is Screen.Playing -> {
@@ -500,6 +524,7 @@ private fun menuTune(app: AppState, screen: Screen): Music.Tune? {
         is Screen.Videos -> screen.childId
         is Screen.Treats -> screen.childId
         is Screen.PickTreat -> screen.childId
+        is Screen.TreatSaved -> screen.childId
         is Screen.PhotoGrid -> screen.childId
         else -> return null
     }
