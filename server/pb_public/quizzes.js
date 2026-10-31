@@ -468,7 +468,7 @@ function renderGames(c) {
     el("div", { className: "muted", textContent: {
       off: "No sound effects, just the voice.",
       calm: "Soft blips and chimes for moving, right answers and finishing.",
-      silly: "Boings, squeaks and farts for right answers, and a silly noise to try again. Wrong answers never get a fart.",
+      silly: "A chime for right answers, with a surprise fart or boing every few answers, and a silly noise to try again. Wrong answers never get a fart.",
     }[sounds] }));
 
   // The menus' quiet music and decorations for the time of year (app/.../ui/Music.kt, Seasons.kt)
