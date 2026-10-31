@@ -29,6 +29,43 @@ function lengthFor(age) {
   return { sentences: "three or four sentences", words: 65 }
 }
 
+// How silly the story is (the parent picks on the phone, games_lib.js STORY_SILLY): what the
+// writer is told, how the middle and last parts should go, and how adventurous Gemini can be.
+const TONES = {
+  nice: {
+    style: "short, gentle and happy",
+    feel: "- Kind, cheerful and cosy, like a picture book. Nothing scary, violent, sad, mean, rude, romantic or grown-up. No danger, villains, injuries, illness, death, monsters or getting lost. A small puzzle is fine if it's solved happily.",
+    middle: "Something fun or surprising happens",
+    ending: "a warm, happy ending",
+    temperature: 0.9,
+  },
+  silly: {
+    style: "short, happy and a bit silly, to make them giggle",
+    feel: [
+      "- Cheerful and a bit silly, like a funny picture book: things go a little wrong in a harmless way, characters do daft things (a cow on a scooter, a teapot with hiccups), and there are fun sound words like boing, splat and wheee. Put at least one giggle in every part.",
+      "- Still kind and cosy. Nothing scary, violent, sad, mean, rude, romantic or grown-up. No danger, villains, injuries, illness, death, monsters or getting lost. Nobody is ever laughed at unkindly.",
+    ].join("\n"),
+    middle: "Something funny and a bit silly happens",
+    ending: "a happy, funny ending",
+    temperature: 1.0,
+  },
+  very: {
+    style: "short, happy and VERY silly, to make them laugh out loud",
+    feel: [
+      "- Ridiculous, giggly nonsense, as silly as you can make it: everything goes delightfully wrong, things are upside down, enormous or wobbly, characters wear pants on their heads, sneeze glitter, burp, do a little parp, or slip on jelly. Use funny made-up words and sound words (splodge, parp, boing, kerSPLAT). Make every part funnier than the last.",
+      "- Silly, never nasty: no bad words, nobody is hurt, sad or laughed at unkindly. Nothing scary, violent, romantic or grown-up. No danger, villains, injuries, illness, death or monsters.",
+    ].join("\n"),
+    middle: "Something completely ridiculous and very funny happens",
+    ending: "a happy, very funny ending, with one last big laugh",
+    temperature: 1.1,
+  },
+}
+
+/** The tone for setting [silly]: "nice", "silly" (a bit silly) or "very" (very silly). */
+function toneOf(silly) {
+  return TONES[silly] || TONES.silly
+}
+
 /** A picture's word as sent by the TV: plain lower-case words only, so nothing else gets into the prompt. */
 function cleanWord(word) {
   const w = String(word || "").toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim()
@@ -41,11 +78,12 @@ function cleanPart(text) {
 }
 
 /** What this part of the story is for: who it's about, where they go, what they find, how it ends. */
-function roleOf(turn, turns, word) {
+function roleOf(turn, turns, word, tone) {
+  const t = tone || TONES.nice
   if (turn === 1) return `Begin the story with "Once upon a time". The hero is a ${word}: give them a friendly name.`
   if (turn === 2) return `The hero sets off and goes to (or arrives at) the ${word}.`
-  if (turn === turns) return `This is the last part. Bring the story to a warm, happy ending that involves the ${word}. The final sentence should feel like an ending, but don't write "The end".`
-  return `Something fun or surprising happens with a ${word}. Leave a little curiosity about what happens next.`
+  if (turn === turns) return `This is the last part. Bring the story to ${t.ending} that involves the ${word}. The final sentence should feel like an ending, but don't write "The end".`
+  return `${t.middle} with a ${word}. Leave a little curiosity about what happens next.`
 }
 
 /**
@@ -61,11 +99,12 @@ function write(userId, child, setup, turn, turns, story, options) {
   const name = String(child.getString("name") || "").replace(/[^\p{L} '-]/gu, "").trim().slice(0, 30) || "the child"
   const age = setup.age
   const length = lengthFor(age)
+  const tone = toneOf(setup.silly)
   const system = [
-    `You write short, gentle, happy stories for a young child in British English. The child listening is called ${name} and is ${age} years old.`,
+    `You write stories for a young child in British English: ${tone.style}. The child listening is called ${name} and is ${age} years old.`,
     "The child chooses what happens next by picking a picture, so the story is built one part at a time.",
     "Rules you must always follow:",
-    "- Kind, cheerful and cosy, like a picture book. Nothing scary, violent, sad, mean, rude, romantic or grown-up. No danger, villains, injuries, illness, death, monsters or getting lost. A small puzzle is fine if it's solved happily.",
+    tone.feel,
     "- No real people, brands, films, TV shows, games, screens or phones.",
     `- Simple everyday words a ${age}-year-old knows, and short sentences that read aloud well. British spelling.`,
     `- Each part is ${length.sentences}, at most ${length.words} words. No title, no lists, no emoji.`,
@@ -81,7 +120,7 @@ function write(userId, child, setup, turn, turns, story, options) {
     `Now write part ${turn} of ${turns}.`,
     `The child will pick one of these pictures: ${options.map((w) => `"${w}"`).join(", ")}.`,
     "Write one possible next part for each picture, in that order, each following on from the story so far. Each must use its picture's word naturally.",
-    ...options.map((w, i) => `${i + 1}. "${w}": ${roleOf(turn, turns, w)}`),
+    ...options.map((w, i) => `${i + 1}. "${w}": ${roleOf(turn, turns, w, tone)}`),
   ].join("\n")
   const schema = {
     type: "OBJECT",
@@ -93,7 +132,7 @@ function write(userId, child, setup, turn, turns, story, options) {
     },
     required: ["parts"],
   }
-  const answer = gemini.writeJson(system, ask, schema)
+  const answer = gemini.writeJson(system, ask, schema, { temperature: tone.temperature })
   if (!answer) throw new ApiError(502, "Couldn't reach Gemini to write the story.")
   return parse(answer, options)
 }
@@ -197,7 +236,7 @@ function draw(record) {
   const prompt = [
     "Draw one warm, gentle picture-book illustration for this children's story, in landscape (4:3).",
     "The illustration must fill the whole picture edge to edge: no borders, frames, margins or black bars.",
-    `The hero is a friendly cartoon ${hero}. Show the happiest moment of the story.`,
+    `The hero is a friendly cartoon ${hero}. Show the happiest or funniest moment of the story.`,
     "Style: soft colours, rounded shapes, cosy and cheerful, like a picture book for 4 to 6 year olds.",
     "Do not draw any humans or children, only the animals, creatures and things from the story. No words, letters or numbers in the picture. Nothing scary.",
     "",
@@ -270,6 +309,6 @@ function drawNow(id, userId) {
 }
 
 module.exports = {
-  available, write, parse, check, cleanWord, cleanPart, lengthFor, MAX_TURNS, DAILY_LIMIT,
+  available, write, parse, check, cleanWord, cleanPart, lengthFor, toneOf, roleOf, MAX_TURNS, DAILY_LIMIT,
   save, storyList, titleOf, draw, drawPending, drawNow,
 }

@@ -17,10 +17,12 @@ const SCRAMBLE_LISTS = ["phase2", "short", "long", "big", "mine"]
 const SCRAMBLE_LEVELS = 5
 const SCRAMBLE_DEFAULT = { on: true, level: 1, lists: ["phase2"], words: 3, say: true }
 // The story maker (story_lib.js): how old the listener is (it sets how long and how simple each
-// part is) and how many pictures they pick in a story.
+// part is), how many pictures they pick in a story, and how silly it is: "nice", "silly" (a bit
+// silly) or "very" (very silly).
 const STORY_AGES = [3, 4, 5, 6, 7, 8, 9]
 const STORY_TURNS = [3, 4, 5, 6, 7, 8, 9, 10]
-const STORY_DEFAULT = { on: true, age: 5, turns: 5 }
+const STORY_SILLY = ["nice", "silly", "very"]
+const STORY_DEFAULT = { on: true, age: 5, turns: 5, silly: "silly" }
 // The photo quiz (photo_quiz_lib.js): the child looks at a photo for [look] seconds, then
 // answers [questions] questions about it, as hard as suits their [age]. [pick] is "child" (they
 // choose the photo) or "surprise" (the TV does). Off until the parent turns it on, since it
@@ -77,13 +79,14 @@ function memorySetup(value) {
   }
 }
 
-/** A child's story maker: {on, age, turns}. */
+/** A child's story maker: {on, age, turns, silly}. */
 function storySetup(value) {
   const v = value && typeof value === "object" ? value : {}
   return {
     on: v.on === undefined ? STORY_DEFAULT.on : !!v.on,
     age: nearest(v.age, STORY_AGES, STORY_DEFAULT.age),
     turns: nearest(v.turns, STORY_TURNS, STORY_DEFAULT.turns),
+    silly: STORY_SILLY.includes(v.silly) ? v.silly : STORY_DEFAULT.silly,
   }
 }
 
