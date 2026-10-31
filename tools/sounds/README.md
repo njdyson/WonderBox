@@ -19,4 +19,4 @@ credited here anyway). Each was made mono, 44.1 kHz Ogg Vorbis (quality 3) and s
 | sfx_squeak_1 to 3 | [Squeak toy sounds](https://opengameart.org/content/squeak-toy-sounds) `squeak1`, `squeak2`, `squeak3` | bart |
 
 The calm finish and the jigsaw's pick-up and put-down sounds are synthesised on the TV
-(`ui/Chimes.kt`). Which sound plays when is in `ui/Sounds.kt`.
+(`ui/Chimes.kt`). Which sound plays when is in `ui/Sounds.kt`: in silly mode a right answer is usually the synth chime, with a fart or boing every 4 to 7 answers.
