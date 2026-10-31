@@ -684,7 +684,13 @@ try:
     # tells its own story), and the story library.
     lib = call("POST", "/api/wonder/children/games", {"id": sam, "story": {"age": 6, "turns": 12}}, token)
     g = next(c for c in lib["children"] if c["id"] == sam)["games"]
-    assert g["story"] == {"on": True, "age": 6, "turns": 10}, g["story"]
+    assert g["story"] == {"on": True, "age": 6, "turns": 10, "silly": "silly"}, g["story"]
+    lib = call("POST", "/api/wonder/children/games", {"id": sam, "story": {**g["story"], "silly": "very"}}, token)
+    g = next(c for c in lib["children"] if c["id"] == sam)["games"]
+    assert g["story"]["silly"] == "very", g["story"]
+    lib = call("POST", "/api/wonder/children/games", {"id": sam, "story": {**g["story"], "silly": "bonkers"}}, token)
+    g = next(c for c in lib["children"] if c["id"] == sam)["games"]
+    assert g["story"]["silly"] == "silly", "an unknown silliness falls back to a bit silly"
     assert "story" not in g["treatGames"], "the story maker doesn't win treats until the parent says"
     if not lib["stories"]:
         call("POST", "/api/wonder/story", {"child": sam, "story": [], "options": ["cat", "dog", "owl"]}, device_key=key, expect=503)

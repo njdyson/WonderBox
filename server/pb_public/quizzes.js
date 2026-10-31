@@ -60,7 +60,8 @@ const JIGSAW_SIZES = [2, 3, 4, 5];
 // Hangman and memory pairs (app/.../games/Hangman.kt and Memory.kt; the server keeps the same lists).
 const HANGMAN_DEFAULT = { on: true, lists: ["short"], letters: 8, balloons: 6, words: 3, say: true };
 const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
-const STORY_DEFAULT = { on: true, age: 5, turns: 5 };
+const STORY_DEFAULT = { on: true, age: 5, turns: 5, silly: "silly" };
+const STORY_SILLY = [["nice", "Nice"], ["silly", "A bit silly"], ["very", "Very silly"]];
 // The photo quiz (pb_hooks/photo_quiz_lib.js): off until the parent turns it on, since it sends photos to Gemini.
 const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" };
 const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
@@ -412,6 +413,8 @@ function renderGames(c) {
       seg([3, 4, 5, 6, 7, 8, 9].map((n) => [n, String(n)]), story.age, (age) => saveStory({ age })),
       el("div", { className: "sub-h", textContent: "Pictures to pick in a story" }),
       seg([3, 4, 5, 6, 7, 8, 9, 10].map((n) => [n, String(n)]), story.turns, (turns) => saveStory({ turns })),
+      el("div", { className: "sub-h", textContent: "How silly" }),
+      seg(STORY_SILLY, story.silly, (silly) => saveStory({ silly })),
       el("div", { className: "muted", textContent: library.stories
         ? `${c.name} picks a hero, a place, what happens and how it ends, and Gemini writes each part, read aloud. Finished stories are kept, with a picture Gemini draws.`
         : "The server has no Gemini key yet, so the TV tells a simple built-in story. Add GEMINI_API_KEY in the install task (server README) for real stories." }));
@@ -519,7 +522,7 @@ function renderGames(c) {
     scramble: { on: scramble.on, part: scramblePart, summary: !scramble.on ? "Off" : scramble.auto ? `Auto, now level ${scrambleLevel}` : `Level ${scrambleLevel}` },
     jigsaw: { on: jigsaw > 0, part: jigsawPart, summary: jigsaw > 0 ? `${jigsaw} × ${jigsaw} pieces` : "Off" },
     memory: { on: memory.on, part: memoryPart, summary: memory.on ? `${memory.pairs} pairs of ${{ clipart: "animals", photos: "photos", both: "animals and photos" }[memory.pictures]}` : "Off" },
-    story: { on: story.on, part: storyPart, summary: story.on ? `Age ${story.age}, ${story.turns} pictures${kept.length ? `, ${kept.length} kept` : ""}` : "Off" },
+    story: { on: story.on, part: storyPart, summary: story.on ? `Age ${story.age}, ${story.turns} pictures, ${(STORY_SILLY.find(([k]) => k === story.silly) || STORY_SILLY[1])[1].toLowerCase()}${kept.length ? `, ${kept.length} kept` : ""}` : "Off" },
     photoquiz: { on: photoQuiz.on, part: photoQuizPart, summary: photoQuiz.on ? `${photoQuiz.questions} questions, ${photoQuiz.look}s to look` : "Off" },
     treats: { part: treatRulesPart, summary: treatGames.length ? `${roundSize} right answers win a treat` : "Nothing wins a treat" },
     sounds: { part: soundsPart, summary: { off: "Off", calm: "Calm", silly: "Silly" }[sounds] },
