@@ -35,6 +35,11 @@ FIRST = [
     ("clock", "🕐"), ("bread", "🍞"), ("shell", "🐚"), ("whale", "🐳"), ("tiger", "🐯"), ("pizza", "🍕"),
 ]
 
+# Other pictures the games show that need bundling too: the phonics words' pictures and the
+# ear for "spell what you hear" (games/Questions.kt), the maths game's things to count, and the
+# party popper and books on the TV's screens. A test checks every one is bundled.
+EXTRAS = "📌 🥫 🤒 🔟 👨 🎟 🥅 ⬆ 👩 🔴 🎉 💋 👂 🍎 ⭐ 🐟 🎈 🍓 🐞 🚗 🌸 📚 🐛 🌫 ⛰ 🧦 🗺 🐶 🐱 🐷 🖊 🦆 🌞 🦇 🎩 🐔 🛏 🔔".split()
+
 # Fluent names that are odd, grown-up, American or not a clear picture for a 4 to 6 year old.
 SKIP = set("""
 dna dvd leo ewe oden mate sake memo moai link pick pill sari plus herb gear knot bank seat
@@ -59,9 +64,22 @@ def file_name(glyph):
     return "-".join(f"{ord(c):x}" for c in strip(glyph)) + ".webp"
 
 
+def bundle(catalogue, row, glyph):
+    """Saves [glyph]'s Fluent picture in assets/avatars, unless it's there already."""
+    target = AVATARS / file_name(glyph)
+    if not target.exists():
+        url = catalogue["base"] + urllib.parse.quote(row[2])
+        with urllib.request.urlopen(url) as res:
+            image = Image.open(io.BytesIO(res.read())).convert("RGBA")
+        image.thumbnail((192, 192), Image.LANCZOS)
+        image.save(target, "WEBP", quality=82, method=6)
+
+
 def main():
     catalogue = json.loads(CATALOGUE.read_text(encoding="utf-8"))
     by_glyph = {strip(row[1]): row for row in catalogue["emoji"] if row[1]}
+    for glyph in EXTRAS:
+        bundle(catalogue, by_glyph[strip(glyph)], glyph)
     words = dict(FIRST)
     for name, glyph, _, _, group in catalogue["emoji"]:
         word = name.lower()
@@ -75,13 +93,7 @@ def main():
         if not row:
             print(f"no picture for {word} {glyph}, left out")
             continue
-        target = AVATARS / file_name(glyph)
-        if not target.exists():
-            url = catalogue["base"] + urllib.parse.quote(row[2])
-            with urllib.request.urlopen(url) as res:
-                image = Image.open(io.BytesIO(res.read())).convert("RGBA")
-            image.thumbnail((192, 192), Image.LANCZOS)
-            image.save(target, "WEBP", quality=82, method=6)
+        bundle(catalogue, row, glyph)
         kept.append((word, glyph))
 
     lists = {

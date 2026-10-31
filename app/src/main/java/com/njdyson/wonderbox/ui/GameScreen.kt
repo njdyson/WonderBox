@@ -228,7 +228,7 @@ internal fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice:
         } else if (isImagePath(q.picture)) {
             QuizPicture(app, q.picture, if (pictureAnswers) 150.dp else 220.dp)
         } else if (q.picture.isNotEmpty()) {
-            Text(q.picture, fontSize = if (q.picture.length > 8) 54.sp else 84.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 820.dp))
+            PictureLine(q.picture, fontSize = if (q.picture.length > 8) 54.sp else 84.sp, modifier = Modifier.widthIn(max = 820.dp))
         }
         // A phonics word, with its sound buttons: shown once it's right when the question hides it.
         val phonics = if (shown.isEmpty() && correct) q.topic else shown
@@ -453,7 +453,7 @@ internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically),
     ) {
-        Text("🎉", fontSize = 110.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
+        EmojiPicture("🎉", 130.dp, Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
         Text("You did it, ${child.name}!", color = Tangerine, fontSize = 48.sp, fontWeight = FontWeight.Black)
         Text(
             if (hasTreats) "You've won a treat ⭐" else "Brilliant work!",
