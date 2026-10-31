@@ -65,6 +65,8 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private var finishedVideo = false
     // Watching this one all the way through wins a treat (the first time).
     private var earnsTreat = false
+    // A saved treat, already used up to play this: if it won't play, they get another treat to pick.
+    private var isTreat = false
     // Already recorded as watched all the way through, so it isn't counted twice.
     private var recorded = false
     // Times it stopped to buffer after it had started playing, not counting just after a skip.
@@ -83,6 +85,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         childId = intent.getStringExtra(EXTRA_CHILD_ID)
         earnsTreat = intent.getBooleanExtra(EXTRA_EARNS_TREAT, false)
+        isTreat = intent.getBooleanExtra(EXTRA_IS_TREAT, false)
         val dp = resources.displayMetrics.density
         // Nothing to draw behind the video: the WebView is opaque black. Saves the stick a full-screen layer every frame.
         window.setBackgroundDrawable(null)
@@ -309,7 +312,18 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         if (done) return
         done = true
         js("player.stopVideo();")
-        showCover("🙈", "Oops! This one won't play.", "Press OK to choose another")
+        val child = childId
+        if (isTreat && child != null) {
+            // Their treat was used up to play this: give it back, to pick a different one.
+            Store(this).addTreat(child)
+            EventLog.log("reward.refund", child, subject = videoId) {
+                put("reason", "video.error")
+                put("title", title)
+            }
+            showCover("🙈", "Oops! This treat won't play.", "Don't worry, you get a new one! Press OK to pick it")
+        } else {
+            showCover("🙈", "Oops! This one won't play.", "Press OK to choose another")
+        }
     }
 
     private fun finished() {
@@ -354,13 +368,16 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         /** How much of a video has to have actually played for it to count as watched. */
         private const val WATCHED_SHARE = 0.8
         private const val EXTRA_EARNS_TREAT = "earnsTreat"
+        private const val EXTRA_IS_TREAT = "isTreat"
 
-        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earnsTreat: Boolean = false): Intent =
+        /** [isTreat]: a saved treat, used up to play it, so given back if it won't play. */
+        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earnsTreat: Boolean = false, isTreat: Boolean = false): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_VIDEO_ID, videoId)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_CHANNEL, channel)
                 .putExtra(EXTRA_CHILD_ID, childId)
                 .putExtra(EXTRA_EARNS_TREAT, earnsTreat)
+                .putExtra(EXTRA_IS_TREAT, isTreat)
     }
 }

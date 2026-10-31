@@ -160,6 +160,7 @@ function describe(f) {
     case "photo.view": return ["🖼️", `Looked at ${plural(f.count, "photo")}`];
     case "homevideo.play": return ["🎥", f.count > 1 ? `Watched ${f.count} home videos` : "Watched a home video"];
     case "reward.earn": return ["⭐", f.count > 1 ? `Won ${f.count} treats` : `Won a treat` + (d.game ? ` (${GAME_NAMES[d.game] || gameName(d.game)})` : "")];
+    case "reward.refund": return ["🔁", `A treat wouldn't play` + (d.title ? ` (${d.title})` : "") + `, so got a new one to pick`];
     case "reward.unlock": return ["🎁", `Picked a treat: ${d.title || "a video"}`];
     case "level.change": return [d.to > d.from ? "📈" : "📉", `${GAME_NAMES[f.subject] || gameName(f.subject)} went ${d.to > d.from ? "up" : "down"} to level ${d.to}`];
     default: return ["•", gameName(f.type) + times];
