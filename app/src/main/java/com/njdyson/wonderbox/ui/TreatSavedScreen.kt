@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
@@ -58,7 +57,8 @@ fun TreatSavedScreen(app: AppState, child: Child, video: Video, more: Boolean, o
     LaunchedEffect(Unit) {
         val said = CompletableDeferred<Unit>()
         app.say(
-            "Yay, ${child.name}! ${video.title} is saved in your treats!" + if (more) " Now pick another one!" else "",
+            // Not the video's name: titles aren't read aloud anywhere.
+            "Yay, ${child.name}! Your treat is saved!" + if (more) " Now pick another one!" else "",
             onDone = { said.complete(Unit) },
         )
         // Long enough to see it even if the voice is quick (or missing), never stuck if it's slow.
@@ -117,19 +117,13 @@ fun TreatSavedScreen(app: AppState, child: Child, video: Video, more: Boolean, o
                         modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).background(Tangerine, CircleShape).padding(horizontal = 8.dp, vertical = 2.dp),
                     )
                 }
+                // No title: the picture says which treat, and a long title pushed the button off the screen.
                 Text(
-                    video.title,
+                    if (more) "Saved in your treats! Now pick another ⭐" else "Saved in your treats ⭐",
                     color = Color.White,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    if (more) "is in your treats! Now pick another ⭐" else "is saved in your treats ⭐",
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 24.sp,
                 )
                 BigButton(if (more) "⭐ Pick another" else "Yay!", Modifier.padding(top = 4.dp, bottom = 8.dp).focusRequester(first), finish)
             }
