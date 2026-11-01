@@ -43,6 +43,8 @@ import com.njdyson.wonderbox.ui.Season
 import com.njdyson.wonderbox.ui.WonderBoxTheme
 import com.njdyson.wonderbox.ui.SettingsScreen
 import com.njdyson.wonderbox.ui.StoryLibraryScreen
+import com.njdyson.wonderbox.ui.MY_STORIES
+import com.njdyson.wonderbox.ui.storySectionsFor
 import com.njdyson.wonderbox.ui.StoryScreen
 import com.njdyson.wonderbox.ui.TreatSavedScreen
 import com.njdyson.wonderbox.ui.VideosScreen
@@ -75,6 +77,8 @@ private sealed interface Screen {
     data class WordGame(val childId: String) : Screen
     data class Memory(val childId: String) : Screen
     data class PhotoQuiz(val childId: String) : Screen
+    /** The Stories section: Write a story, My stories and Bedtime stories (ui/StoriesScreen.kt). */
+    data class Stories(val childId: String) : Screen
     data class Story(val childId: String) : Screen
     /** [open]: a story just made, shown as a finished book; [treat] when making it won a treat. */
     data class StoryLibrary(val childId: String, val open: String? = null, val treat: Boolean = false) : Screen
@@ -132,6 +136,12 @@ class MainActivity : ComponentActivity() {
             fun replace(screen: Screen) {
                 saved.removeState(stack.last().toString())
                 stack[stack.lastIndex] = screen
+            }
+            // A part of the Stories section: the story maker, their finished stories, or the story videos.
+            fun storySection(childId: String, key: String): Screen = when (key) {
+                STORY -> Screen.Story(childId)
+                MY_STORIES -> Screen.StoryLibrary(childId)
+                else -> Screen.Videos(childId, Category.Stories)
             }
             // Won a treat: the game gives way to picking one.
             fun pickTreat(childId: String) = replace(Screen.PickTreat(childId))
@@ -210,7 +220,10 @@ class MainActivity : ComponentActivity() {
                                         when (it) {
                                             Category.Treats -> if (app.treatsFor(child.id) > 0) Screen.PickTreat(child.id) else Screen.Treats(child.id)
                                             Category.Quizzes, Category.Games -> Screen.Games(child.id, it)
-                                            Category.Learning, Category.Music, Category.Exercise, Category.Stories -> Screen.Videos(child.id, it)
+                                            Category.Learning, Category.Music, Category.Exercise -> Screen.Videos(child.id, it)
+                                            // Only one thing in it: straight there, not a menu of one.
+                                            Category.Stories -> app.storySectionsFor(child).singleOrNull()?.let { storySection(child.id, it.key) }
+                                                ?: Screen.Stories(child.id)
                                             Category.Photos -> Screen.PhotoGrid(child.id, Random.nextLong())
                                         },
                                     )
@@ -220,7 +233,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Games -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
                             val games = child?.let { c ->
-                                app.library.gamesFor(c, photos = app.stillsFor(c.id).isNotEmpty(), stories = app.storiesFor(c.id).isNotEmpty())
+                                app.library.gamesFor(c, photos = app.stillsFor(c.id).isNotEmpty())
                                     .filter { it.isQuiz == (screen.category == Category.Quizzes) }
                             }
                             if (child == null || games.isNullOrEmpty()) {
@@ -234,7 +247,6 @@ class MainActivity : ComponentActivity() {
                                             SCRAMBLE -> Screen.WordGame(child.id)
                                             MEMORY -> Screen.Memory(child.id)
                                             PHOTO_QUIZ -> Screen.PhotoQuiz(child.id)
-                                            STORY -> Screen.StoryLibrary(child.id)
                                             else -> Screen.Playing(child.id, it.key)
                                         },
                                     )
@@ -252,7 +264,8 @@ class MainActivity : ComponentActivity() {
                                     Category.Stories -> app.library.storyShelvesFor(child.id)
                                     else -> app.library.videoShelvesFor(child.id)
                                 }
-                                VideosScreen(app, child, screen.category.title, shelves, watched = app.watchedFor(child.id), onPlay = { play(it, child.id) })
+                                val title = if (screen.category == Category.Stories) "Bedtime stories" else screen.category.title
+                                VideosScreen(app, child, title, shelves, watched = app.watchedFor(child.id), onPlay = { play(it, child.id) })
                             }
                         }
                         is Screen.Treats -> {
@@ -429,6 +442,15 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        is Screen.Stories -> {
+                            val child = app.library.children.firstOrNull { it.id == screen.childId }
+                            val sections = child?.let { app.storySectionsFor(it) }.orEmpty()
+                            if (child == null || sections.isEmpty()) {
+                                LaunchedEffect(Unit) { back() }
+                            } else {
+                                GamesScreen(app, child, Category.Stories.title, sections, onGame = { open(storySection(child.id, it.key)) })
+                            }
+                        }
                         is Screen.Story -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
                             if (child == null || !child.games.story.on) {
@@ -458,14 +480,12 @@ class MainActivity : ComponentActivity() {
                         }
                         is Screen.StoryLibrary -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
-                            if (child == null || (!child.games.story.on && app.storiesFor(screen.childId).isEmpty())) {
+                            if (child == null || (screen.open == null && app.storiesFor(screen.childId).isEmpty())) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
                                 StoryLibraryScreen(
                                     app,
                                     child,
-                                    canMake = child.games.story.on,
-                                    onNew = { open(Screen.Story(child.id)) },
                                     startOpen = screen.open,
                                     onPickTreat = if (screen.treat) ({ pickTreat(child.id) }) else null,
                                 )
@@ -521,6 +541,7 @@ private fun menuTune(app: AppState, screen: Screen): Music.Tune? {
         Screen.Profiles -> return if (children.any { it.games.music }) Music.Tune.of(Season.forFamily(children)) else null
         is Screen.Home -> screen.childId
         is Screen.Games -> screen.childId
+        is Screen.Stories -> screen.childId
         is Screen.Videos -> screen.childId
         is Screen.Treats -> screen.childId
         is Screen.PickTreat -> screen.childId

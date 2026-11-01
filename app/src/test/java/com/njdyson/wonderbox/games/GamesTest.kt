@@ -29,11 +29,8 @@ class GamesTest {
         assertEquals(listOf("maths", "clock", "flags", "quiz/q1"), library.gamesFor(sam).map { it.key })
         assertEquals("Level 2", library.gamesFor(sam)[0].subtitle)
         assertEquals("3 questions", library.gamesFor(sam)[3].subtitle)
-        assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "memory", "story", "quiz/q2"), library.gamesFor(jo).map { it.key })
-        assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "jigsaw", "memory", "story", "quiz/q2"), library.gamesFor(jo, photos = true).map { it.key })
-        val noMaker = jo.copy(games = GameSettings(story = StorySetup(on = false)))
-        assertEquals("Hear your stories again", Library().gamesFor(noMaker, stories = true).first { it.key == "story" }.subtitle)
-        assertTrue(Library().gamesFor(noMaker).none { it.key == "story" })
+        assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "memory", "quiz/q2"), library.gamesFor(jo).map { it.key })
+        assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "jigsaw", "memory", "quiz/q2"), library.gamesFor(jo, photos = true).map { it.key })
         val noClock = Child("al", "Al", games = GameSettings(clockSetup = ClockSetup(on = false), flagSetup = FlagSetup(on = false), hangman = HangmanSetup(on = false), memory = MemorySetup(on = false), scramble = ScrambleSetup(on = false), story = StorySetup(on = false)))
         assertEquals(listOf("maths", "spelling"), Library(children = listOf(noClock)).gamesFor(noClock).map { it.key })
     }

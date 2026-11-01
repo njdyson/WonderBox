@@ -66,7 +66,7 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
     Learning("Learning", "📚", listOf(Color(0xFFFF5C7A), Color(0xFFD12E55))),
     Music("Music", "🎵", listOf(Color(0xFF2EC4B6), Color(0xFF13867C))),
     Exercise("Exercise", "🤸", listOf(Color(0xFFFF9F43), Color(0xFFE0612B))),
-    /** Stories read aloud or acted out: free videos, like [Learning]. */
+    /** Write a story, My stories and Bedtime stories (free story videos, like [Learning]): see [storySectionsFor]. */
     Stories("Stories", "📖", listOf(Color(0xFF7C6CF2), Color(0xFF4B3BC4))),
     Photos("Photos", "📷", listOf(Color(0xFF8BC34A), Color(0xFF4F8A1B))),
     /** The treats they've saved up, and any won but not picked yet. Last, so learning comes first. */
@@ -82,14 +82,14 @@ enum class Category(val title: String, val icon: String, val colors: List<Color>
  * nothing in them, so a tile never opens onto an empty screen.
  */
 fun AppState.categoriesFor(child: Child): List<Category> {
-    val games = library.gamesFor(child, photos = stillsFor(child.id).isNotEmpty(), stories = storiesFor(child.id).isNotEmpty())
+    val games = library.gamesFor(child, photos = stillsFor(child.id).isNotEmpty())
     return buildList {
         if (games.any { it.isQuiz }) add(Category.Quizzes)
         if (games.any { !it.isQuiz }) add(Category.Games)
         if (library.videoShelvesFor(child.id).isNotEmpty()) add(Category.Learning)
         if (library.musicShelvesFor(child.id).isNotEmpty()) add(Category.Music)
         if (library.exerciseShelvesFor(child.id).isNotEmpty()) add(Category.Exercise)
-        if (library.storyShelvesFor(child.id).isNotEmpty()) add(Category.Stories)
+        if (storySectionsFor(child).isNotEmpty()) add(Category.Stories)
         if (photosFor(child.id).isNotEmpty()) add(Category.Photos)
         // Always there once the parent has added treats, empty or not: it's where treats are saved up.
         if (library.treatShelvesFor(child.id).isNotEmpty()) add(Category.Treats)
@@ -243,7 +243,7 @@ private fun CategoryTile(app: AppState, category: Category, count: Int, onClick:
 
 private const val TILES_PER_ROW = 4
 
-/** The Quizzes or Games screen: a tile for each of [games], three to a row. */
+/** The Quizzes, Games or Stories screen: a tile for each of [games], three to a row. */
 @Composable
 fun GamesScreen(app: AppState, child: Child, title: String, games: List<GameEntry>, onGame: (GameEntry) -> Unit) {
     var focused by rememberSaveable { mutableStateOf<String?>(null) }
@@ -303,6 +303,8 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
             PHOTO_QUIZ -> TILE_COLORS[3]
             // The same as the home page's Stories tile.
             STORY -> Category.Stories.colors
+            MY_STORIES -> TILE_COLORS[4]
+            BEDTIME -> listOf(Color(0xFF3B5BDB), Color(0xFF1B2A6B))
             else -> TILE_COLORS[index % TILE_COLORS.size]
         }
     }
