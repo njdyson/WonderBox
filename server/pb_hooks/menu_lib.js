@@ -22,6 +22,7 @@ const SUBJECTS = {
   "game.spelling": { title: "Spelling", colors: "purple (#A259FF to #6A2BD9)", subject: "chunky wooden toy alphabet blocks showing A, B and C, with a fat crayon", letters: true },
   "game.clock": { title: "Clock", colors: "teal (#2EC4B6 to #13867C)", subject: "a smiling cartoon alarm clock with two bells on top" },
   "game.flags": { title: "Flags", colors: "green (#3FB950 to #1E7A33)", subject: "a smiling cartoon globe with a string of plain, brightly coloured bunting flags around it (no real countries' flags)" },
+  "game.mystery": { title: "Mystery quiz", colors: "deep purple (#7B5CFF to #3D1E9E)", subject: "a glowing crystal ball on a little stand, with a big friendly question mark swirling inside it and sparkles all around" },
   "game.hangman": { title: "Hangman", colors: "coral pink (#FF5C7A to #D12E55)", subject: "a bunch of shiny, brightly coloured balloons tied together with curly ribbons" },
   "game.scramble": { title: "Word jumble", colors: "green (#3FB950 to #1E7A33)", subject: "a few chunky letter tiles tumbling out of a little cloth bag, showing the letters C, A and T", letters: true },
   "game.jigsaw": { title: "Jigsaw", colors: "orange (#FF8A3D to #D9541B)", subject: "four chunky, colourful jigsaw puzzle pieces snapping together" },

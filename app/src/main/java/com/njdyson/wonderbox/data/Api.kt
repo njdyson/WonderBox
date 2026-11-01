@@ -6,6 +6,7 @@ import com.njdyson.wonderbox.games.ClockSetup
 import com.njdyson.wonderbox.games.FlagSetup
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.MemorySetup
+import com.njdyson.wonderbox.games.MysterySetup
 import com.njdyson.wonderbox.games.PhotoQuizPhoto
 import com.njdyson.wonderbox.games.PhotoQuizPhotos
 import com.njdyson.wonderbox.games.PhotoQuizSetup
@@ -71,6 +72,7 @@ data class GameSettings(
     val scramble: ScrambleSetup = ScrambleSetup(),
     val story: StorySetup = StorySetup(),
     val photoQuiz: PhotoQuizSetup = PhotoQuizSetup(),
+    val mystery: MysterySetup = MysterySetup(),
     val music: Boolean = true,
     val season: String = "auto",
 ) {
@@ -84,7 +86,7 @@ data class GameSettings(
 
     companion object {
         // The same as the server's, for an older server that doesn't send them.
-        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", VIDEOS)
+        val TREAT_DEFAULT = listOf("maths", "spelling", "clock", "flags", "mystery", "quizzes", "hangman", "scramble", VIDEOS)
 
         /** The [treatGames] key for watching whole videos. */
         const val VIDEOS = "videos"

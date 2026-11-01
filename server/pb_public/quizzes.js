@@ -64,6 +64,9 @@ const STORY_DEFAULT = { on: true, age: 5, turns: 5, silly: "silly" };
 const STORY_SILLY = [["nice", "Nice"], ["silly", "A bit silly"], ["very", "Very silly"]];
 // The photo quiz (pb_hooks/photo_quiz_lib.js): off until the parent turns it on, since it sends photos to Gemini.
 const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" };
+// The mystery quiz mixes these games' questions (pb_hooks/games_lib.js mysterySetup).
+const MYSTERY_GAMES = [["maths", "🔢 Maths"], ["spelling", "🔤 Spelling"], ["clock", "🕒 Clock"], ["flags", "🏳️ Flags"]];
+const MYSTERY_DEFAULT = { on: true, games: ["maths", "spelling", "clock", "flags"] };
 const MEMORY_GRIDS = { 3: "3 × 2", 4: "4 × 2", 6: "4 × 3", 8: "4 × 4", 10: "5 × 4" };
 // The word game (app/.../games/WordGame.kt, pb_hooks/games_lib.js): levels 1 and 2 unjumble a
 // word, 3 to 5 make words from 5, 6 or 7 letters.
@@ -117,8 +120,8 @@ const FLAG_LEVELS = [
 const FLAG_REGIONS = [["uk", "UK and Ireland"], ["famous", "Well-known flags"], ["europe", "Europe"], ["asia", "Asia"], ["africa", "Africa"], ["americas", "The Americas"], ["oceania", "Oceania"]];
 const FLAG_TYPES = [["name", "See the flag, pick the country"], ["flag", "Hear the country, pick the flag"]];
 // The games that can win a treat (pb_hooks/quizzes_lib.js), and the ones that do until changed.
-const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["story", "Story maker"], ["photoquiz", "Photo quiz"], ["videos", "Watching a whole learning, exercise or story video"]];
-const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"];
+const TREAT_GAMES = [["maths", "Maths"], ["spelling", "Spelling"], ["clock", "Clock"], ["flags", "Flags"], ["mystery", "Mystery quiz"], ["quizzes", "My quizzes"], ["hangman", "Hangman"], ["scramble", "Word jumble"], ["memory", "Memory pairs"], ["jigsaw", "Jigsaws"], ["story", "Story maker"], ["photoquiz", "Photo quiz"], ["videos", "Watching a whole learning, exercise or story video"]];
+const TREAT_DEFAULT = ["maths", "spelling", "clock", "flags", "mystery", "quizzes", "hangman", "scramble", "videos"];
 const MAXES = [5, 10, 20, 50, 100];
 
 const sameList = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -211,6 +214,9 @@ function renderGames(c) {
   const autoNote = (auto, more = " Changing what it asks turns Auto off.") => auto ? el("div", { className: "muted", textContent:
     `Goes up a level after two easy rounds in a row, and back down when ${c.name} is struggling.${more}` }) : "";
   const hasTreats = library.videos.concat(library.channels).some((i) => i.tier === "treat" && i.children.includes(c.id));
+  const roundSize = g.roundSize || 10;
+  // The one line a level shows: in the game's row, and on the mystery quiz's page.
+  const levelText = (s, level, levels) => !s.on ? "Off" : s.auto ? `Auto, now level ${level || 1}` : level ? `Level ${level}: ${levels[level - 1][0]}` : "Your own mix";
 
   // Maths
   const mathsLevel = mathsLevelOf(maths);
@@ -321,6 +327,26 @@ function renderGames(c) {
       el("div", { className: "sub-h", textContent: "Answers to pick from" }),
       seg([2, 3, 4].map((n) => [n, String(n)]), flags.choices, (choices) => saveFlags({ choices })),
       el("div", { className: "muted", textContent: "Country names are read out as each answer is picked, for children who can't read them yet." }));
+  }
+
+  // The mystery quiz: a mix of the games above, each at its own level
+  const mystery = { ...MYSTERY_DEFAULT, ...(g.mystery || {}) };
+  // Only what changed: its games are saved once picked, and until then follow the games shown on the TV.
+  const saveMystery = (change) => save({ mystery: change });
+  const mysteryPart = el("div", { className: "game" },
+    head(toggle(mystery.on, (on) => saveMystery({ on }), "Show the mystery quiz on the TV")));
+  if (mystery.on) {
+    // A game turned off on its own still comes up here, at its level.
+    const levelOf = (s, level, levels) => levelText({ ...s, on: true }, level, levels) + (s.on ? "" : " (its own tile is off)");
+    const levels = { maths: levelOf(maths, mathsLevel, MATHS_LEVELS), spelling: levelOf(spelling, spellingLevel, SPELLING_LEVELS),
+      clock: levelOf(clock, clockLevel, CLOCK_LEVELS), flags: levelOf(flags, flagLevel, FLAG_LEVELS) };
+    mysteryPart.append(
+      el("div", { className: "sub-h", textContent: "Mix questions from" }),
+      chips(MYSTERY_GAMES, mystery.games, (games) => games.length && saveMystery({ games: MYSTERY_GAMES.map(([k]) => k).filter((k) => games.includes(k)) })),
+      el("div", { className: "muted", textContent: `Each question is a surprise from one of these, asked at ${c.name}'s level for that game, which you set on its own page. `
+        + `${roundSize} right answers finish a round. Mystery rounds don't move Auto levels up or down.` }),
+      ...mystery.games.map((k) => el("div", { className: "muted", textContent: `${GAME_PAGES[k].icon} ${GAME_PAGES[k].name}: `
+        + levels[k] })));
   }
 
   // Photo jigsaws
@@ -501,7 +527,6 @@ function renderGames(c) {
       ? "The others are still there to play, just for fun. Games that win a treat have a ⭐ on the TV. A whole learning, exercise or story video wins one the first time it's watched all the way through, without skipping."
       : "No game wins a treat, so treats stay locked." }));
 
-  const roundSize = g.roundSize || 10;
   const treatRulesPart = el("div", { className: "stack" },
     treatsPart,
     el("label", { className: "field" }, "Right answers to win a treat",
@@ -511,13 +536,13 @@ function renderGames(c) {
       : `Nothing of ${c.name}'s is a treat yet, so games are just for fun. Mark a video or channel as a treat to make it a prize.` }));
 
   // Each game's page, and the one line its row in the list shows.
-  const levelText = (s, level, levels) => !s.on ? "Off" : s.auto ? `Auto, now level ${level || 1}` : level ? `Level ${level}: ${levels[level - 1][0]}` : "Your own mix";
   const scrambleLevel = Math.min(SCRAMBLE_LEVELS.length, Math.max(1, scramble.level || 1));
   const parts = {
     maths: { on: maths.on, part: mathsPart, summary: levelText(maths, mathsLevel, MATHS_LEVELS) },
     spelling: { on: spelling.on, part: spellingPart, summary: levelText(spelling, spellingLevel, SPELLING_LEVELS) },
     clock: { on: clock.on, part: clockPart, summary: levelText(clock, clockLevel, CLOCK_LEVELS) },
     flags: { on: flags.on, part: flagsPart, summary: levelText(flags, flagLevel, FLAG_LEVELS) },
+    mystery: { on: mystery.on, part: mysteryPart, summary: mystery.on ? mystery.games.map((k, i) => (i ? GAME_PAGES[k].name.toLowerCase() : GAME_PAGES[k].name)).join(", ").replace(/, ([^,]*)$/, " and $1") : "Off" },
     hangman: { on: hangman.on, part: hangmanPart, summary: hangman.on ? `${hangman.words} word${hangman.words === 1 ? "" : "s"}, ${hangman.balloons} balloons` : "Off" },
     scramble: { on: scramble.on, part: scramblePart, summary: !scramble.on ? "Off" : scramble.auto ? `Auto, now level ${scrambleLevel}` : `Level ${scrambleLevel}` },
     jigsaw: { on: jigsaw > 0, part: jigsawPart, summary: jigsaw > 0 ? `${jigsaw} × ${jigsaw} pieces` : "Off" },
@@ -530,7 +555,7 @@ function renderGames(c) {
   };
   const ON_TOGGLE = {
     maths: (on) => saveMaths({ on, auto: !!maths.auto }), spelling: (on) => saveSpelling({ on, auto: !!spelling.auto }),
-    clock: (on) => saveClock({ on, auto: !!clock.auto }), flags: (on) => saveFlags({ on, auto: !!flags.auto }),
+    clock: (on) => saveClock({ on, auto: !!clock.auto }), flags: (on) => saveFlags({ on, auto: !!flags.auto }), mystery: (on) => saveMystery({ on }),
     hangman: (on) => saveHangman({ on }), scramble: (on) => saveScramble({ on }), jigsaw: (on) => save({ jigsaw: on ? 3 : 0 }),
     memory: (on) => saveMemory({ on }), story: (on) => saveStory({ on }), photoquiz: (on) => savePhotoQuiz({ on }),
   };
@@ -547,7 +572,7 @@ function renderGames(c) {
       el("span", { className: "chev", textContent: "›" }));
   };
 
-  $("games").replaceChildren(...["maths", "spelling", "clock", "flags"].map(row));
+  $("games").replaceChildren(...["maths", "spelling", "clock", "flags", "mystery"].map(row));
   $("playGames").replaceChildren(...["hangman", "scramble", "jigsaw", "memory", "photoquiz", "story"].map(row));
   $("treatRules").replaceChildren(...["treats", "sounds", "music"].map(row));
   if (parts[page]) $("pageBody").replaceChildren(el("div", { className: "card stack" }, parts[page].part));
@@ -559,6 +584,7 @@ const GAME_PAGES = {
   spelling: { tab: "quizzes", icon: "🔤", name: "Spelling" },
   clock: { tab: "quizzes", icon: "🕒", name: "Clock" },
   flags: { tab: "quizzes", icon: "🏳️", name: "Flags" },
+  mystery: { tab: "quizzes", icon: "🔮", name: "Mystery quiz" },
   hangman: { tab: "games", icon: "🎈", name: "Hangman" },
   scramble: { tab: "games", icon: "🔠", name: "Word jumble" },
   jigsaw: { tab: "games", icon: "🧩", name: "Photo jigsaws" },

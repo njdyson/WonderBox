@@ -53,6 +53,7 @@ import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.MYSTERY
 import com.njdyson.wonderbox.games.PHOTO_QUIZ
 import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.STORY
@@ -287,6 +288,9 @@ private val TILE_COLORS = listOf(
     listOf(Color(0xFF3FB950), Color(0xFF1E7A33)),
 )
 
+// The mystery quiz: a deep purple, like a magician's cloak.
+private val MYSTERY_COLORS = listOf(Color(0xFF7B5CFF), Color(0xFF3D1E9E))
+
 @Composable
 private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> Unit, onFocus: () -> Unit, modifier: Modifier = Modifier) {
     var pictured by remember { mutableStateOf(false) }
@@ -296,6 +300,7 @@ private fun GameTile(app: AppState, game: GameEntry, index: Int, onClick: () -> 
         Game.Clock -> TILE_COLORS[3]
         Game.Flags -> TILE_COLORS[5]
         null -> when (game.key) {
+            MYSTERY -> MYSTERY_COLORS
             JIGSAW -> TILE_COLORS[2]
             HANGMAN -> TILE_COLORS[4]
             SCRAMBLE -> TILE_COLORS[5]

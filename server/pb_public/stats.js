@@ -138,7 +138,7 @@ function treatTile(t) {
     el("span", { textContent: (n === 1 ? "treat now" : "treats now") + (t.toPick ? ` · ${t.toPick} to pick` : "") }));
 }
 
-const GAME_NAMES = { maths: "Maths", spelling: "Spelling", clock: "Clock", flags: "Flags", photoquiz: "Photo quiz", hangman: "Hangman",
+const GAME_NAMES = { maths: "Maths", spelling: "Spelling", clock: "Clock", flags: "Flags", mystery: "Mystery quiz", photoquiz: "Photo quiz", hangman: "Hangman",
   scramble: "Word jumble", memory: "Memory pairs", jigsaw: "Jigsaw", story: "Story maker", videos: "a whole video" };
 const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 

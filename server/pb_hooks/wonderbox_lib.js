@@ -142,19 +142,24 @@ function games(child) {
   const stored = quiz.jsonField(child, "game_setup") || {}
   const clockLevel = Math.min(quiz.CLOCK_PRESETS.length, Math.max(1, Math.round(Number(stored.clockLevel)) || 1))
   const flagLevel = Math.min(quiz.FLAG_PRESETS.length, Math.max(1, Math.round(Number(stored.flagLevel)) || 1))
+  const mathsSetup = quiz.mathsSetup(stored.maths, maths)
+  const spellingSetup = quiz.spellingSetup(stored.spelling, spelling)
+  const clockSetup = quiz.clockSetup(stored.clock, clockLevel)
+  const flagSetup = quiz.flagSetup(stored.flags, flagLevel)
+  const shown = Object.entries({ maths: mathsSetup, spelling: spellingSetup, clock: clockSetup, flags: flagSetup }).filter(([, s]) => s.on).map(([k]) => k)
   return {
     maths,
     spelling,
     roundSize: child.getInt("round_size") || GAME_DEFAULTS.roundSize,
     // What each game asks; a child set up before these existed gets their level's.
-    mathsSetup: quiz.mathsSetup(stored.maths, maths),
-    spellingSetup: quiz.spellingSetup(stored.spelling, spelling),
+    mathsSetup,
+    spellingSetup,
     // Telling the time: its level and setup live in game_setup, like the games below.
     clock: clockLevel,
-    clockSetup: quiz.clockSetup(stored.clock, clockLevel),
+    clockSetup,
     flags: flagLevel,
-    flagSetup: quiz.flagSetup(stored.flags, flagLevel),
-    // Which games win a treat: maths, spelling, clock, flags, quizzes, hangman, scramble, memory, jigsaw, story, photoquiz, videos (learning and exercise).
+    flagSetup,
+    // Which games win a treat: maths, spelling, clock, flags, mystery, quizzes, hangman, scramble, memory, jigsaw, story, photoquiz, videos (learning and exercise).
     treatGames: quiz.treatGames(stored.treats, stored.treatsOffered),
     jigsaw: jigsawSize(child.getInt("jigsaw_size")),
     sounds: soundsMode(child.getString("sounds")),
@@ -163,6 +168,8 @@ function games(child) {
     memory: extra.memorySetup(stored.memory),
     story: extra.storySetup(stored.story),
     photoQuiz: extra.photoQuizSetup(stored.photoQuiz),
+    // Mixes the games shown on the TV until the parent picks (a saved mystery setup always has its games).
+    mystery: extra.mysterySetup(stored.mystery, shown),
     // The menus' quiet music (on unless turned off) and decorations (app/.../ui/Music.kt, Seasons.kt).
     music: stored.music !== false,
     season: SEASONS.includes(stored.season) ? stored.season : "auto",
@@ -186,9 +193,9 @@ function jigsawSize(stored) {
 
 /**
  * {id, maths, spelling, clock, flags, roundSize, mathsSetup, spellingSetup, clockSetup, flagSetup, treatGames,
- * jigsaw, sounds, hangman, scramble, memory, story, photoQuiz, music, season}: how hard a child's games are (jigsaw 0 is off),
+ * jigsaw, sounds, hangman, scramble, memory, story, photoQuiz, mystery, music, season}: how hard a child's games are (jigsaw 0 is off),
  * which of them win a treat, their sound effects, and the menus' music and decorations. hangman, scramble (the word game),
- * memory, story and photoQuiz are whole setups (pb_hooks/games_lib.js).
+ * memory, story, photoQuiz and mystery (the mixed quiz) are whole setups (pb_hooks/games_lib.js).
  * A level on its own sets that level's setup; a setup on its own keeps the level, or moves
  * it to the level whose setup it matches. Anything left out stays as it was.
  */
@@ -218,6 +225,12 @@ function saveGames(userId, body) {
   setup.memory = body.memory ? extra.memorySetup(body.memory) : current.memory
   setup.story = body.story ? extra.storySetup(body.story) : current.story
   setup.photoQuiz = body.photoQuiz ? extra.photoQuizSetup(body.photoQuiz) : current.photoQuiz
+  if (body.mystery) {
+    // Its games are kept only once the parent picks them, so until then it follows the games shown.
+    const saved = setup.mystery && typeof setup.mystery === "object" ? setup.mystery : {}
+    const mystery = extra.mysterySetup({ ...saved, ...body.mystery }, current.mystery.games)
+    setup.mystery = Array.isArray(body.mystery.games) || Array.isArray(saved.games) ? mystery : { on: mystery.on }
+  }
   let maths = clamp(body.maths, 1, MATHS_LEVELS, current.maths)
   let spelling = clamp(body.spelling, 1, SPELLING_LEVELS, current.spelling)
   if (body.mathsSetup) {

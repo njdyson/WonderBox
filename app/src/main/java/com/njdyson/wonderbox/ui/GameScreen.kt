@@ -56,8 +56,10 @@ import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.AutoLevel
 import com.njdyson.wonderbox.games.ClockQuestions
+import com.njdyson.wonderbox.games.Game
 import com.njdyson.wonderbox.games.GameEntry
 import com.njdyson.wonderbox.games.Question
+import com.njdyson.wonderbox.games.levelFor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
@@ -116,6 +118,8 @@ fun GameScreen(
                         QuizPicture(app, entry.icon, 36.dp)
                     }
                     Text(entry.title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
+                    // The mystery quiz: which game this question is from, revealed as it's asked.
+                    mysteryGame(question)?.let { game -> MysteryReveal(app, game, question) }
                     Box(Modifier.weight(1f))
                     // Nothing can speak on this TV: say so, rather than leave a silent game.
                     if (app.voice.silent) Text("🔇 No voice on this TV: see Grown-ups", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp)
@@ -135,6 +139,11 @@ fun GameScreen(
                                 put("level", level)
                                 put("kind", question.kind)
                                 if (entry.quiz != null) put("title", entry.title)
+                                // A mystery question: which game it's from and the child's level there.
+                                mysteryGame(question)?.let { game ->
+                                    put("game", game.key)
+                                    put("gameLevel", game.levelFor(child))
+                                }
                             }
                         }, onRight = {
                             right++
@@ -162,6 +171,27 @@ fun GameScreen(
                 }
             }
         }
+    }
+}
+
+/** The game a mystery quiz's question is from, or null for any other question. */
+private fun mysteryGame(q: Question): Game? = q.game.takeIf { it.isNotEmpty() }?.let { key -> Game.entries.firstOrNull { it.key == key } }
+
+/** A pill with [game]'s picture and name that pops in for each new question. */
+@Composable
+private fun MysteryReveal(app: AppState, game: Game, question: Question) {
+    val pop = remember(question) { Animatable(0.4f) }
+    LaunchedEffect(question) { pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) }
+    Row(
+        Modifier
+            .graphicsLayer { scaleX = pop.value; scaleY = pop.value }
+            .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(50))
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        QuizPicture(app, game.icon, 30.dp)
+        Text(game.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
     }
 }
 
