@@ -60,7 +60,7 @@ import com.njdyson.wonderbox.data.SavedStory
 import kotlinx.coroutines.delay
 
 /**
- * The Story maker tile in Games: "Make a new story" first (when the story maker is on), then the child's
+ * My stories, in the Stories section (Write a story is its own tile there): the child's
  * finished stories, newest first, each with the picture Gemini drew for it (or its pictures,
  * until it's drawn). Picking a story reads it aloud page by page, like a picture book.
  */
@@ -68,8 +68,6 @@ import kotlinx.coroutines.delay
 fun StoryLibraryScreen(
     app: AppState,
     child: Child,
-    canMake: Boolean,
-    onNew: () -> Unit,
     /** A story to open straight away: one just made in the story maker. */
     startOpen: String? = null,
     /** Picking a treat, for a story that just won one (null when it didn't). */
@@ -90,7 +88,7 @@ fun StoryLibraryScreen(
         if (story != null) {
             StoryReader(app, child, story, fresh = story.id == startOpen, onPickTreat = onPickTreat.takeIf { story.id == startOpen }, onClose = { open = null })
         } else {
-            Shelf(app, child, stories, canMake, onNew, onOpen = {
+            Shelf(app, child, stories, onOpen = {
                 EventLog.log("story.read", child.id, subject = it.id)
                 open = it.id
             })
@@ -99,11 +97,11 @@ fun StoryLibraryScreen(
 }
 
 @Composable
-private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, canMake: Boolean, onNew: () -> Unit, onOpen: (SavedStory) -> Unit) {
+private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, onOpen: (SavedStory) -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocusWhenReady() }
     Column(Modifier.fillMaxSize().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "✏️", "Story maker", "") }
+        Box(Modifier.padding(horizontal = 48.dp)) { PlayHeader(child, "📚", "My stories", "") }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 40.dp),
@@ -111,19 +109,8 @@ private fun Shelf(app: AppState, child: Child, stories: List<SavedStory>, canMak
             verticalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (canMake) {
-                item(key = "new") {
-                    ShelfCard(Modifier.focusRequester(first), onNew) {
-                        Box(
-                            Modifier.fillMaxWidth().aspectRatio(4f / 3f).background(Color(0xFFFFF6E5), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) { EmojiPicture("✏️", 110.dp) }
-                        CardTitle("Make a new story")
-                    }
-                }
-            }
             itemsIndexed(stories, key = { _, s -> s.id }) { i, s ->
-                ShelfCard(if (i == 0 && !canMake) Modifier.focusRequester(first) else Modifier, { onOpen(s) }) {
+                ShelfCard(if (i == 0) Modifier.focusRequester(first) else Modifier, { onOpen(s) }) {
                     StoryCover(app, s, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
                     CardTitle(s.title.ifBlank { "My story" })
                 }

@@ -7,7 +7,7 @@
 
 // What each tile's picture shows, and the colours of the tile it sits on (ui/HomeScreen.kt),
 // so the picture's background matches. "home.*" are the home page's categories, drawn wide
-// (4:3) to fill the tile; "game.*" are the Games and Quizzes tiles, drawn square. [letters]
+// (4:3) to fill the tile; "game.*" are the Games, Quizzes and Stories tiles, drawn square. [letters]
 // lets that picture have a few letters or numbers, where the subject needs them.
 const SUBJECTS = {
   "home.quizzes": { title: "Quizzes", colors: "bright blue (#4D96FF to #2B5FD9)", subject: "a big, friendly, smiling question mark character next to a glowing light bulb, with little sparkles" },
@@ -27,7 +27,9 @@ const SUBJECTS = {
   "game.scramble": { title: "Word jumble", colors: "green (#3FB950 to #1E7A33)", subject: "a few chunky letter tiles tumbling out of a little cloth bag, showing the letters C, A and T", letters: true },
   "game.jigsaw": { title: "Jigsaw", colors: "orange (#FF8A3D to #D9541B)", subject: "four chunky, colourful jigsaw puzzle pieces snapping together" },
   "game.memory": { title: "Pairs", colors: "bright blue (#4D96FF to #2B5FD9)", subject: "two matching playing cards turned face up, both showing the same cute ladybird, with a few face-down cards behind" },
-  "game.story": { title: "Story maker", colors: "indigo (#7C6CF2 to #4B3BC4)", subject: "a big friendly pencil writing in an open storybook, with a little dragon and swirling stars rising out of the page" },
+  "game.story": { title: "Write a story", colors: "indigo (#7C6CF2 to #4B3BC4)", subject: "a big friendly pencil writing in an open storybook, with a little dragon and swirling stars rising out of the page" },
+  "game.mystories": { title: "My stories", colors: "coral pink (#FF5C7A to #D12E55)", subject: "a little pile of handmade picture books with colourful covers, a red ribbon bookmark and a few hearts floating up" },
+  "game.bedtime": { title: "Bedtime stories", colors: "deep night blue (#3B5BDB to #1B2A6B)", subject: "a sleepy teddy bear in a nightcap holding an open storybook, under a smiling crescent moon and twinkling stars" },
   "game.photoquiz": { title: "Photo quiz", colors: "teal (#2EC4B6 to #13867C)", subject: "a big friendly magnifying glass looking at a little instant photo of a sunny garden, with little sparkles" },
 }
 
