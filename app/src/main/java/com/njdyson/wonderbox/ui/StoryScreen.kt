@@ -218,7 +218,7 @@ fun StoryScreen(
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink)))) {
         Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { PlayHeader(child, "📖", "Story maker", "") }
+                Box(Modifier.weight(1f)) { PlayHeader(child, "✏️", "Write a story", "") }
                 Progress(story.size, turns)
             }
             val shown = replaying?.let { story.getOrNull(it) } ?: story.lastOrNull()

@@ -597,9 +597,23 @@ class ScreenshotsTest {
         val app = app(withPhotos = true)
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit().putString("stories", json.encodeToString(SavedStories.serializer(), SavedStories(saved))).commit()
         val withStories = AppState(context)
-        compose.setContent { WonderBoxTheme { StoryLibraryScreen(withStories, summer, canMake = true, onNew = {}) } }
+        compose.setContent { WonderBoxTheme { StoryLibraryScreen(withStories, summer) } }
         settle()
         shoot("story-library")
+    }
+
+    // The Stories section: Write a story, My stories and Bedtime stories.
+    @Test fun storiesSection() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val saved = listOf(
+            SavedStory("s1", summer.id, "The Owl and the Castle", storyParts.map { SavedStoryPart(it.pick.word, it.pick.picture, it.text) }),
+            SavedStory("s2", summer.id, "The Dragon in Space", listOf(SavedStoryPart("dragon", "🐉", "Once upon a time…"))),
+        )
+        app(withPhotos = true)
+        context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit().putString("stories", json.encodeToString(SavedStories.serializer(), SavedStories(saved))).commit()
+        val withStories = AppState(context)
+        compose.setContent { WonderBoxTheme { GamesScreen(withStories, summer, "Stories", withStories.storySectionsFor(summer), {}) } }
+        shoot("stories-summer")
     }
 
     // The end of a round of a game on auto that's just moved up a level.
