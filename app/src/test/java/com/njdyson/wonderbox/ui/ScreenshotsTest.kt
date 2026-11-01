@@ -272,6 +272,16 @@ class ScreenshotsTest {
         shoot("treats-summer")
     }
 
+    @Test fun treatsEmpty() {
+        val app = app()
+        compose.setContent {
+            WonderBoxTheme {
+                VideosScreen(app, summer, "Treats", emptyList(), {}, empty = "Win a quiz to save up a treat!", emptyAction = "🔮 Play the mystery quiz" to {}, stars = true)
+            }
+        }
+        shoot("treats-empty")
+    }
+
     // Straight after picking one: a celebration of it, then back to their menu.
     @Test fun treatSaved() {
         val app = app()
