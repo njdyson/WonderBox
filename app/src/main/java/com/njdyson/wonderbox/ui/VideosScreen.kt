@@ -83,6 +83,8 @@ fun VideosScreen(
     onPlay: (Video) -> Unit,
     /** What to say when there are no [shelves]. */
     empty: String = "No videos yet. Ask a grown-up to add some!",
+    /** A button under [empty] when there are no [shelves], e.g. to go and win a treat: its words and what it does. */
+    emptyAction: Pair<String, () -> Unit>? = null,
     /** Said once when the screen opens, e.g. "Pick a treat!". */
     greeting: String? = null,
     /** Stars on the cards, for treats. */
@@ -134,12 +136,17 @@ fun VideosScreen(
             }
             if (shelves.isEmpty()) {
                 item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        empty,
-                        color = ink,
-                        fontSize = 24.sp,
-                        modifier = Modifier.padding(top = 30.dp),
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Text(
+                            empty,
+                            color = ink,
+                            fontSize = 24.sp,
+                            modifier = Modifier.padding(top = 30.dp),
+                        )
+                        emptyAction?.let { (words, action) ->
+                            BigButton(words, Modifier.focusRequester(restore), action)
+                        }
+                    }
                 }
             }
         }
@@ -147,7 +154,7 @@ fun VideosScreen(
 
     LaunchedEffect(shelves.size) {
         if (greeting != null && focusedKey == null) app.say(greeting)
-        if (firstKey != null) restore.requestFocusWhenReady()
+        if (firstKey != null || (shelves.isEmpty() && emptyAction != null)) restore.requestFocusWhenReady()
     }
     // Preload the player once focus settles there. Titles aren't read aloud: hearing every one
     // while scrolling past was annoying (menus and game answers still are).

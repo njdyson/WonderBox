@@ -19,6 +19,7 @@ import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.games.HANGMAN
 import com.njdyson.wonderbox.games.JIGSAW
 import com.njdyson.wonderbox.games.MEMORY
+import com.njdyson.wonderbox.games.MYSTERY
 import com.njdyson.wonderbox.games.PHOTO_QUIZ
 import com.njdyson.wonderbox.games.SCRAMBLE
 import com.njdyson.wonderbox.games.STORY
@@ -282,6 +283,10 @@ class MainActivity : ComponentActivity() {
                                     app.treatsSectionFor(child.id),
                                     stars = true,
                                     empty = "Win a quiz to save up a treat!",
+                                    // Nothing saved: straight to the mystery quiz to win one, when it's on and wins treats.
+                                    emptyAction = if (child.games.earnsTreat(MYSTERY) && app.library.gamesFor(child).any { it.key == MYSTERY }) {
+                                        "🔮 Play the mystery quiz" to { open(Screen.Playing(child.id, MYSTERY)) }
+                                    } else null,
                                     onPlay = { video ->
                                         app.useSavedTreat(child.id, video)
                                         play(video, child.id, savedTreat = true)
