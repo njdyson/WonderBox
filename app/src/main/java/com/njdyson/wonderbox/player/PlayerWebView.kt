@@ -55,12 +55,16 @@ object PlayerWebView {
     private var videoId: String? = null
     private var listener: Listener? = null
     private var preloading = false
+    // Taken by [PlayerActivity] and on screen: the grid behind it mustn't swap it for another video.
+    private var playing = false
     // An error while preloading, e.g. the video doesn't allow embedding; passed on by take().
     private var error: Int? = null
 
     /** Starts loading [id] in the background, replacing any other preloaded video. */
     fun preload(context: Context, id: String) {
-        if (id == videoId) return
+        // The grid behind the player can still move focus, e.g. when a saved treat leaves the
+        // Treats section as it starts playing. Replacing the player then left it stuck loading.
+        if (id == videoId || playing) return
         release()
         preloading = true
         load(context, id)
@@ -76,12 +80,18 @@ object PlayerWebView {
             load(context, id)
         }
         preloading = false
+        playing = true
         this.listener = listener
         error?.let { code -> main.post { listener.onError(code) } }
         return view!!
     }
 
-    /** Throws away the player, e.g. when leaving the videos grid or closing the player. */
+    /** Throws away a preloaded player when leaving the videos grid, but not one that's playing. */
+    fun releasePreload() {
+        if (!playing) release()
+    }
+
+    /** Throws away the player, when closing it (or to make way for another video). */
     fun release() {
         view?.apply {
             (parent as? ViewGroup)?.removeView(this)
@@ -92,11 +102,15 @@ object PlayerWebView {
         videoId = null
         listener = null
         preloading = false
+        playing = false
         error = null
         position = 0.0
         duration = 0.0
         stats = null
     }
+
+    /** The YouTube ID of the video the player is loaded with, if any. */
+    val current: String? get() = videoId
 
     /** The latest [Stats] for the current video, if the page has sent any. */
     var stats: Stats? = null

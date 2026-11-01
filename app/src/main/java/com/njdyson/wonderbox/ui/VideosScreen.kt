@@ -159,7 +159,7 @@ fun VideosScreen(
     DisposableEffect(Unit) {
         onDispose {
             app.stopSpeaking()
-            PlayerWebView.release()
+            PlayerWebView.releasePreload()
         }
     }
 }
