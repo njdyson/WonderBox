@@ -3,8 +3,11 @@ package com.njdyson.wonderbox.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -12,9 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -67,6 +75,60 @@ fun EmojiPicture(emoji: String, size: Dp, modifier: Modifier = Modifier) {
             Text(emoji, fontSize = (size.value * 0.72f).sp, textAlign = TextAlign.Center)
         }
     }
+}
+
+/**
+ * A line of [text] with emoji in it ("🦩", or "🍎🍎 + 🍎" for a sum), [fontSize] high: each emoji
+ * that has a bundled Fluent picture is drawn as that picture, so the TV never shows a blank box
+ * for an emoji its font doesn't have (older Fire TVs can't draw 🦩 or 🥫). Anything else is
+ * ordinary text.
+ */
+@Composable
+fun PictureLine(text: String, fontSize: TextUnit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val pictures = mutableMapOf<String, String>()
+    val line = buildAnnotatedString {
+        for (piece in emojiPieces(text)) {
+            val uri = if (piece.length > 1 || piece[0].code > 0x2000) Avatars.uri(context, piece) else null
+            if (uri != null) {
+                pictures[piece] = uri
+                appendInlineContent(piece, piece)
+            } else {
+                append(piece)
+            }
+        }
+    }
+    val inline = pictures.mapValues { (_, uri) ->
+        InlineTextContent(Placeholder(1.2.em, 1.2.em, PlaceholderVerticalAlign.Center)) {
+            AsyncImage(model = uri, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        }
+    }
+    Text(line, fontSize = fontSize, textAlign = TextAlign.Center, inlineContent = inline, modifier = modifier)
+}
+
+/**
+ * [text] cut into pieces: each emoji on its own (with any variation selector, skin tone or
+ * joined parts that follow it), and each other character on its own.
+ */
+fun emojiPieces(text: String): List<String> {
+    val pieces = mutableListOf<String>()
+    var i = 0
+    while (i < text.length) {
+        var end = i + Character.charCount(text.codePointAt(i))
+        while (end < text.length) {
+            val next = text.codePointAt(end)
+            end += when {
+                // Variation selectors, keycap, skin tones.
+                next == 0xFE0F || next == 0x20E3 || next in 0x1F3FB..0x1F3FF -> Character.charCount(next)
+                // A zero width joiner and the part it joins on.
+                next == 0x200D && end + 1 < text.length -> 1 + Character.charCount(text.codePointAt(end + 1))
+                else -> break
+            }
+        }
+        pieces += text.substring(i, end)
+        i = end
+    }
+    return pieces
 }
 
 /**

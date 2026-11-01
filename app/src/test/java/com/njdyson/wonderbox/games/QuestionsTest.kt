@@ -207,6 +207,15 @@ class QuestionsTest {
     }
 
     @Test
+    fun everyOtherGamePictureIsBundled() {
+        // The TV can't draw newer emoji, so every picture a question shows must be bundled.
+        val pictures = Phonics.PHASE2.map { it.second }.filter { it.isNotEmpty() } + SpellingQuestions.HEAR + MathsQuestions.THINGS
+        for (picture in pictures) {
+            assertTrue(picture, File("src/main/assets/avatars/${Avatars.fileName(picture)}").exists())
+        }
+    }
+
+    @Test
     fun clockTimesAreSaidTheBritishWay() {
         assertEquals("3 o'clock", ClockQuestions.say(3, 0))
         assertEquals("quarter past 3", ClockQuestions.say(3, 15))

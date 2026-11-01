@@ -437,7 +437,7 @@ private fun LookAgain(
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("🎉", fontSize = 64.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
+                EmojiPicture("🎉", 75.dp, Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
                 Text(cheer, color = Tangerine, fontSize = 28.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     repeat(total) { i -> Text("★", fontSize = 34.sp, color = if (i < remembered) Tangerine else Color.White.copy(alpha = 0.25f)) }

@@ -374,7 +374,7 @@ private fun Celebrate(
 ) {
     val pop = remember { Animatable(0.3f) }
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)) }
-    Text("🎉", fontSize = 90.sp, modifier = Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
+    EmojiPicture("🎉", 105.dp, Modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value })
     Text("You did it, ${child.name}!", color = Tangerine, fontSize = 32.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
     if (hasTreats) Text("You've won a treat ⭐", color = Color.White, fontSize = 22.sp)
     if (showButtons) {

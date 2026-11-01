@@ -93,7 +93,7 @@ enum class Game(val title: String, val icon: String, val levels: List<String>) {
 
 internal object MathsQuestions {
     // Things to count. Old emoji only, so they show on older Fire TV software.
-    private val THINGS = listOf("🍎", "⭐", "🐟", "🎈", "🍓", "🐞", "🚗", "🌸")
+    val THINGS = listOf("🍎", "⭐", "🐟", "🎈", "🍓", "🐞", "🚗", "🌸")
 
     fun question(setup: MathsSetup, random: Random): Question {
         val max = setup.max.coerceIn(5, 100)
