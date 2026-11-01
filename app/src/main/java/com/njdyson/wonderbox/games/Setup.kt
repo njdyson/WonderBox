@@ -133,6 +133,25 @@ data class FlagSetup(
     fun level() = PRESETS.indexOfFirst { it.regions == regions && it.types == types && it.choices == choices } + 1
 }
 
+/**
+ * The mystery quiz: a round that mixes questions from the child's [games] ("maths",
+ * "spelling", "clock", "flags"), each asked at that game's own level and setup, in a new order
+ * every round. On by default, with all four.
+ */
+@Serializable
+data class MysterySetup(
+    val on: Boolean = true,
+    val games: List<String> = GAMES,
+) {
+    /** The games to mix, in their usual order. */
+    fun mixed(): List<Game> = Game.entries.filter { it.key in games }
+
+    companion object {
+        // The same as the server (pb_hooks/games_lib.js) and the phone app.
+        val GAMES = listOf("maths", "spelling", "clock", "flags")
+    }
+}
+
 /** One of the parent's spelling words. [picture] is an emoji or a quiz image's path, or empty. */
 @Serializable
 data class MyWord(val word: String, val picture: String = "")

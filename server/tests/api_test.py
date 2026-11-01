@@ -295,7 +295,7 @@ try:
     assert lib["children"][0]["games"]["flagSetup"]["regions"] == ["uk", "asia"]
 
     # Which games win a treat: the learning ones until set; unknown ones dropped; none is allowed.
-    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "flags", "quizzes", "hangman", "scramble", "videos"]
+    assert lib["children"][0]["games"]["treatGames"] == ["maths", "spelling", "clock", "flags", "mystery", "quizzes", "hangman", "scramble", "videos"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "treatGames": ["jigsaw", "maths", "bogus"]}, token)
     assert lib["children"][0]["games"]["treatGames"] == ["maths", "jigsaw"]
     lib = call("POST", "/api/wonder/children/games", {"id": jo, "clock": 2}, token)
@@ -342,6 +342,29 @@ try:
     g = lib["children"][0]["games"]
     assert g["scramble"] == {"on": True, "level": 5, "lists": ["long"], "words": 1, "say": False, "auto": False}, g["scramble"]
     assert g["hangman"]["lists"] == ["long"] and g["treatGames"] == []
+
+    # The mystery quiz: on, mixing the games shown on the TV until the parent picks; then its
+    # games stay as picked (known ones, in order, never none) whatever is turned on or off.
+    assert g["mystery"] == {"on": True, "games": ["maths", "spelling", "clock", "flags"]}, g["mystery"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clockSetup": {**g["clockSetup"], "on": False}}, token)
+    g = lib["children"][0]["games"]
+    assert g["mystery"]["games"] == ["maths", "spelling", "flags"], g["mystery"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mystery": {"on": False}}, token)
+    g = lib["children"][0]["games"]
+    assert g["mystery"] == {"on": False, "games": ["maths", "spelling", "flags"]}, g["mystery"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "clockSetup": {**g["clockSetup"], "on": True}}, token)
+    g = lib["children"][0]["games"]
+    assert g["mystery"] == {"on": False, "games": ["maths", "spelling", "clock", "flags"]}, "still following the games shown"
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mystery": {"on": True, "games": ["flags", "nope", "maths"]}}, token)
+    g = lib["children"][0]["games"]
+    assert g["mystery"] == {"on": True, "games": ["maths", "flags"]}, g["mystery"]
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {**g["mathsSetup"], "on": False}, "mystery": {"on": True}}, token)
+    g = lib["children"][0]["games"]
+    assert g["mystery"] == {"on": True, "games": ["maths", "flags"]}, "picked games are kept"
+    lib = call("POST", "/api/wonder/children/games", {"id": jo, "mathsSetup": {**g["mathsSetup"], "on": True}, "mystery": {"games": []}}, token)
+    g = lib["children"][0]["games"]
+    assert g["mystery"]["games"] == ["maths", "flags"], "never none"
+    assert g["treatGames"] == [], "a parent's saved treat list isn't changed"
 
     # The server's voice (Piper): a WAV for a linked TV or the parent, 404 when there's none.
     lib = call("GET", "/api/wonder/library", None, token)

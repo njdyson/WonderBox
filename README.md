@@ -32,7 +32,7 @@ Family photos from the phone show on the TV as a slideshow.
   time a learning, exercise or story video is watched through without skipping (at least 80% of it
   actually playing), it wins a treat too, unless the parent turned "Watching a whole learning, exercise or story video"
   off in the phone app. The parent chooses which
-  games win a treat: maths, spelling, the clock, flags, quizzes, hangman and the word jumble
+  games win a treat: maths, spelling, the clock, flags, the mystery quiz, quizzes, hangman and the word jumble
   until changed, not
   jigsaws or memory pairs. Those games have a star on their tile.
 - **Games:** answers are big buttons picked with the remote, and every question is read
@@ -54,6 +54,11 @@ Family photos from the phone show on the TV as a slideshow.
 - **Flags:** see a flag and pick the country (names are read out as they're focused), or
   hear a country and pick its flag. Five levels: the UK's nations and Ireland, well-known
   flags, both ways round, Europe, then the whole world; or the parent's own mix of regions.
+- **Mystery quiz:** a round that mixes maths, spelling, clock and flag questions, each a
+  surprise asked at the child's own level for that game, with a little label popping up to
+  say which game it's from. The parent picks which games go in the mix (until then it
+  follows the games shown on the TV). It wins a treat like the others; it doesn't move
+  Auto levels.
 - **Word jumble:** levels 1 and 2 jumble a word's letters (phonics, short, longer or the
   parent's own words); the word is said and its picture shown, and the child picks the
   letters back into order (level 1 only takes the right next letter, and it glows after two

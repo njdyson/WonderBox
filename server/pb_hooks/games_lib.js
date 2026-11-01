@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Settings for the TV's hangman, word game, memory pairs, story maker and photo quiz
-// (app/.../games/Hangman.kt, WordGame.kt, Memory.kt, Story.kt and PhotoQuiz.kt), loaded with require(). Each child's are kept in
+// Settings for the TV's hangman, word game, memory pairs, story maker, photo quiz and mystery quiz
+// (app/.../games/Hangman.kt, WordGame.kt, Memory.kt, Story.kt, PhotoQuiz.kt and Setup.kt), loaded with require(). Each child's are kept in
 // children.game_setup next to maths and spelling; anything missing or odd gets the default.
 
 const WORD_LISTS = ["short", "long", "big", "mine"]
@@ -30,6 +30,10 @@ const STORY_DEFAULT = { on: true, age: 5, turns: 5, silly: "silly" }
 const PHOTO_QUIZ_LOOK = [5, 10, 15, 20, 30]
 const PHOTO_QUIZ_QUESTIONS = [3, 4, 5, 6]
 const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" }
+// The mystery quiz (app/.../games/Games.kt mysteryRound): rounds mixing questions from these
+// games, each at the child's own level for it. On by default, with all four.
+const MYSTERY_GAMES = ["maths", "spelling", "clock", "flags"]
+const MYSTERY_DEFAULT = { on: true, games: MYSTERY_GAMES }
 
 /** The nearest of [allowed] to [value], or [fallback] when it isn't a number. */
 function nearest(value, allowed, fallback) {
@@ -102,4 +106,20 @@ function photoQuizSetup(value) {
   }
 }
 
-module.exports = { hangmanSetup, scrambleSetup, memorySetup, storySetup, photoQuizSetup, SCRAMBLE_LEVELS }
+/**
+ * A child's mystery quiz: {on, games}, at least one game, in the usual order. Until the parent
+ * picks, it mixes the games that are [shown] on the TV (all four if none are), so a game
+ * turned off because it's too hard doesn't come up here either.
+ */
+function mysterySetup(value, shown) {
+  const v = value && typeof value === "object" ? value : {}
+  const known = (list) => (Array.isArray(list) ? MYSTERY_GAMES.filter((g) => list.includes(g)) : [])
+  const games = known(v.games)
+  const fallback = known(shown)
+  return {
+    on: v.on === undefined ? MYSTERY_DEFAULT.on : !!v.on,
+    games: games.length ? games : fallback.length ? fallback : [...MYSTERY_DEFAULT.games],
+  }
+}
+
+module.exports = { hangmanSetup, scrambleSetup, memorySetup, storySetup, photoQuizSetup, mysterySetup, SCRAMBLE_LEVELS, MYSTERY_GAMES }

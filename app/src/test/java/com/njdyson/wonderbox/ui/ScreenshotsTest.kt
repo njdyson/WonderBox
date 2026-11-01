@@ -315,6 +315,8 @@ class ScreenshotsTest {
 
     @Test fun gameFlags() = game(jesse, "flags", "game-flags")
 
+    @Test fun gameMystery() = game(jesse, "mystery", "game-mystery")
+
     @Test fun gameFlagsPick() {
         val pick = jesse.copy(games = jesse.games.copy(flagSetup = FlagSetup(regions = listOf("famous"), types = listOf("flag"), choices = 4)))
         game(pick, "flags", "game-flags-pick")

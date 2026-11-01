@@ -7,10 +7,13 @@ import kotlin.random.Random
 /** The photo jigsaw's [GameEntry.key]; it has its own screen (JigsawScreen), not rounds of questions. */
 const val JIGSAW = "jigsaw"
 
+/** The mystery quiz's [GameEntry.key]: rounds that mix maths, spelling, clock and flag questions ([MysterySetup]). */
+const val MYSTERY = "mystery"
+
 /**
  * A game on a child's screen: maths, spelling, the clock (unless the parent turned them off),
  * a photo jigsaw, hangman, the word game, memory pairs or one of the parent's quizzes for them.
- * [key] is also the activity log's subject: "maths", "spelling", "clock" or "quiz/<id>" ([JIGSAW],
+ * [key] is also the activity log's subject: "maths", "spelling", "clock", [MYSTERY] or "quiz/<id>" ([JIGSAW],
  * [HANGMAN], [SCRAMBLE] and [MEMORY] log their own events).
  */
 data class GameEntry(
@@ -23,31 +26,36 @@ data class GameEntry(
     val game: Game? = null,
     val quiz: Quiz? = null,
 ) {
-    /** Rounds of questions (maths, spelling, a parent's quiz) go under Quizzes; the rest, like the jigsaw, under Games. */
-    val isQuiz get() = game != null || quiz != null
+    /** Rounds of questions (maths, spelling, the mystery quiz, a parent's quiz) go under Quizzes; the rest, like the jigsaw, under Games. */
+    val isQuiz get() = game != null || quiz != null || key == MYSTERY
 
     /** A new round to play: [Round.goal] right answers wins it. */
     fun newRound(child: Child, random: Random = Random): Round {
         quiz?.let { return quizRound(it, random) }
         val roundSize = child.games.roundSize.coerceIn(1, 50)
-        val recent = RecentTopics.forGame("${child.id}/$key")
-        return when (game) {
-            Game.Spelling -> {
-                val setup = child.games.spelling()
-                Round(roundSize, setup.level()) { recent.fresh { SpellingQuestions.question(setup, random) } }
+        if (key == MYSTERY) return mysteryRound(child, roundSize, random)
+        val game = game ?: Game.Maths
+        return Round(roundSize, game.levelFor(child)) { game.questionFor(child, random) }
+    }
+
+    /**
+     * A mystery round: each question from one of the games the parent ticked, at that game's
+     * own level. The games come round in a shuffled bag, so they're well mixed and the same
+     * one is never asked many times running.
+     */
+    private fun mysteryRound(child: Child, roundSize: Int, random: Random): Round {
+        val games = child.games.mystery.mixed().ifEmpty { Game.entries }
+        val bag = mutableListOf<Game>()
+        var last: Game? = null
+        return Round(roundSize, 0) {
+            if (bag.isEmpty()) {
+                bag += games.shuffled(random)
+                // Not the same game twice in a row across bags.
+                if (bag.size > 1 && bag.first() == last) bag.add(bag.removeAt(0))
             }
-            Game.Clock -> {
-                val setup = child.games.clock()
-                Round(roundSize, setup.level()) { recent.fresh { ClockQuestions.question(setup, random) } }
-            }
-            Game.Flags -> {
-                val setup = child.games.flags()
-                Round(roundSize, setup.level()) { recent.fresh { FlagQuestions.question(setup, random) } }
-            }
-            else -> {
-                val setup = child.games.maths()
-                Round(roundSize, setup.level()) { recent.fresh { MathsQuestions.question(setup, random) } }
-            }
+            val game = bag.removeAt(0)
+            last = game
+            game.questionFor(child, random).copy(game = game.key)
         }
     }
 
@@ -108,6 +116,28 @@ class RecentTopics(private val window: Int = WINDOW) {
     }
 }
 
+/** [child]'s level at this game, 0 for their own mix. */
+fun Game.levelFor(child: Child): Int = when (this) {
+    Game.Maths -> child.games.maths().level()
+    Game.Spelling -> child.games.spelling().level()
+    Game.Clock -> child.games.clock().level()
+    Game.Flags -> child.games.flags().level()
+}
+
+/**
+ * A question from this game as [child]'s setup says, not one they've had lately. The mystery
+ * quiz shares each game's recent questions, so it doesn't repeat what they just answered there.
+ */
+fun Game.questionFor(child: Child, random: Random = Random): Question {
+    val recent = RecentTopics.forGame("${child.id}/$key")
+    return when (this) {
+        Game.Maths -> child.games.maths().let { setup -> recent.fresh { MathsQuestions.question(setup, random) } }
+        Game.Spelling -> child.games.spelling().let { setup -> recent.fresh { SpellingQuestions.question(setup, random) } }
+        Game.Clock -> child.games.clock().let { setup -> recent.fresh { ClockQuestions.question(setup, random) } }
+        Game.Flags -> child.games.flags().let { setup -> recent.fresh { FlagQuestions.question(setup, random) } }
+    }
+}
+
 /** Questions one after another until [goal] are answered right. [level] is 0 for a parent's own setup or quiz. */
 class Round(val goal: Int, val level: Int, private val nextQuestion: () -> Question) {
     fun next() = nextQuestion()
@@ -129,7 +159,7 @@ fun QuizQuestion.toQuestion(random: Random = Random): Question {
 }
 
 /**
- * The games on [child]'s screen, in order: maths, spelling, the clock, hangman, the word game, a jigsaw (when
+ * The games on [child]'s screen, in order: maths, spelling, the clock, flags, the mystery quiz, hangman, the word game, a jigsaw (when
  * there are [photos] and the child has jigsaws on), memory pairs, the photo quiz (with [photos], when
  * the server can write its questions), then the parent's quizzes. The story maker isn't here: it's in
  * the home page's Stories section (ui/StoriesScreen.kt).
@@ -143,6 +173,17 @@ fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = b
     if (clock.on) add(GameEntry("clock", Game.Clock.title, Game.Clock.icon, subtitle(clock.level()), Game.Clock))
     val flags = child.games.flags()
     if (flags.on) add(GameEntry("flags", Game.Flags.title, Game.Flags.icon, subtitle(flags.level()), Game.Flags))
+    val mystery = child.games.mystery.mixed()
+    if (child.games.mystery.on && mystery.isNotEmpty()) {
+        // Short enough for the tile: the game, the two games, or a bit of everything.
+        val names = mystery.map { it.title.lowercase() }
+        val subtitle = when (names.size) {
+            1 -> "Mystery ${names[0]}"
+            2 -> "${mystery[0].title} and ${names[1]}"
+            else -> "A bit of everything"
+        }
+        add(GameEntry(MYSTERY, "Mystery quiz", "🔮", subtitle))
+    }
     val hangman = child.games.hangman
     if (hangman.on) add(GameEntry(HANGMAN, "Hangman", "🎈", "Find the word"))
     val scramble = child.games.scramble

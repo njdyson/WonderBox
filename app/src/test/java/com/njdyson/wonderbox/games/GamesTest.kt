@@ -26,13 +26,46 @@ class GamesTest {
         )
         val jo = Child("jo", "Jo")
         val library = Library(children = listOf(sam, jo), quizzes = listOf(quiz, quiz.copy(id = "q2", children = listOf("jo"))))
-        assertEquals(listOf("maths", "clock", "flags", "quiz/q1"), library.gamesFor(sam).map { it.key })
+        assertEquals(listOf("maths", "clock", "flags", MYSTERY, "quiz/q1"), library.gamesFor(sam).map { it.key })
         assertEquals("Level 2", library.gamesFor(sam)[0].subtitle)
-        assertEquals("3 questions", library.gamesFor(sam)[3].subtitle)
-        assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "memory", "quiz/q2"), library.gamesFor(jo).map { it.key })
-        assertEquals(listOf("maths", "spelling", "clock", "flags", "hangman", "scramble", "jigsaw", "memory", "quiz/q2"), library.gamesFor(jo, photos = true).map { it.key })
-        val noClock = Child("al", "Al", games = GameSettings(clockSetup = ClockSetup(on = false), flagSetup = FlagSetup(on = false), hangman = HangmanSetup(on = false), memory = MemorySetup(on = false), scramble = ScrambleSetup(on = false), story = StorySetup(on = false)))
+        assertEquals("3 questions", library.gamesFor(sam)[4].subtitle)
+        assertEquals(listOf("maths", "spelling", "clock", "flags", MYSTERY, "hangman", "scramble", "memory", "quiz/q2"), library.gamesFor(jo).map { it.key })
+        assertEquals(listOf("maths", "spelling", "clock", "flags", MYSTERY, "hangman", "scramble", "jigsaw", "memory", "quiz/q2"), library.gamesFor(jo, photos = true).map { it.key })
+        val noClock = Child("al", "Al", games = GameSettings(clockSetup = ClockSetup(on = false), flagSetup = FlagSetup(on = false), hangman = HangmanSetup(on = false), memory = MemorySetup(on = false), scramble = ScrambleSetup(on = false), story = StorySetup(on = false), mystery = MysterySetup(on = false)))
         assertEquals(listOf("maths", "spelling"), Library(children = listOf(noClock)).gamesFor(noClock).map { it.key })
+    }
+
+    @Test
+    fun aMysteryRoundMixesTheChosenGamesAtTheirOwnLevels() {
+        val child = Child(
+            "mia", "Mia",
+            games = GameSettings(
+                maths = 3, clockSetup = ClockSetup(on = false), roundSize = 12,
+                mystery = MysterySetup(games = listOf("flags", "maths", "clock")),
+            ),
+        )
+        val entry = Library(children = listOf(child)).gamesFor(child).first { it.key == MYSTERY }
+        assertEquals("Mystery quiz", entry.title)
+        assertEquals("A bit of everything", entry.subtitle)
+        assertTrue(entry.isQuiz)
+        val round = entry.newRound(child, Random(7))
+        assertEquals(12, round.goal)
+        assertEquals(0, round.level)
+        val questions = List(12) { round.next() }
+        val games = questions.map { it.game }
+        // Every game in each bag of three, and never the same one twice running.
+        games.chunked(3).forEach { assertEquals(setOf("maths", "clock", "flags"), it.toSet()) }
+        games.zipWithNext().forEach { (a, b) -> assertTrue("$a twice", a != b) }
+        // Each asked as that game on its own: clock faces for the clock (even though its own tile is off), flags as pictures.
+        questions.filter { it.game == "clock" }.forEach { assertTrue(it.picture.startsWith("clock:")) }
+        questions.filter { it.game == "maths" }.forEach { assertTrue(it.kind in listOf("add")) }
+        // Turned off, or with no games, there's no tile.
+        val off = child.copy(games = child.games.copy(mystery = MysterySetup(on = false)))
+        assertTrue(Library().gamesFor(off).none { it.key == MYSTERY })
+        val none = child.copy(games = child.games.copy(mystery = MysterySetup(games = listOf("nope"))))
+        assertTrue(Library().gamesFor(none).none { it.key == MYSTERY })
+        assertEquals("Clock and flags", Library().gamesFor(child.copy(games = child.games.copy(mystery = MysterySetup(games = listOf("flags", "clock"))))).first { it.key == MYSTERY }.subtitle)
+        assertEquals("Mystery spelling", Library().gamesFor(child.copy(games = child.games.copy(mystery = MysterySetup(games = listOf("spelling"))))).first { it.key == MYSTERY }.subtitle)
     }
 
     @Test
@@ -42,6 +75,7 @@ class GamesTest {
         assertEquals(true, defaults.earnsTreat("quiz/abc"))
         assertEquals(true, defaults.earnsTreat("hangman"))
         assertEquals(true, defaults.earnsTreat(SCRAMBLE))
+        assertEquals(true, defaults.earnsTreat(MYSTERY))
         assertEquals(false, defaults.earnsTreat(JIGSAW))
         assertEquals(false, defaults.earnsTreat("memory"))
         val jigsawOnly = GameSettings(treatGames = listOf("jigsaw"))

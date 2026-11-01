@@ -29,6 +29,8 @@ data class Question(
      * single letter, a line for two letters making one sound. Empty for other words.
      */
     val sounds: List<String> = emptyList(),
+    /** Which game it's from, as its [Game.key], when a mystery quiz mixes them; empty otherwise. */
+    val game: String = "",
     /** What it's about ("van", "3 + 2", "count 4"): a round avoids asking the same one again soon. */
     val topic: String = prompt.ifBlank { spoken },
 ) {
@@ -82,6 +84,9 @@ enum class Game(val title: String, val icon: String, val levels: List<String>) {
         ),
     ),
     ;
+
+    /** Its [GameEntry.key] and settings key: "maths", "spelling", "clock", "flags". */
+    val key get() = name.lowercase()
 
     fun question(level: Int, random: Random = Random): Question = when (this) {
         Maths -> MathsQuestions.question(MathsSetup.preset(level), random)
