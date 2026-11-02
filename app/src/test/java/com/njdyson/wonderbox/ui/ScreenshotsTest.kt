@@ -13,6 +13,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -316,6 +318,25 @@ class ScreenshotsTest {
     @Test fun gameFlags() = game(jesse, "flags", "game-flags")
 
     @Test fun gameMystery() = game(jesse, "mystery", "game-mystery")
+
+    /** "half past 12" next to shorter answers: each fits its button, on one line. */
+    @Test fun gameClockLongAnswers() {
+        val app = app()
+        val q = com.njdyson.wonderbox.games.Question(
+            prompt = "", spoken = "What time is it?", choices = listOf("half past 2", "half past 1", "half past 12"),
+            answer = "half past 1", picture = "clock:1:30", kind = "clock",
+        )
+        compose.setContent {
+            WonderBoxTheme {
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lagoon, Ink))), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Box(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 28.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        Asking(app, jesse, q, onAnswer = { _, _ -> }, onRight = {})
+                    }
+                }
+            }
+        }
+        shoot("game-clock-long-answers")
+    }
 
     @Test fun gameFlagsPick() {
         val pick = jesse.copy(games = jesse.games.copy(flagSetup = FlagSetup(regions = listOf("famous"), types = listOf("flag"), choices = 4)))

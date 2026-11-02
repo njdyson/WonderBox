@@ -359,10 +359,9 @@ private fun Answering(app: AppState, child: Child, photo: Photo, questions: List
             Box(Modifier.size(52.dp).background(parseColor(child.color), CircleShape), contentAlignment = Alignment.Center) {
                 EmojiPicture(MAGNIFIER, 38.dp)
             }
-            Text("Photo quiz", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
-            Box(Modifier.weight(1f))
+            HeaderTitle("Photo quiz", Modifier.weight(1f))
             if (app.voice.silent) Text("🔇 No voice on this TV: see Grown-ups", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp)
-            BigButton("🔊 Hear it again", Modifier) { app.say(question.spoken) }
+            HeaderButton("🔊 Hear it again") { app.say(question.spoken) }
             Progress(index, questions.size)
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
