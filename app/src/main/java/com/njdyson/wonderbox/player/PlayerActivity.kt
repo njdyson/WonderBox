@@ -65,8 +65,11 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private var finishedVideo = false
     // Watching this one all the way through wins a treat (the first time).
     private var earnsTreat = false
-    // A saved treat, already used up to play this: if it won't play, they get another treat to pick.
-    private var isTreat = false
+    // A saved treat's ID ("saved/<n>/<id>"), if this is one. It stays in their Treats section
+    // until most of it has played; if it won't play at all, they get a new treat to pick instead.
+    private var savedTreat: String? = null
+    // Most of the saved treat has played, so it's been taken out of their Treats section.
+    private var treatUsed = false
     // Already recorded as watched all the way through, so it isn't counted twice.
     private var recorded = false
     // Times it stopped to buffer after it had started playing, not counting just after a skip.
@@ -78,6 +81,14 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     // A video that hasn't started within 20 seconds isn't going to.
     private val giveUp = Runnable { if (state == -1 || state == 3) cantPlay() }
 
+    // Stuck loading part way through: nudge the player to fetch from where it is, then give up.
+    private val unstick = Runnable {
+        if (state != 3 || done) return@Runnable
+        js("player.seekTo(player.getCurrentTime(), true); player.playVideo();")
+        main.postDelayed(stuck, STUCK_MS)
+    }
+    private val stuck = Runnable { if (state == 3) cantPlay() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         videoId = intent.getStringExtra(EXTRA_VIDEO_ID) ?: return finish()
@@ -85,7 +96,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         channel = intent.getStringExtra(EXTRA_CHANNEL).orEmpty()
         childId = intent.getStringExtra(EXTRA_CHILD_ID)
         earnsTreat = intent.getBooleanExtra(EXTRA_EARNS_TREAT, false)
-        isTreat = intent.getBooleanExtra(EXTRA_IS_TREAT, false)
+        savedTreat = intent.getStringExtra(EXTRA_SAVED_TREAT)
         val dp = resources.displayMetrics.density
         // Nothing to draw behind the video: the WebView is opaque black. Saves the stick a full-screen layer every frame.
         window.setBackgroundDrawable(null)
@@ -188,6 +199,12 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         return true
     }
 
+    // Before the main screen comes back (onDestroy is after that), so it sees the treat gone if it was watched.
+    override fun onPause() {
+        useTreatIfWatched()
+        super.onPause()
+    }
+
     // Pause when the TV goes to the home screen or sleeps, so the video isn't heard in the background.
     override fun onStop() {
         super.onStop()
@@ -223,6 +240,23 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         }
     }
 
+    /** Seconds it has actually been playing so far (not paused, loading or skipped over). */
+    private fun playingSeconds() = (playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0L) / 1000.0
+
+    /**
+     * Takes a saved treat out of the Treats section once about three quarters of it has really
+     * played. Stopping before that (it broke, got stuck, or they went back) leaves it there to
+     * watch again.
+     */
+    private fun useTreatIfWatched() {
+        val child = childId ?: return
+        val saved = savedTreat ?: return
+        val duration = PlayerWebView.duration
+        if (treatUsed || duration <= 0 || playingSeconds() < duration * TREAT_SHARE) return
+        treatUsed = true
+        Store(this).useSavedTreat(child, saved)
+    }
+
     /**
      * Records the video as watched all the way through, if it really was: it got to the end
      * and was actually playing for most of it, so skipping to the end doesn't count. The first
@@ -231,8 +265,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private fun recordWatched(duration: Double): Boolean {
         val child = childId ?: return false
         if (recorded || duration <= 0) return false
-        val playing = (playedMs + if (playingSince > 0) System.currentTimeMillis() - playingSince else 0L) / 1000.0
-        if (playing < duration * WATCHED_SHARE) return false
+        if (playingSeconds() < duration * WATCHED_SHARE) return false
         recorded = true
         val store = Store(this)
         if (!store.markWatched(child, videoId) || !earnsTreat) return false
@@ -262,6 +295,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
             put("duration", duration)
             put("finished", finishedVideo)
             put("stalls", stalls)
+            if (savedTreat != null) put("treatUsed", treatUsed)
             PlayerWebView.stats?.let { stats ->
                 put("frames", stats.frames)
                 put("dropped", stats.dropped)
@@ -313,14 +347,20 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         done = true
         js("player.stopVideo();")
         val child = childId
-        if (isTreat && child != null) {
-            // Their treat was used up to play this: give it back, to pick a different one.
-            Store(this).addTreat(child)
+        val saved = savedTreat
+        if (saved != null && child != null && !treatUsed && !started) {
+            // Never got going: swap it for a new treat to pick, as it may never play.
+            val store = Store(this)
+            treatUsed = store.useSavedTreat(child, saved)
+            if (treatUsed) store.addTreat(child)
             EventLog.log("reward.refund", child, subject = videoId) {
                 put("reason", "video.error")
                 put("title", title)
             }
             showCover("🙈", "Oops! This treat won't play.", "Don't worry, you get a new one! Press OK to pick it")
+        } else if (saved != null && !treatUsed) {
+            // Stopped part way: it stays in their Treats to watch again.
+            showCover("🙈", "Oops! Your treat stopped.", "It's still in your Treats. Press OK to try again")
         } else {
             showCover("🙈", "Oops! This one won't play.", "Press OK to choose another")
         }
@@ -329,6 +369,7 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
     private fun finished() {
         done = true
         finishedVideo = true
+        useTreatIfWatched()
         if (recordWatched(PlayerWebView.duration)) {
             showCover("🏆", "All done! You've won a treat!", "Press OK to pick it")
         } else {
@@ -342,7 +383,12 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
         trackPlaying(state)
         lastStateAt = System.currentTimeMillis()
         this.state = state
+        useTreatIfWatched()
+        main.removeCallbacks(unstick)
+        main.removeCallbacks(stuck)
         if (done) return
+        // Stuck loading after it had been playing (the giveUp check only covers the start).
+        if (state == 3 && started) main.postDelayed(unstick, STUCK_MS)
         when (state) {
             0 -> finished()
             2 -> showCover("⏸", "Paused", "Press OK to keep watching")
@@ -355,7 +401,11 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
     override fun onError(code: Int) = cantPlay()
 
-    override fun onStats(stats: PlayerWebView.Stats) = showStats()
+    // Every couple of seconds while it plays.
+    override fun onStats(stats: PlayerWebView.Stats) {
+        useTreatIfWatched()
+        showStats()
+    }
 
     companion object {
         private const val EXTRA_VIDEO_ID = "videoId"
@@ -367,17 +417,21 @@ class PlayerActivity : Activity(), PlayerWebView.Listener {
 
         /** How much of a video has to have actually played for it to count as watched. */
         private const val WATCHED_SHARE = 0.8
+        /** How much of a saved treat has to have actually played for it to be used up. */
+        private const val TREAT_SHARE = 0.75
+        /** How long it can sit loading part way through before a nudge, and then before giving up. */
+        private const val STUCK_MS = 15_000L
         private const val EXTRA_EARNS_TREAT = "earnsTreat"
-        private const val EXTRA_IS_TREAT = "isTreat"
+        private const val EXTRA_SAVED_TREAT = "savedTreat"
 
-        /** [isTreat]: a saved treat, used up to play it, so given back if it won't play. */
-        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earnsTreat: Boolean = false, isTreat: Boolean = false): Intent =
+        /** [savedTreat]: the saved treat's video ID if it is one, used up once most of it has played. */
+        fun intent(context: Context, videoId: String, title: String, channel: String = "", childId: String? = null, earnsTreat: Boolean = false, savedTreat: String? = null): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_VIDEO_ID, videoId)
                 .putExtra(EXTRA_TITLE, title)
                 .putExtra(EXTRA_CHANNEL, channel)
                 .putExtra(EXTRA_CHILD_ID, childId)
                 .putExtra(EXTRA_EARNS_TREAT, earnsTreat)
-                .putExtra(EXTRA_IS_TREAT, isTreat)
+                .putExtra(EXTRA_SAVED_TREAT, savedTreat)
     }
 }

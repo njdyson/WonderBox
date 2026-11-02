@@ -94,4 +94,35 @@ class TreatsTest {
         assertTrue(app.savedTreatsFor("c1").isEmpty())
         assertEquals(2, AppState(context).treatsFor("c1"))
     }
+
+    // A saved treat stays put while it plays; the player takes it out only once most of it has played.
+    @Test fun thePlayerUsesUpASavedTreatOnlyWhenTold() {
+        val app = app()
+        repeat(2) { app.earnTreat("c1") }
+        app.saveTreat("c1", treats[0])
+        app.saveTreat("c1", treats[1])
+        val saved = app.savedTreatsFor("c1")
+        val store = com.njdyson.wonderbox.data.Store(context)
+        // Nothing done by the player (stopped early): both still there.
+        app.reloadFromPlayer()
+        assertEquals(listOf("Bluey", "Gruffalo"), app.savedTreatsFor("c1").map { it.title })
+        // Watched enough of the second one.
+        assertTrue(store.useSavedTreat("c1", saved[1].id))
+        assertFalse(store.useSavedTreat("c1", saved[1].id))
+        assertTrue(app.reloadFromPlayer().isEmpty())
+        assertEquals(listOf("Bluey"), app.savedTreatsFor("c1").map { it.title })
+    }
+
+    // One that won't play at all is swapped for a new treat to pick.
+    @Test fun aTreatThatWontPlayIsSwappedForANewPick() {
+        val app = app()
+        app.earnTreat("c1")
+        app.saveTreat("c1", treats[0])
+        val store = com.njdyson.wonderbox.data.Store(context)
+        assertTrue(store.useSavedTreat("c1", app.savedTreatsFor("c1")[0].id))
+        store.addTreat("c1")
+        assertEquals(setOf("c1"), app.reloadFromPlayer())
+        assertTrue(app.savedTreatsFor("c1").isEmpty())
+        assertEquals(1, app.treatsFor("c1"))
+    }
 }
