@@ -57,6 +57,7 @@ import com.njdyson.wonderbox.games.StoryPart
 import com.njdyson.wonderbox.games.StoryPick
 import com.njdyson.wonderbox.games.StoryPictures
 import com.njdyson.wonderbox.games.StorySetup
+import com.njdyson.wonderbox.games.StorySilliness
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -81,6 +82,7 @@ private val Paper = Color(0xFFFFF6E5)
  * shown on a page (not read aloud: it's read as a whole once the book is made). The server (Gemini) writes the three possible next parts as soon
  * as the pictures are shown, so the chosen one is usually ready; while it isn't, a pencil
  * writes on the page. Without the server, the TV tells a simple story of its own.
+ * When the parent lets them ([StorySetup.choose]), the child first picks how silly the story is.
  * At the end the story is saved, its picture drawn while a brush paints, and [onBook] opens the
  * finished book (picture and pages) to be read in full. If it can't be saved, the last part is
  * read here and the whole story can be heard again.
@@ -104,6 +106,9 @@ fun StoryScreen(
     val setup = child.games.story
     val turns = setup.turns.coerceIn(StorySetup.TURNS.first, StorySetup.TURNS.last)
     val scope = rememberCoroutineScope()
+    // The child picks how silly each story is, if the parent lets them. Only for the server's
+    // stories: the TV's own simple story is the same whatever they pick.
+    val choosesSilly = setup.choose && app.library.stories
 
     var game by remember { mutableIntStateOf(0) }
     var story by remember { mutableStateOf(startParts) }
@@ -113,11 +118,16 @@ fun StoryScreen(
     /** The part being read again at the end, or null. */
     var replaying by remember { mutableStateOf<Int?>(null) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
+    /** How silly this story is: null while the child is still choosing. */
+    var silly by remember { mutableStateOf(if (choosesSilly && startParts.isEmpty()) null else setup.silly) }
+    val pickingSilly = silly == null
     val turn = story.size + 1
     val finished = story.size >= turns
-    val options = remember(game, turn) { if (finished) emptyList() else StoryPictures.options(turn, turns, story.map { it.pick }, random) }
+    val options = remember(game, turn, pickingSilly) {
+        if (finished || pickingSilly) emptyList() else StoryPictures.options(turn, turns, story.map { it.pick }, random)
+    }
     // The server's three possible parts for these pictures, asked for as soon as they're shown.
-    val drafts = remember(game, turn) { CompletableDeferred<List<String>?>() }
+    val drafts = remember(game, turn, silly) { CompletableDeferred<List<String>?>() }
     DisposableEffect(Unit) { onDispose { app.stopSpeaking() } }
 
     LaunchedEffect(game) {
@@ -127,13 +137,21 @@ fun StoryScreen(
                 put("ai", app.library.stories)
             }
             delay(300)
-            app.say("Let's make a story, ${child.name}! ${StoryPictures.question(1, turns)}")
+            app.say("Let's make a story, ${child.name}! ${if (pickingSilly) "How silly should it be?" else StoryPictures.question(1, turns)}")
         }
     }
     LaunchedEffect(drafts) {
         if (options.isEmpty()) return@LaunchedEffect
-        val parts = withTimeoutOrNull(WAIT_MS) { app.storyParts(child.id, story, options) }
+        val parts = withTimeoutOrNull(WAIT_MS) { app.storyParts(child.id, story, options, silly.takeIf { choosesSilly }) }
         drafts.complete(parts)
+    }
+
+    fun pickSilly(key: String) {
+        if (!pickingSilly) return
+        silly = key
+        EventLog.log("story.silly", child.id, subject = key)
+        app.stopSpeaking()
+        app.say(StoryPictures.question(1, turns))
     }
 
     fun pick(index: Int) {
@@ -209,6 +227,7 @@ fun StoryScreen(
     fun newStory() {
         app.stopSpeaking()
         story = emptyList()
+        silly = if (choosesSilly) null else setup.silly
         replaying = null
         writing = false
         startedAt = System.currentTimeMillis()
@@ -227,12 +246,14 @@ fun StoryScreen(
                     binding -> Painting(Modifier.fillMaxSize(), "Drawing the picture for your book…")
                     writing -> Writing("Writing your story…")
                     // The storyteller is still recording this part: the words wait for the voice.
-                    shown == null -> Intro(child)
+                    shown == null -> Intro(child, pickingSilly)
                     else -> PartText(app, shown)
                 }
             }
             if (binding) {
                 // Nothing to pick while the book is made.
+            } else if (pickingSilly) {
+                SillyChoices(app, setup.silly, onPick = ::pickSilly)
             } else if (finished && !writing) {
                 TheEnd(app, story, hasTreats, replaying != null, onHearAgain = ::hearAgain, onNewStory = ::newStory, onPickTreat = onPickTreat, onBack = onBack)
             } else {
@@ -251,11 +272,11 @@ private fun Page(app: AppState, modifier: Modifier, content: @Composable () -> U
 }
 
 @Composable
-private fun Intro(child: Child) {
+private fun Intro(child: Child, pickingSilly: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         EmojiPicture("📖", 84.dp)
         Text("Let's make a story, ${child.name}!", color = Ink, fontSize = 36.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-        Text("Pick a picture, and I'll write what happens.", color = Ink.copy(alpha = 0.7f), fontSize = 24.sp, textAlign = TextAlign.Center)
+        Text(if (pickingSilly) "First, pick how silly your story will be." else "Pick a picture, and I'll write what happens.", color = Ink.copy(alpha = 0.7f), fontSize = 24.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -338,6 +359,22 @@ private fun Choices(app: AppState, child: Child, question: String, options: List
                     // Nothing is said on these: the pictures are enough, and only the storyteller talks.
                     if (i == 0) Modifier.focusRequester(first) else Modifier,
                 ) { onPick(i) }
+            }
+        }
+    }
+}
+
+/** How silly the story is: three faces, the parent's setting picked first. */
+@Composable
+private fun SillyChoices(app: AppState, first: String, onPick: (String) -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocusWhenReady() }
+    val start = StorySilliness.ALL.indexOfFirst { it.key == first }.coerceAtLeast(0)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("How silly should it be?", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            StorySilliness.ALL.forEachIndexed { i, level ->
+                PictureCard(app, StoryPick(level.label, level.picture), true, if (i == start) Modifier.focusRequester(focus) else Modifier) { onPick(level.key) }
             }
         }
     }

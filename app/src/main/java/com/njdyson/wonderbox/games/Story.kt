@@ -8,17 +8,35 @@ const val STORY = "story"
 
 /**
  * A child's story maker, set in the phone app: how old they are (each part is longer and a
- * little harder for an older child) and how many pictures they pick in a story.
+ * little harder for an older child), how many pictures they pick in a story, and how silly it
+ * is ([silly]: "nice", "silly" or "very"). With [choose] the child picks how silly at the start
+ * of each story, [silly] picked to begin with.
  */
 @Serializable
 data class StorySetup(
     val on: Boolean = true,
     val age: Int = 5,
     val turns: Int = 5,
+    val silly: String = SILLY,
+    val choose: Boolean = true,
 ) {
     companion object {
         val AGES = 3..9
         val TURNS = 3..10
+        const val NICE = "nice"
+        const val SILLY = "silly"
+        const val VERY = "very"
+    }
+}
+
+/** How silly a story can be, as the child picks it on the TV: the setting, its picture and its name. */
+data class StorySilliness(val key: String, val picture: String, val label: String) {
+    companion object {
+        val ALL = listOf(
+            StorySilliness(StorySetup.NICE, "🙂", "Not silly"),
+            StorySilliness(StorySetup.SILLY, "😄", "A bit silly"),
+            StorySilliness(StorySetup.VERY, "🤪", "Very silly"),
+        )
     }
 }
 

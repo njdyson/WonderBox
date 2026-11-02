@@ -112,7 +112,7 @@ class ScreenshotsTest {
         Photo("p1video", "/api/wonder/photos/p1video/image", "/api/wonder/photos/p1video/thumb", 1280, 720, listOf(summer.id), video = "/api/wonder/photos/p1video/video", duration = 125.0),
     )
 
-    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false, withVideos: Boolean = false, season: Season? = null): AppState {
+    private fun app(withPhotos: Boolean = false, menuPictures: Boolean = false, withVideos: Boolean = false, season: Season? = null, stories: Boolean = false): AppState {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (withPhotos || menuPictures) fakePhotos(context)
         val titles = listOf("Peppa Pig: Muddy Puddles", "Numberblocks: Counting to Ten", "Hey Duggee and the Bug Badge", "Bluey: Keepy Uppy", "Alphablocks: Phonics Song", "The Gruffalo", "Room on the Broom, read aloud", "Maddie Moate: How Do Bees Make Honey?", "Numberblocks: Make Ten", "Octonauts and the Whale Shark", "Blippi Visits a Farm", "Cosmic Kids Yoga: Squish the Fish")
@@ -121,7 +121,7 @@ class ScreenshotsTest {
         }
         context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit()
             .putString("device_key", "k")
-            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse).map { if (season != null) it.inSeason(season) else it }, quizzes = quizzes, videos = videos, photoQuiz = true, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
+            .putString("library", json.encodeToString(Library.serializer(), Library(children = listOf(summer, jesse).map { if (season != null) it.inSeason(season) else it }, quizzes = quizzes, videos = videos, photoQuiz = true, stories = stories, menuPictures = if (menuPictures) MENU_STAND_INS.keys.associateWith { "/api/wonder/menu-pictures/$it" } else emptyMap())))
             .putString("photos", json.encodeToString(Photos.serializer(), Photos((if (withVideos) homeVideos else emptyList()) + (if (withPhotos) photos else emptyList()))))
             .commit()
         return AppState(context)
@@ -566,6 +566,14 @@ class ScreenshotsTest {
         compose.setContent { WonderBoxTheme { StoryScreen(app, summer.copy(games = summer.games.copy(story = StorySetup(turns = 4))), false, {}, {}, {}, random = Random(1)) } }
         settle()
         shoot("story-start")
+    }
+
+    // With the server writing stories, the child first picks how silly it is.
+    @Test fun storySilly() {
+        val app = app(stories = true)
+        compose.setContent { WonderBoxTheme { StoryScreen(app, summer.copy(games = summer.games.copy(story = StorySetup(turns = 4))), false, {}, {}, {}, random = Random(1)) } }
+        settle()
+        shoot("story-silly")
     }
 
     @Test fun storyPart() {

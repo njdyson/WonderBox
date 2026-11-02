@@ -305,11 +305,13 @@ class Server(private val baseUrl: String, private val deviceKey: String) {
     /**
      * The three possible next parts of [childId]'s story, one for each of [options] (words), in
      * that order. [story] is the parts so far as (word, text). A part that didn't come out
-     * right is "".
+     * right is "". [silly] is how silly the child chose ("nice", "silly" or "very"), or null for
+     * the parent's setting.
      */
-    fun story(childId: String, story: List<Pair<String, String>>, options: List<String>): List<String> {
+    fun story(childId: String, story: List<Pair<String, String>>, options: List<String>, silly: String? = null): List<String> {
         val body = buildJsonObject {
             put("child", childId)
+            if (silly != null) put("silly", silly)
             put("story", JsonArray(story.map { (word, text) -> buildJsonObject { put("word", word); put("text", text) } }))
             put("options", JsonArray(options.map { JsonPrimitive(it) }))
         }

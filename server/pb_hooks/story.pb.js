@@ -1,17 +1,18 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // POST /api/wonder/story, from a linked TV (X-Device-Key) or the signed-in parent:
-// {child, turn, story: [{word, text}], options: [word, word, word]} → {parts: [{word, text}]},
+// {child, turn, story: [{word, text}], options: [word, word, word], silly} → {parts: [{word, text}]},
 // the three possible next parts of the child's story, one for each picture (story_lib.js).
 // A part with text "" didn't come out right: the TV tells that one itself. 503 when the
-// server has no Gemini key.
+// server has no Gemini key. [silly] is how silly the child chose on the TV ("nice", "silly" or
+// "very"); it only counts when the parent lets them choose, otherwise the parent's setting is used.
 routerAdd("POST", "/api/wonder/story", (e) => {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   const stories = require(`${__hooks}/story_lib.js`)
   const user = lib.caller(e)
   const body = e.requestInfo().body || {}
   const child = lib.own("children", body.child, user.id)
-  const setup = lib.games(child).story
+  const setup = stories.withChoice(lib.games(child).story, body.silly)
   const options = (Array.isArray(body.options) ? body.options : []).map(stories.cleanWord).filter(Boolean).slice(0, 4)
   if (!options.length) throw new BadRequestError("No pictures to write about.")
   const story = (Array.isArray(body.story) ? body.story : []).slice(0, stories.MAX_TURNS)

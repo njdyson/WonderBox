@@ -340,11 +340,11 @@ class AppState(context: Context) {
      * each of [options]; "" for one that didn't come out right. Null when the server can't write
      * stories (no key) or can't be reached: the TV then tells a simple story itself.
      */
-    suspend fun storyParts(childId: String, story: List<StoryPart>, options: List<StoryPick>): List<String>? {
+    suspend fun storyParts(childId: String, story: List<StoryPart>, options: List<StoryPick>, silly: String? = null): List<String>? {
         val key = deviceKey ?: return null
         if (!library.stories) return null
         return runCatching {
-            withContext(Dispatchers.IO) { Server(serverUrl, key).story(childId, story.map { it.pick.word to it.text }, options.map { it.word }) }
+            withContext(Dispatchers.IO) { Server(serverUrl, key).story(childId, story.map { it.pick.word to it.text }, options.map { it.word }, silly) }
         }.getOrNull()
     }
 
