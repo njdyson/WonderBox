@@ -164,12 +164,15 @@ class MainActivity : ComponentActivity() {
                 }
                 return true
             }
-            // [savedTreat]: one of their saved treats, used up to play it; the player gives it back if it won't play.
+            // [savedTreat]: one of their saved treats. The player takes it out of the Treats section
+            // once most of it has played, or swaps it for a new pick if it won't play at all.
             fun play(video: Video, childId: String, savedTreat: Boolean = false) {
                 app.stopSpeaking()
                 // Watching a whole free video (not music, not a treat) can win a treat, if the parent chose that.
                 val earns = !video.isTreat && !video.isMusic && earnsTreat(childId, GameSettings.VIDEOS)
-                startActivity(PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns, savedTreat))
+                startActivity(
+                    PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns, savedTreat = if (savedTreat) video.id else null),
+                )
             }
             // Back from a video: tick it if it was watched all through, and pick the treat if that won
             // one, or if it was a treat that wouldn't play (they get a new one instead).
@@ -274,7 +277,7 @@ class MainActivity : ComponentActivity() {
                             if (child == null || catalogue.isEmpty()) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                // Only the treats they've won and picked; watching one uses it up.
+                                // Only the treats they've won and picked; watching most of one uses it up.
                                 VideosScreen(
                                     app,
                                     child,
@@ -282,10 +285,7 @@ class MainActivity : ComponentActivity() {
                                     app.treatsSectionFor(child.id),
                                     stars = true,
                                     empty = "Win a quiz to save up a treat!",
-                                    onPlay = { video ->
-                                        app.useSavedTreat(child.id, video)
-                                        play(video, child.id, savedTreat = true)
-                                    },
+                                    onPlay = { video -> play(video, child.id, savedTreat = true) },
                                 )
                             }
                         }
