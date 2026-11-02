@@ -732,6 +732,28 @@ try:
     call("POST", "/api/wonder/stories/remove", {"id": story["id"]}, device_key=key, expect=401)
     assert call("POST", "/api/wonder/stories/remove", {"id": story["id"]}, token)["stories"] == []
 
+    # Treats given from the phone app wait until one TV claims each one.
+    assert call("GET", "/api/wonder/treats/gifts", device_key=key) == {"gifts": []}
+    given = call("POST", "/api/wonder/treats/give", {"child": sam, "video": "abc123", "title": "A treat"}, token)
+    assert [(g["child"], g["video"], g["title"]) for g in given["gifts"]] == [(sam, "abc123", "A treat")] and given["recent"] == [], given
+    assert given["gifts"][0]["by"], "who gave it"
+    pick = call("POST", "/api/wonder/treats/give", {"child": sam}, token)["gifts"][1]
+    assert pick["video"] == "", pick
+    call("POST", "/api/wonder/treats/give", {"child": "nope"}, token, expect=404)
+    call("POST", "/api/wonder/treats/give", {"child": sam}, device_key=key, expect=401)
+    waiting = call("GET", "/api/wonder/treats/gifts", device_key=key)
+    assert [g["id"] for g in waiting["gifts"]] == [given["gifts"][0]["id"], pick["id"]] and "recent" not in waiting, waiting
+    call("POST", "/api/wonder/treats/claim", {"id": pick["id"]}, token, expect=401)
+    got = call("POST", "/api/wonder/treats/claim", {"id": given["gifts"][0]["id"]}, device_key=key)["gift"]
+    assert got["video"] == "abc123", got
+    assert call("POST", "/api/wonder/treats/claim", {"id": given["gifts"][0]["id"]}, device_key=key)["gift"] is None, "only once"
+    assert call("POST", "/api/wonder/treats/claim", {"id": "nope"}, device_key=key)["gift"] is None
+    call("POST", "/api/wonder/treats/cancel", {"id": given["gifts"][0]["id"]}, token, expect=400)
+    listed = call("GET", "/api/wonder/treats/gifts", token=token)
+    assert [g["id"] for g in listed["gifts"]] == [pick["id"]] and listed["recent"][0]["tv"] == "Living room", listed
+    assert call("POST", "/api/wonder/treats/cancel", {"id": pick["id"]}, token)["gifts"] == []
+    assert call("GET", "/api/wonder/treats/gifts", device_key=key) == {"gifts": []}
+
     # The photo quiz: off until the parent turns it on (it sends the photos to Gemini). Gemini
     # writes nine questions per photo; tests/fake_gemini.py stands in for it when GEMINI_URL
     # points at it, otherwise there's no key and it's 503.

@@ -12,6 +12,7 @@ import com.njdyson.wonderbox.data.Server
 import com.njdyson.wonderbox.data.Store
 import com.njdyson.wonderbox.data.UnlinkedException
 import com.njdyson.wonderbox.data.Shelf
+import com.njdyson.wonderbox.data.TreatGift
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.AutoLevel
@@ -239,6 +240,44 @@ class AppState(context: Context) {
         reportTreats()
     }
 
+    /**
+     * Takes the treats a grown-up gave from the phone app for children on this TV, one at a
+     * time: each is claimed first, so only one TV gets it, then added ([receiveGift]).
+     */
+    private suspend fun collectGifts(server: Server) {
+        val gifts = withContext(Dispatchers.IO) { server.treatGifts() }
+        for (gift in gifts) {
+            if (library.children.none { it.id == gift.child }) continue
+            val got = withContext(Dispatchers.IO) { server.claimTreat(gift.id) } ?: continue
+            receiveGift(got)
+        }
+    }
+
+    /**
+     * A treat from the phone app: the video straight into the child's Treats section, or, when
+     * there's no video or it isn't one of their treats any more, a treat for them to pick.
+     */
+    fun receiveGift(gift: TreatGift) {
+        val childId = gift.child
+        val treatVideos = library.treatShelvesFor(childId).flatMap { it.videos }
+        val video = gift.video.takeIf { it.isNotBlank() }?.let { wanted ->
+            treatVideos.firstOrNull { it.id == wanted } ?: treatVideos.firstOrNull { it.youtubeId == wanted.substringAfterLast("/") }
+        }
+        if (video != null) {
+            savedTreats = savedTreats + (childId to savedTreats[childId].orEmpty() + video.id)
+            store.savedTreats = savedTreats
+        } else {
+            treats = treats + (childId to treatsFor(childId) + 1)
+            store.treats = treats
+        }
+        EventLog.log("reward.gift", childId, subject = video?.youtubeId ?: "treat") {
+            put("title", video?.title.orEmpty())
+            put("by", gift.by)
+            put("gift", gift.id)
+        }
+        reportTreats()
+    }
+
     /** The games' sound effects. */
     val sounds = Sounds(context.applicationContext)
 
@@ -269,6 +308,8 @@ class AppState(context: Context) {
                 stories = it
                 store.stories = it
             }
+            // Treats given from the phone app. A server without them yet just fails here.
+            runCatching { collectGifts(server) }
         } catch (e: UnlinkedException) {
             forgetLink()
         } catch (e: Exception) {
