@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -44,13 +45,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
+import androidx.tv.material3.LocalTextStyle
 import androidx.tv.material3.Text
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.EventLog
@@ -113,18 +120,20 @@ fun GameScreen(
             }, onBack = onBack, app = app, levelUp = levelUp)
         } else {
             Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(52.dp).background(color, CircleShape), contentAlignment = Alignment.Center) {
                         QuizPicture(app, entry.icon, 36.dp)
                     }
-                    Text(entry.title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
-                    // The mystery quiz: which game this question is from, revealed as it's asked.
-                    mysteryGame(question)?.let { game -> MysteryReveal(app, game, question) }
-                    Box(Modifier.weight(1f))
+                    // The title gives way (cut short with "…") before the stars, which must always show.
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        HeaderTitle(entry.title, Modifier.weight(1f, fill = false))
+                        // The mystery quiz: which game this question is from, revealed as it's asked.
+                        mysteryGame(question)?.let { game -> MysteryReveal(app, game, question) }
+                    }
                     // Nothing can speak on this TV: say so, rather than leave a silent game.
                     if (app.voice.silent) Text("🔇 No voice on this TV: see Grown-ups", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp)
                     // Up from the answers: the question again, for spelling a word from its sound.
-                    if (question.spoken.isNotBlank()) BigButton("🔊 Hear it again", Modifier) { app.say(question.spoken) }
+                    if (question.spoken.isNotBlank()) HeaderButton("🔊 Hear it again") { app.say(question.spoken) }
                     Progress(right, goal)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -195,12 +204,22 @@ private fun MysteryReveal(app: AppState, game: Game, question: Question) {
     }
 }
 
-/** One star per right answer still to get, filled in as they're won. */
+/** A game's name at the top of its screen, on one line, cut short with "…" if the header is crowded. */
+@Composable
+internal fun HeaderTitle(title: String, modifier: Modifier = Modifier) {
+    Text(title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false, modifier = modifier)
+}
+
+/**
+ * One star per right answer still to get, filled in as they're won; a count once there are too
+ * many to fit. Header rows measure it before the title, so it's never pushed off the screen.
+ */
 @Composable
 internal fun Progress(right: Int, goal: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (goal <= 15) {
-            repeat(goal) { i -> Text("★", fontSize = 26.sp, color = if (i < right) Tangerine else Color.White.copy(alpha = 0.18f)) }
+    Row(horizontalArrangement = Arrangement.spacedBy(if (goal > 8) 0.dp else 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (goal <= 12) {
+            val size = if (goal > 8) 21.sp else 26.sp
+            repeat(goal) { i -> Text("★", fontSize = size, softWrap = false, color = if (i < right) Tangerine else Color.White.copy(alpha = 0.18f)) }
         } else {
             Text("★ $right / $goal", fontSize = 26.sp, color = Tangerine, fontWeight = FontWeight.Bold)
         }
@@ -290,7 +309,8 @@ internal fun Asking(app: AppState, child: Child, q: Question, onAnswer: (choice:
                     wide = choice.length > 3,
                     faded = gone || (correct && !isRightPick),
                     highlight = isRightPick,
-                    modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
+                    // An equal share of the width each, so the last answer isn't squeezed.
+                    modifier = Modifier.weight(1f, fill = false).then(if (i == 0) Modifier.focusRequester(first) else Modifier),
                     picture = if (pictureAnswers) q.choicePictures.getOrElse(i) { "" } else null,
                     app = app,
                     // Four picture buttons only fit across the screen a little smaller.
@@ -453,13 +473,14 @@ private fun AnswerButton(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(5.dp, Color.White), shape = RoundedCornerShape(28.dp))),
     ) {
-        Text(
+        // Shrinks to fit the button, so "half past 12" never wraps over itself or runs out of it.
+        FitText(
             text,
-            fontSize = if (text.length > 12) 30.sp else if (wide) 44.sp else 60.sp,
+            maxSize = if (text.length > 12) 30.sp else if (wide) 44.sp else 60.sp,
+            minSize = 18.sp,
             maxLines = 2,
-            textAlign = TextAlign.Center,
             fontWeight = FontWeight.Black,
-            modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+            modifier = Modifier.align(Alignment.Center).padding(horizontal = 20.dp, vertical = 8.dp),
         )
     }
 }
@@ -500,7 +521,14 @@ internal fun Finished(child: Child, hasTreats: Boolean, onPickTreat: () -> Unit,
 }
 
 @Composable
-fun BigButton(text: String, modifier: Modifier, onClick: () -> Unit) {
+fun BigButton(text: String, modifier: Modifier, onClick: () -> Unit) = BigButton(text, modifier, small = false, onClick)
+
+/** A [BigButton] a little smaller, for a crowded header row (the games' "Hear it again"). */
+@Composable
+fun HeaderButton(text: String, onClick: () -> Unit) = BigButton(text, Modifier, small = true, onClick)
+
+@Composable
+private fun BigButton(text: String, modifier: Modifier, small: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = modifier,
@@ -513,6 +541,53 @@ fun BigButton(text: String, modifier: Modifier, onClick: () -> Unit) {
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
     ) {
-        Text(text, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp))
+        Text(
+            text,
+            fontSize = if (small) 22.sp else 26.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.padding(horizontal = if (small) 18.dp else 32.dp, vertical = if (small) 10.dp else 14.dp),
+        )
+    }
+}
+
+/**
+ * [text] as big as it can be, up to [maxSize], and still fit where it's put: on one line if it
+ * can stay fairly big that way, else on up to [maxLines] lines broken only between words.
+ */
+@Composable
+fun FitText(
+    text: String,
+    maxSize: TextUnit,
+    minSize: TextUnit,
+    maxLines: Int,
+    fontWeight: FontWeight,
+    modifier: Modifier = Modifier,
+) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val limit = Constraints(maxWidth = constraints.maxWidth, maxHeight = constraints.maxHeight)
+        // Measured just as it's drawn: the theme's text style, at each size tried.
+        val base = LocalTextStyle.current.merge(TextStyle(fontWeight = fontWeight, textAlign = TextAlign.Center))
+        fun style(sp: Float) = base.merge(TextStyle(fontSize = sp.sp, lineHeight = (sp * 1.1f).sp))
+        val (size, lines) = remember(text, maxSize, minSize, maxLines, limit, base) {
+            fun fits(sp: Float, lines: Int): Boolean {
+                val layout = measurer.measure(
+                    text,
+                    style(sp),
+                    maxLines = lines,
+                    constraints = limit,
+                )
+                if (layout.hasVisualOverflow) return false
+                // A word broken across lines doesn't fit either.
+                return (0 until layout.lineCount - 1).all { i -> text.getOrNull(layout.getLineEnd(i) - 1)?.isWhitespace() == true }
+            }
+            val sizes = generateSequence(maxSize.value) { it - 2f }.takeWhile { it >= minSize.value }.toList()
+            sizes.firstOrNull { it >= maxSize.value * 0.7f && fits(it, 1) }?.let { it to 1 }
+                ?: sizes.firstOrNull { fits(it, maxLines) }?.let { it to maxLines }
+                ?: (minSize.value to maxLines)
+        }
+        Text(text, style = style(size), maxLines = lines, softWrap = lines > 1, overflow = TextOverflow.Ellipsis)
     }
 }
