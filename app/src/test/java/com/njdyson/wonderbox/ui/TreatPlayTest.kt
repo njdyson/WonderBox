@@ -51,7 +51,7 @@ class TreatPlayTest {
         compose.setContent {
             WonderBoxTheme {
                 VideosScreen(app, child, "Treats", app.treatsSectionFor("c1"), stars = true, onPlay = { video ->
-                    // As MainActivity does: used up, then PlayerActivity takes the player.
+                    // Taken out of the grid while it plays (the player does that once most of it has played).
                     app.useSavedTreat("c1", video)
                     PlayerWebView.take(context, video.youtubeId, object : PlayerWebView.Listener {
                         override fun onState(state: Int) {}

@@ -110,6 +110,8 @@ class AppState(context: Context) {
      */
     fun reloadFromPlayer(): Set<String> {
         watched = store.watched.mapValues { it.value.toSet() }
+        // A saved treat leaves the Treats section only once most of it has played.
+        savedTreats = store.savedTreats
         val fresh = store.treats
         val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
         treats = fresh
@@ -229,13 +231,14 @@ class AppState(context: Context) {
         return true
     }
 
-    /** Takes a saved treat (one from [savedTreatsFor]) out of the Treats section, as it's watched. */
+    /**
+     * Takes a saved treat (one from [savedTreatsFor]) out of the Treats section. The player
+     * does this itself (Store.useSavedTreat) once enough of it has played; this is the same
+     * from the main screen.
+     */
     fun useSavedTreat(childId: String, saved: Video) {
-        val index = saved.id.split("/").getOrNull(1)?.toIntOrNull() ?: return
-        val list = savedTreats[childId].orEmpty()
-        if (index !in list.indices) return
-        savedTreats = savedTreats + (childId to list.filterIndexed { i, _ -> i != index })
-        store.savedTreats = savedTreats
+        if (!store.useSavedTreat(childId, saved.id)) return
+        savedTreats = store.savedTreats
         reportTreats()
     }
 

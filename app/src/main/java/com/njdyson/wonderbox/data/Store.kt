@@ -74,6 +74,27 @@ class Store(context: Context) {
         prefs.edit().putString("treats", json.encodeToString(MapSerializer(String.serializer(), Int.serializer()), now + (childId to (now[childId] ?: 0) + 1))).commit()
     }
 
+    /**
+     * Takes one saved treat out of [childId]'s Treats section, once it has been watched (or, if
+     * it won't play, to give a new one to pick instead). [savedId] is the saved video's ID,
+     * "saved/<n>/<id>" (ui/AppState.kt savedTreatsFor). Called from the player, so it writes
+     * straight away for the main screen to read on its return. False if it wasn't there.
+     */
+    fun useSavedTreat(childId: String, savedId: String): Boolean {
+        val parts = savedId.split("/", limit = 3)
+        val index = parts.getOrNull(1)?.toIntOrNull() ?: return false
+        val id = parts.getOrNull(2) ?: return false
+        val all = savedTreats
+        val mine = all[childId].orEmpty()
+        if (mine.getOrNull(index) != id) return false
+        val left = mine.filterIndexed { i, _ -> i != index }
+        prefs.edit().putString(
+            "saved_treats",
+            json.encodeToString(MapSerializer(String.serializer(), ListSerializer(String.serializer())), all + (childId to left)),
+        ).commit()
+        return true
+    }
+
     /** How the last rounds went at each auto-level game's level, by "<child>/<game>" (games/AutoLevel.kt). */
     var autoHistory: Map<String, String>
         get() = prefs.getString("auto_history", null)?.let {
