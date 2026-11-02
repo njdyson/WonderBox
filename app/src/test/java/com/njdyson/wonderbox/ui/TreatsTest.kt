@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.njdyson.wonderbox.data.Child
 import com.njdyson.wonderbox.data.Library
 import com.njdyson.wonderbox.data.TREAT
+import com.njdyson.wonderbox.data.TreatGift
 import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.json
 import org.junit.Assert.assertEquals
@@ -73,6 +74,25 @@ class TreatsTest {
         assertEquals(1, app.treatsFor("c1"))
         assertEquals(setOf("yt1"), app.watchedFor("c1"))
         assertTrue(app.reloadFromPlayer().isEmpty())
+    }
+
+    // A grown-up gives a treat from the phone app.
+    @Test fun aGiftedVideoGoesStraightIntoTheirTreats() {
+        val app = app()
+        app.receiveGift(TreatGift("g1", "c1", video = "t2", by = "nick@example.com"))
+        assertEquals(0, app.treatsFor("c1"))
+        assertEquals(listOf("Gruffalo"), app.savedTreatsFor("c1").map { it.title })
+        // Written through, so it's kept on the TV and survives the player coming back.
+        assertEquals(listOf("Gruffalo"), AppState(context).savedTreatsFor("c1").map { it.title })
+    }
+
+    @Test fun aGiftWithNoVideoOrAGoneOneIsATreatToPick() {
+        val app = app()
+        app.receiveGift(TreatGift("g1", "c1"))
+        app.receiveGift(TreatGift("g2", "c1", video = "removed"))
+        assertEquals(2, app.treatsFor("c1"))
+        assertTrue(app.savedTreatsFor("c1").isEmpty())
+        assertEquals(2, AppState(context).treatsFor("c1"))
     }
 
     // A saved treat stays put while it plays; the player takes it out only once most of it has played.

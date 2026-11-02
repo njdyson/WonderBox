@@ -261,6 +261,20 @@ data class SavedStoryPart(val word: String = "", val picture: String = "", val t
 @Serializable
 data class SavedStories(val stories: List<SavedStory> = emptyList(), val saved: String = "")
 
+/**
+ * A treat a grown-up gave from the phone app (GET /api/wonder/treats/gifts): [video] is the id
+ * of one of the child's treat videos (a [Video.id], as in [Library.shelvesFor]), or "" for a
+ * treat they pick themselves. [by] is who gave it.
+ */
+@Serializable
+data class TreatGift(val id: String, val child: String, val video: String = "", val title: String = "", val by: String = "")
+
+@Serializable
+data class TreatGifts(val gifts: List<TreatGift> = emptyList())
+
+@Serializable
+data class ClaimedGift(val gift: TreatGift? = null)
+
 /** Thrown when the server no longer accepts this TV's key (it was unlinked from the phone app). */
 class UnlinkedException : Exception("This TV was unlinked")
 
@@ -335,6 +349,14 @@ class Server(private val baseUrl: String, private val deviceKey: String) {
     /** The photos [childId] can be quizzed on, with their questions. */
     fun photoQuiz(childId: String): List<PhotoQuizPhoto> =
         json.decodeFromString(PhotoQuizPhotos.serializer(), request(baseUrl, "/api/wonder/photo-quiz?child=${URLEncoder.encode(childId, "UTF-8")}", deviceKey = deviceKey)).photos
+
+    /** Treats given from the phone app that no TV has taken yet, oldest first. */
+    fun treatGifts(): List<TreatGift> =
+        json.decodeFromString(TreatGifts.serializer(), request(baseUrl, "/api/wonder/treats/gifts", deviceKey = deviceKey)).gifts
+
+    /** Takes gift [id] for this TV; null when another TV already has it. */
+    fun claimTreat(id: String): TreatGift? =
+        json.decodeFromString(ClaimedGift.serializer(), request(baseUrl, "/api/wonder/treats/claim", buildJsonObject { put("id", id) }, deviceKey)).gift
 
     fun forget() {
         request(baseUrl, "/api/wonder/devices/forget", JsonObject(emptyMap()), deviceKey)

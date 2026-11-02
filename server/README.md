@@ -5,8 +5,8 @@ children and their videos, serves the phone app, and lets TVs link to the accoun
 
 | Folder | What it is |
 |---|---|
-| `pb_migrations/` | Database setup: `children` (with game levels and setups), `quizzes` and `quiz_images`, `videos`, `channels`, `photos`, `devices` (linked TVs, with the build each runs), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
-| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos and home videos (`photos.pb.js`, `home_video_lib.js`), quizzes and their pictures (`quizzes.pb.js`), linking TVs, the activity log, and a job that fetches channels' new videos every six hours. |
+| `pb_migrations/` | Database setup: `children` (with game levels and setups), `quizzes` and `quiz_images`, `videos`, `channels`, `photos`, `devices` (linked TVs, with the build each runs), `treat_gifts` (treats given from the phone app, waiting for a TV), `pairings` (link codes), `events` (the activity log, see [EVENTS.md](EVENTS.md)). No public sign-up. |
+| `pb_hooks/` | The API under `/api/wonder/…`: children, checking and adding videos and channels, family photos and home videos (`photos.pb.js`, `home_video_lib.js`), quizzes and their pictures (`quizzes.pb.js`), linking TVs, treats given from the phone app (`treats.pb.js`), the activity log, and a job that fetches channels' new videos every six hours. |
 | `pb_public/` | The phone app (PWA): sign in, paste a YouTube video or channel link, choose who it's for, mark it as music or a treat, order and remove, each child's games and the parent's quizzes (`quizzes.js`, with the clipart catalogue in `clipart/`), family photos, stats (`stats.js`), linked TVs, the TV menu pictures (`menu.js`). |
 | `deploy/` | Install script and the nginx snippet for Plesk. |
 | `tests/` | `api_test.py`: checks every route against a running server. |
