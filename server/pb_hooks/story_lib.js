@@ -29,8 +29,11 @@ function lengthFor(age) {
   return { sentences: "three or four sentences", words: 65 }
 }
 
-// How silly the story is (the parent picks on the phone, games_lib.js STORY_SILLY): what the
-// writer is told, how the middle and last parts should go, and how adventurous Gemini can be.
+// How silly the story is (the child picks on the TV, or the parent on the phone; games_lib.js
+// STORY_SILLY): what the writer is told, how the middle and last parts should go, and how
+// adventurous Gemini can be. The silly ones are still told to make sense: silly stories used to
+// drift into random nonsense, so the silliness comes from one or two funny ideas that carry
+// through a story with a goal, and the temperature stays modest.
 const TONES = {
   nice: {
     style: "short, gentle and happy",
@@ -42,28 +45,40 @@ const TONES = {
   silly: {
     style: "short, happy and a bit silly, to make them giggle",
     feel: [
-      "- Cheerful and a bit silly, like a funny picture book: things go a little wrong in a harmless way, characters do daft things (a cow on a scooter, a teapot with hiccups), and there are fun sound words like boing, splat and wheee. Put at least one giggle in every part.",
+      "- Cheerful and a bit silly, like a funny picture book: things go a little wrong in a harmless way, characters do daft things (a cow on a scooter, a teapot with hiccups), and there are fun sound words like boing, splat and wheee. Put a giggle in every part.",
+      "- The silliness happens inside a story that makes sense: the hero wants something, the funny moments come from trying to get it, and they get it in the end.",
       "- Still kind and cosy. Nothing scary, violent, sad, mean, rude, romantic or grown-up. No danger, villains, injuries, illness, death, monsters or getting lost. Nobody is ever laughed at unkindly.",
     ].join("\n"),
     middle: "Something funny and a bit silly happens",
     ending: "a happy, funny ending",
-    temperature: 1.0,
+    temperature: 0.95,
   },
   very: {
     style: "short, happy and VERY silly, to make them laugh out loud",
     feel: [
-      "- Ridiculous, giggly nonsense, as silly as you can make it: everything goes delightfully wrong, things are upside down, enormous or wobbly, characters wear pants on their heads, sneeze glitter, burp, do a little parp, or slip on jelly. Use funny made-up words and sound words (splodge, parp, boing, kerSPLAT). Make every part funnier than the last.",
+      "- Very silly, like the funniest picture book: things go delightfully wrong, things are upside down, enormous or wobbly, characters wear pants on their heads, sneeze glitter, burp, do a little parp, or slip on jelly. Sound words (splodge, parp, boing, kerSPLAT) are great.",
+      "- But it is still a proper story a child can follow. The hero wants one thing, and each silly thing happens because of what came before and leads to the next. Build on one or two funny ideas that keep coming back (a running joke) rather than a new random thing in every sentence.",
+      "- Once something is true in the story it stays true (if the hat is a jelly, it's still a jelly later). Every sentence makes sense read aloud: real words, with at most one made-up word in a part.",
       "- Silly, never nasty: no bad words, nobody is hurt, sad or laughed at unkindly. Nothing scary, violent, romantic or grown-up. No danger, villains, injuries, illness, death or monsters.",
     ].join("\n"),
-    middle: "Something completely ridiculous and very funny happens",
+    middle: "Something ridiculous and very funny happens, as a result of what happened before",
     ending: "a happy, very funny ending, with one last big laugh",
-    temperature: 1.1,
+    temperature: 1.0,
   },
 }
 
 /** The tone for setting [silly]: "nice", "silly" (a bit silly) or "very" (very silly). */
 function toneOf(silly) {
   return TONES[silly] || TONES.silly
+}
+
+/**
+ * The child's story [setup] with [picked], how silly the child chose on the TV, when the parent
+ * lets them choose ([setup.choose]) and it's one of the tones; otherwise [setup] as it is.
+ */
+function withChoice(setup, picked) {
+  if (!setup.choose || !Object.prototype.hasOwnProperty.call(TONES, picked)) return setup
+  return Object.assign({}, setup, { silly: picked })
 }
 
 /** A picture's word as sent by the TV: plain lower-case words only, so nothing else gets into the prompt. */
@@ -80,9 +95,9 @@ function cleanPart(text) {
 /** What this part of the story is for: who it's about, where they go, what they find, how it ends. */
 function roleOf(turn, turns, word, tone) {
   const t = tone || TONES.nice
-  if (turn === 1) return `Begin the story with "Once upon a time". The hero is a ${word}: give them a friendly name.`
+  if (turn === 1) return `Begin the story with "Once upon a time". The hero is a ${word}: give them a friendly name, and something they want or want to do, which the story is about.`
   if (turn === 2) return `The hero sets off and goes to (or arrives at) the ${word}.`
-  if (turn === turns) return `This is the last part. Bring the story to ${t.ending} that involves the ${word}. The final sentence should feel like an ending, but don't write "The end".`
+  if (turn === turns) return `This is the last part. Bring the story to ${t.ending} that involves the ${word} and gives the hero what they wanted. The final sentence should feel like an ending, but don't write "The end".`
   return `${t.middle} with a ${word}. Leave a little curiosity about what happens next.`
 }
 
@@ -110,6 +125,7 @@ function write(userId, child, setup, turn, turns, story, options) {
     `- Each part is ${length.sentences}, at most ${length.words} words. No title, no lists, no emoji.`,
     `- Now and then, ${name} can be a friend who helps in the story, but the hero is the character from the first picture.`,
     "- Keep the same hero, names and details as the story so far.",
+    "- The story must make sense: each part follows on from the one before, and things happen for a reason a child can understand.",
   ].join("\n")
   const sofar = story.length
     ? "The story so far:\n" + story.map((p) => p.text).join("\n")
@@ -309,6 +325,6 @@ function drawNow(id, userId) {
 }
 
 module.exports = {
-  available, write, parse, check, cleanWord, cleanPart, lengthFor, toneOf, roleOf, MAX_TURNS, DAILY_LIMIT,
+  available, write, parse, check, cleanWord, cleanPart, lengthFor, toneOf, withChoice, roleOf, MAX_TURNS, DAILY_LIMIT,
   save, storyList, titleOf, draw, drawPending, drawNow,
 }

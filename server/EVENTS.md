@@ -59,6 +59,7 @@ about it.
 | `memory.finish` | `memory` | pairs | `pairs`, `flips` (cards turned), `pictures`, `seconds` | Every pair is found. |
 | `photoquiz.start` | photo id | | `look` (seconds to look), `questions` | A photo quiz round starts: the photo is shown, then hidden for the questions. |
 | `story.start` | `story` | | `turns`, `ai` (the server can write with Gemini) | A new story in the story maker. |
+| `story.silly` | `nice`, `silly` or `very` | | | The child picked how silly the new story is (only when the parent lets them choose). |
 | `story.pick` | the picture's word | which part (1 to turns) | `waited` (milliseconds the child waited for the writing), `ai` (written by Gemini, not the TV's simple story) | The child picked a picture and its part of the story was shown. |
 | `story.finish` | `story` | parts | `words` (the pictures picked, in order), `text` (the whole story), `seconds` | A story in the story maker reached its happy ending (it's also saved in the story library). |
 | `story.read` | the saved story's id | | | A story from "My stories" was opened to hear again. |
