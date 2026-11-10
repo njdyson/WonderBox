@@ -212,7 +212,7 @@ function renderGames(c) {
     ...levels.map(([n], i) => [i + 1, `Level ${i + 1}: ${n}`])], auto ? AUTO : level,
   (v) => (v === AUTO ? onAuto() : v && onLevel(v)));
   const autoNote = (auto, more = " Changing what it asks turns Auto off.") => auto ? el("div", { className: "muted", textContent:
-    `Goes up a level after two easy rounds in a row, and back down when ${c.name} is struggling.${more}` }) : "";
+    `Goes up a level after two easy rounds in a row, and only back down if ${c.name} gets under a fifth right first time two rounds running.${more}` }) : "";
   const hasTreats = library.videos.concat(library.channels).some((i) => i.tier === "treat" && i.children.includes(c.id));
   const roundSize = g.roundSize || 10;
   // The one line a level shows: in the game's row, and on the mystery quiz's page.

@@ -98,6 +98,9 @@ fun GameScreen(
     var question by remember { mutableStateOf(round.next()) }
     var finished by remember { mutableStateOf(false) }
     var wrongAnswers by remember { mutableIntStateOf(0) }
+    // Questions got right without a wrong try, and whether this one has had a wrong try yet.
+    var firstTry by remember { mutableIntStateOf(0) }
+    var slipped by remember { mutableStateOf(false) }
     var startedAt by remember { mutableStateOf(System.currentTimeMillis()) }
     // The level an auto-level game moved up to after this round, to cheer about.
     var levelUp by remember { mutableStateOf<Int?>(null) }
@@ -112,6 +115,8 @@ fun GameScreen(
             Finished(child, hasTreats, onPickTreat, onPlayAgain = {
                 right = 0
                 wrongAnswers = 0
+                firstTry = 0
+                slipped = false
                 levelUp = null
                 startedAt = System.currentTimeMillis()
                 round = entry.newRound(child)
@@ -140,7 +145,10 @@ fun GameScreen(
                     // A new question each time, so each one's state (greyed-out answers) starts fresh.
                     androidx.compose.runtime.key(question) {
                         Asking(app, child, question, onAnswer = { choice, ok ->
-                            if (!ok) wrongAnswers++
+                            if (!ok) {
+                                wrongAnswers++
+                                slipped = true
+                            }
                             EventLog.log("quiz.answer", child.id, subject = subject, value = if (ok) 1.0 else 0.0) {
                                 put("question", question.prompt.ifBlank { question.spoken })
                                 put("answer", choice)
@@ -156,6 +164,8 @@ fun GameScreen(
                             }
                         }, onRight = {
                             right++
+                            if (!slipped) firstTry++
+                            slipped = false
                             if (right >= goal) {
                                 EventLog.log("quiz.finish", child.id, subject = subject, value = goal.toDouble()) {
                                     put("total", goal + wrongAnswers)
@@ -166,7 +176,7 @@ fun GameScreen(
                                 }
                                 // A parent's quiz has no levels; the rest may be on auto.
                                 if (entry.quiz == null) {
-                                    val next = app.autoLevel(child.id, subject, AutoLevel.quiz(goal, wrongAnswers))
+                                    val next = app.autoLevel(child.id, subject, AutoLevel.quiz(goal, wrongAnswers, firstTry))
                                     levelUp = next?.takeIf { it > level }
                                 }
                                 finished = true

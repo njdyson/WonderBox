@@ -9,13 +9,17 @@ import org.junit.Test
 class AutoLevelTest {
     @Test
     fun judgingARound() {
-        // 10 right answers: one slip is still easy; picking at random from 3 or 4 is about one wrong each.
-        assertEquals(Result.Easy, AutoLevel.quiz(10, 1))
-        assertEquals(Result.Ok, AutoLevel.quiz(10, 3))
-        assertEquals(Result.Hard, AutoLevel.quiz(10, 5))
-        assertEquals(Result.TooHard, AutoLevel.quiz(10, 10))
+        // 10 right answers: one slip is still easy.
+        assertEquals(Result.Easy, AutoLevel.quiz(10, 1, 9))
+        assertEquals(Result.Ok, AutoLevel.quiz(10, 3, 7))
+        assertEquals(Result.Hard, AutoLevel.quiz(10, 5, 5))
+        // Guessing from 3 or 4 answers (about a third right first time) is hard, not too hard.
+        assertEquals(Result.Hard, AutoLevel.quiz(10, 12, 3))
+        assertEquals(Result.Hard, AutoLevel.quiz(10, 15, 2))
+        // Under 20% right first time is too hard.
+        assertEquals(Result.TooHard, AutoLevel.quiz(10, 16, 1))
         // A short round has no room for slips.
-        assertEquals(Result.Ok, AutoLevel.quiz(5, 1))
+        assertEquals(Result.Ok, AutoLevel.quiz(5, 1, 4))
         assertEquals(Result.Easy, AutoLevel.unjumble(3, 0, 1))
         assertEquals(Result.Hard, AutoLevel.unjumble(3, 1, 4))
         assertEquals(Result.TooHard, AutoLevel.unjumble(3, 2, 6))
@@ -30,12 +34,14 @@ class AutoLevelTest {
         assertEquals(3 to "E", AutoLevel.step(3, 6, "", Result.Easy))
         assertEquals(4 to "", AutoLevel.step(3, 6, "E", Result.Easy))
         assertEquals(3 to "OE", AutoLevel.step(3, 6, "EO", Result.Easy))
-        // Two hard rounds go down; one where they were mostly guessing goes straight down.
-        assertEquals(2 to "", AutoLevel.step(3, 6, "H", Result.Hard))
-        assertEquals(2 to "", AutoLevel.step(3, 6, "", Result.TooHard))
+        // Only two too-hard rounds in a row go down: hard rounds (or guessing) stay put.
+        assertEquals(3 to "HH", AutoLevel.step(3, 6, "H", Result.Hard))
+        assertEquals(3 to "HT", AutoLevel.step(3, 6, "H", Result.TooHard))
+        assertEquals(3 to "T", AutoLevel.step(3, 6, "", Result.TooHard))
+        assertEquals(2 to "", AutoLevel.step(3, 6, "T", Result.TooHard))
         // Never past the first or last level.
         assertEquals(6 to "EE", AutoLevel.step(6, 6, "E", Result.Easy))
-        assertEquals(1 to "T", AutoLevel.step(1, 6, "", Result.TooHard))
+        assertEquals(1 to "TT", AutoLevel.step(1, 6, "T", Result.TooHard))
     }
 
     @Test

@@ -5,9 +5,11 @@ import com.njdyson.wonderbox.data.GameSettings
 /**
  * Auto difficulty: a game the parent set to "Auto" moves up a level when the child finds it
  * easy and down when they struggle. Each finished round is judged [Result.Easy], [Result.Ok],
- * [Result.Hard] or [Result.TooHard]; two easy rounds in a row go up, two hard ones (or one where
- * they were mostly guessing) go down. The TV decides and logs `level.change`, which the server
- * saves as the child's new level (pb_hooks/wonderbox_lib.js autoLevel).
+ * [Result.Hard] or [Result.TooHard]; two easy rounds in a row go up, and only two too-hard ones
+ * in a row go down. Going down is kept rare on purpose: a child who finds the level above a bit
+ * much shouldn't be able to drop back to the easy one (and its quick treats) just by guessing.
+ * The TV decides and logs `level.change`, which the server saves as the child's new level
+ * (pb_hooks/wonderbox_lib.js autoLevel).
  */
 object AutoLevel {
     enum class Result(val code: Char) { Easy('E'), Ok('O'), Hard('H'), TooHard('T') }
@@ -16,12 +18,14 @@ object AutoLevel {
     val GAMES = listOf("maths", "spelling", "clock", "flags", SCRAMBLE)
 
     /**
-     * A round of questions: [goal] right answers, with [wrong] wrong tries on the way. Picking at
-     * random from 3 or 4 answers comes to a wrong try or more for each right one.
+     * A round of questions: [goal] right answers, with [wrong] wrong tries on the way, and
+     * [firstTry] of the questions got right without a wrong try. Too hard is under 20% right first
+     * time, which is worse than picking at random from 3 or 4 answers (25 to 33%), so guessing
+     * through a round doesn't count as finding it too hard.
      */
-    fun quiz(goal: Int, wrong: Int): Result = when {
+    fun quiz(goal: Int, wrong: Int, firstTry: Int): Result = when {
         wrong <= goal / 10 -> Result.Easy
-        wrong >= goal -> Result.TooHard
+        firstTry * 5 < goal -> Result.TooHard
         wrong * 2 >= goal -> Result.Hard
         else -> Result.Ok
     }
@@ -50,9 +54,8 @@ object AutoLevel {
     fun step(level: Int, levels: Int, history: String, result: Result): Pair<Int, String> {
         val recent = (history + result.code).takeLast(2)
         val next = when {
-            result == Result.TooHard -> level - 1
             recent == "EE" -> level + 1
-            recent.length == 2 && recent.all { it == 'H' || it == 'T' } -> level - 1
+            recent == "TT" -> level - 1
             else -> level
         }.coerceIn(1, levels)
         return if (next != level) next to "" else level to recent
