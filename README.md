@@ -27,7 +27,8 @@ Family photos from the phone show on the TV as a slideshow.
   row for each channel). Treat videos never show there: finishing a game (10 right answers
   by default) wins a treat, and the child picks one to save and carries on learning. The
   Treats section holds only the treats they've picked (its tile counts them), and watching
-  one uses it up; a won treat left unpicked (Back from the picker) is picked when they next
+  half of one uses it up (stopping sooner, or turning the TV off, keeps it). Treat videos
+  over 30 minutes aren't offered to pick; a won treat left unpicked (Back from the picker) is picked when they next
   open Treats. Videos watched all the way through get a tick and fade back; the first
   time a learning, exercise or story video is watched through without skipping (at least 80% of it
   actually playing), it wins a treat too, unless the parent turned "Watching a whole learning, exercise or story video"

@@ -110,7 +110,7 @@ class AppState(context: Context) {
      */
     fun reloadFromPlayer(): Set<String> {
         watched = store.watched.mapValues { it.value.toSet() }
-        // A saved treat leaves the Treats section only once most of it has played.
+        // A saved treat leaves the Treats section only once half of it has played.
         savedTreats = store.savedTreats
         val fresh = store.treats
         val won = fresh.filter { (child, n) -> n > treatsFor(child) }.keys
@@ -211,7 +211,7 @@ class AppState(context: Context) {
      * same treat saved twice shows twice.
      */
     fun savedTreatsFor(childId: String): List<Video> {
-        val all = library.treatShelvesFor(childId).flatMap { it.videos }.associateBy { it.id }
+        val all = library.allTreatShelvesFor(childId).flatMap { it.videos }.associateBy { it.id }
         return savedTreats[childId].orEmpty().mapIndexedNotNull { i, id -> all[id]?.copy(id = "saved/$i/$id") }
     }
 

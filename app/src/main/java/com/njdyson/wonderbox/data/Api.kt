@@ -111,6 +111,8 @@ data class Video(
     val tier: String = "free",
     /** "music", "exercise" or "stories" for those screens, otherwise "videos". */
     val section: String = "videos",
+    /** Length in seconds, from the server; 0 if it doesn't know yet. */
+    val duration: Int = 0,
 ) {
     val isTreat get() = tier == TREAT
     val isMusic get() = section == MUSIC
@@ -130,7 +132,10 @@ data class Channel(
 )
 
 @Serializable
-data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "")
+data class ChannelVideo(val youtubeId: String, val title: String = "", val thumbnail: String = "", val duration: Int = 0)
+
+/** Treat videos longer than this (seconds) aren't offered as treats. One of unknown length is. */
+const val MAX_TREAT_SECONDS = 30 * 60
 
 /** A row of videos on a child's screen: their own videos, or one channel's. [section] says which screen: Learning, Music, Exercise or Stories. */
 data class Shelf(val key: String, val title: String, val treat: Boolean, val videos: List<Video>, val picture: String = "", val section: String = "videos") {
@@ -177,7 +182,7 @@ data class Library(
                     ch.title.ifBlank { "Channel" },
                     treat,
                     ch.videos.map { v ->
-                        Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section)
+                        Video("${ch.id}/${v.youtubeId}", v.youtubeId, v.title, ch.title, v.thumbnail, ch.children, ch.tier, ch.section, v.duration)
                     },
                     ch.thumbnail,
                     section = if (ch.section in listOf(MUSIC, EXERCISE, STORIES)) ch.section else "videos",
@@ -200,8 +205,16 @@ data class Library(
     /** The Stories screen's rows (no treats). */
     fun storyShelvesFor(childId: String) = shelvesFor(childId).filter { !it.treat && it.section == STORIES }
 
-    /** The treats, videos and music, only shown once a treat has been won. */
-    fun treatShelvesFor(childId: String) = shelvesFor(childId).filter { it.treat }
+    /**
+     * The treats that can be picked, videos and music, only shown once a treat has been won.
+     * Videos over [MAX_TREAT_SECONDS] are left out; rows left empty go too.
+     */
+    fun treatShelvesFor(childId: String) = allTreatShelvesFor(childId)
+        .map { shelf -> shelf.copy(videos = shelf.videos.filter { it.duration <= MAX_TREAT_SECONDS }) }
+        .filter { it.videos.isNotEmpty() }
+
+    /** Every treat row, long videos too: a treat picked before it was known to be long stays saved. */
+    fun allTreatShelvesFor(childId: String) = shelvesFor(childId).filter { it.treat }
 
     /**
      * All of the child's treats as one shelf, channels mixed together, so picking a treat feels
