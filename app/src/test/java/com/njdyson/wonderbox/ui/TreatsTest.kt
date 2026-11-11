@@ -50,6 +50,21 @@ class TreatsTest {
         assertEquals(listOf("Gruffalo", "Bluey"), AppState(context).savedTreatsFor("c1").map { it.title })
     }
 
+    @Test fun treatsOverThirtyMinutesCantBePickedButASavedOneStays() {
+        val long = Video("t3", "c", "Film", children = listOf("c1"), tier = TREAT, duration = 31 * 60)
+        val library = Library(children = listOf(Child("c1", "Summer")), videos = treats + long + Video("t4", "d", "Unknown", children = listOf("c1"), tier = TREAT))
+        assertEquals(listOf("Bluey", "Gruffalo", "Unknown"), library.treatShelvesFor("c1").flatMap { it.videos }.map { it.title })
+        assertEquals(listOf("Bluey", "Gruffalo", "Unknown"), library.mixedTreatsFor("c1", 1).flatMap { it.videos }.map { it.title }.sorted())
+        context.getSharedPreferences("wonderbox", Context.MODE_PRIVATE).edit().clear()
+            .putString("device_key", "k")
+            .putString("library", json.encodeToString(Library.serializer(), library))
+            .commit()
+        val app = AppState(context)
+        app.earnTreat("c1")
+        assertTrue(app.saveTreat("c1", long))
+        assertEquals(listOf("Film"), app.savedTreatsFor("c1").map { it.title })
+    }
+
     @Test fun theTreatsSectionOnlyShowsPickedTreats() {
         val app = app()
         assertTrue(app.treatsSectionFor("c1").isEmpty())
@@ -75,7 +90,7 @@ class TreatsTest {
         assertTrue(app.reloadFromPlayer().isEmpty())
     }
 
-    // A saved treat stays put while it plays; the player takes it out only once most of it has played.
+    // A saved treat stays put while it plays; the player takes it out only once half of it has played.
     @Test fun thePlayerUsesUpASavedTreatOnlyWhenTold() {
         val app = app()
         repeat(2) { app.earnTreat("c1") }

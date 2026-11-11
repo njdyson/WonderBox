@@ -165,13 +165,13 @@ class MainActivity : ComponentActivity() {
                 return true
             }
             // [savedTreat]: one of their saved treats. The player takes it out of the Treats section
-            // once most of it has played, or swaps it for a new pick if it won't play at all.
+            // once half of it has played, or swaps it for a new pick if it won't play at all.
             fun play(video: Video, childId: String, savedTreat: Boolean = false) {
                 app.stopSpeaking()
                 // Watching a whole free video (not music, not a treat) can win a treat, if the parent chose that.
                 val earns = !video.isTreat && !video.isMusic && earnsTreat(childId, GameSettings.VIDEOS)
                 startActivity(
-                    PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns, savedTreat = if (savedTreat) video.id else null),
+                    PlayerActivity.intent(this@MainActivity, video.youtubeId, video.title, video.channel, childId, earns, savedTreat = if (savedTreat) video.id else null, duration = video.duration),
                 )
             }
             // Back from a video: tick it if it was watched all through, and pick the treat if that won
@@ -273,11 +273,11 @@ class MainActivity : ComponentActivity() {
                         }
                         is Screen.Treats -> {
                             val child = app.library.children.firstOrNull { it.id == screen.childId }
-                            val catalogue = child?.let { app.library.treatShelvesFor(it.id) }.orEmpty()
+                            val catalogue = child?.let { app.library.allTreatShelvesFor(it.id) }.orEmpty()
                             if (child == null || catalogue.isEmpty()) {
                                 LaunchedEffect(Unit) { back() }
                             } else {
-                                // Only the treats they've won and picked; watching most of one uses it up.
+                                // Only the treats they've won and picked; watching half of one uses it up.
                                 VideosScreen(
                                     app,
                                     child,
