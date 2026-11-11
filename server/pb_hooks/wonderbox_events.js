@@ -139,7 +139,7 @@ const FEED_RUNS = new Set(["photo.view", "homevideo.play", "story.read", "reward
 const FEED_GAP_MS = 15 * 60 * 1000
 const FEED_SIZE = 100
 // The data kept in a feed line, so the answer stays small (a story's whole text is left out).
-const FEED_DATA = ["title", "total", "wrong", "words", "from", "to", "reason", "game", "size", "pairs", "level", "missed"]
+const FEED_DATA = ["title", "by", "total", "wrong", "words", "from", "to", "reason", "game", "size", "pairs", "level", "missed"]
 
 /**
  * Adds event [r] to [feed] (oldest first): a new line, or one more in the run it continues. A
