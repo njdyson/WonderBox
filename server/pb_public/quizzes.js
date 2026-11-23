@@ -180,7 +180,11 @@ const toggle = (on, onChange, title) =>
 function renderGames(c) {
   // The learning games are listed in the Quizzes tab; the rest, and treats and sounds, in the Games
   // tab. Each opens on its own page (openPage in index.html).
-  for (const id of ["gamesHeading", "games", "storiesHeading", "storyList", "playHeading", "playGames", "treatsHeading", "treatRules"]) $(id).hidden = !c;
+  // Skipping any the page lacks: a phone holding an older copy of the page next to this script
+  // shouldn't stop the rest working.
+  for (const id of ["gamesHeading", "games", "storiesHeading", "storyList", "playHeading", "playGames", "treatsHeading", "treatRules"]) {
+    if ($(id)) $(id).hidden = !c;
+  }
   if (!c) {
     if (GAME_PAGES[page]) $("pageBody").replaceChildren(el("div", { className: "card empty", textContent: "Add a child in Family first." }));
     return;
