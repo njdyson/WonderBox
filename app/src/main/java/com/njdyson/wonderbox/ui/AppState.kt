@@ -16,6 +16,7 @@ import com.njdyson.wonderbox.data.Video
 import com.njdyson.wonderbox.data.EventLog
 import com.njdyson.wonderbox.games.AutoLevel
 import com.njdyson.wonderbox.games.PhotoQuizPhoto
+import com.njdyson.wonderbox.games.PhotoQuizPhotos
 import com.njdyson.wonderbox.games.StoryPart
 import com.njdyson.wonderbox.games.StoryPick
 import com.njdyson.wonderbox.games.autoLevel
@@ -353,12 +354,20 @@ class AppState(context: Context) {
 
     /**
      * The photos [childId] can be quizzed on and their questions, from the server (it may write
-     * the first ones there and then, so this can take a few seconds). Null when it can't be reached.
+     * the first ones there and then, so this can take a few seconds), and the pictures Gemini made
+     * them before. Null when it can't be reached.
      */
-    suspend fun photoQuiz(childId: String): List<PhotoQuizPhoto>? {
+    suspend fun photoQuiz(childId: String): PhotoQuizPhotos? {
         val key = deviceKey ?: return null
         if (!library.photoQuiz) return null
         return runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).photoQuiz(childId) } }.getOrNull()
+    }
+
+    /** A new picture Gemini made up for [childId] to be quizzed on, or null when it couldn't. */
+    suspend fun makePhotoQuiz(childId: String): PhotoQuizPhoto? {
+        val key = deviceKey ?: return null
+        if (!library.photoQuiz) return null
+        return runCatching { withContext(Dispatchers.IO) { Server(serverUrl, key).makePhotoQuiz(childId) } }.getOrNull()
     }
 
     fun stopSpeaking() {

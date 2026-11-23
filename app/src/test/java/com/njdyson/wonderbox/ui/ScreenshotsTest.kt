@@ -511,6 +511,7 @@ class ScreenshotsTest {
                         val menu = url.substringAfter("/api/wonder/menu-pictures/", "")
                         if (menu.isNotEmpty()) return SuccessResult(BitmapDrawable(context.resources, menuStandIn(menu)), chain.request, DataSource.MEMORY)
                         if ("/api/wonder/stories/" in url) return SuccessResult(BitmapDrawable(context.resources, picture(4)), chain.request, DataSource.MEMORY)
+                        if ("/api/wonder/photo-quiz/pictures/" in url) return SuccessResult(BitmapDrawable(context.resources, madeStandIn(url)), chain.request, DataSource.MEMORY)
                         if ("/api/wonder/photos/" !in url) return chain.proceed(chain.request)
                         val n = Regex("p(\\d)").find(url)?.groupValues?.get(1)?.toInt() ?: 1
                         return SuccessResult(BitmapDrawable(context.resources, picture(n)), chain.request, DataSource.MEMORY)
@@ -545,6 +546,34 @@ class ScreenshotsTest {
         val cy = if (wide) 250f else 310f
         draw(emoji.first(), w / 2f - (if (emoji.size > 1) 40f else 0f), cy, if (wide) 380f else 420f)
         if (emoji.size > 1) draw(emoji[1], w / 2f + (if (wide) 190f else 170f), cy - 130f, 190f)
+        return bmp
+    }
+
+    /**
+     * A stand-in for a picture Gemini made up for the photo quiz: a farmyard (or, for "m2", a
+     * park) of bundled Fluent emoji on grass under a sky.
+     */
+    private fun madeStandIn(url: String): Bitmap {
+        val park = "m2" in url
+        val bmp = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.shader = LinearGradient(0f, 0f, 0f, 700f, (if (park) 0xFF81D4FA else 0xFFFFE082).toInt(), 0xFFFFFFFF.toInt(), Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, 1600f, 700f, p)
+        p.shader = null
+        p.color = (if (park) 0xFF66BB6A else 0xFF9CCC65).toInt()
+        c.drawRect(0f, 650f, 1600f, 1200f, p)
+        fun draw(code: String, cx: Float, cy: Float, size: Float) {
+            val icon = BitmapFactory.decodeFile(File("src/main/assets/avatars/$code.webp").absolutePath) ?: return
+            c.drawBitmap(icon, null, RectF(cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2), Paint(Paint.FILTER_BITMAP_FLAG))
+        }
+        if (park) {
+            draw("1f333", 260f, 520f, 520f); draw("1f986", 700f, 900f, 220f); draw("1f986", 900f, 940f, 200f)
+            draw("1f436", 1250f, 850f, 340f); draw("1f388", 1050f, 300f, 260f); draw("1f430", 450f, 1000f, 240f)
+        } else {
+            draw("1f3e0", 1250f, 480f, 480f); draw("1f404", 520f, 820f, 420f); draw("1f414", 950f, 960f, 220f)
+            draw("1f414", 1130f, 1000f, 200f); draw("1f69c", 1350f, 880f, 300f); draw("1f333", 180f, 520f, 380f)
+        }
         return bmp
     }
 
@@ -676,12 +705,62 @@ class ScreenshotsTest {
     private val roofQuestion = PhotoQuizQuestion(2, "What colour was the roof of the house?", "brown", listOf("blue", "pink", "green"))
     private val skyQuestion = PhotoQuizQuestion(2, "What was in the sky?", "a rainbow", listOf("a plane", "a balloon", "a kite"))
 
+    // Pictures Gemini made up for her before: a farmyard and a park.
+    private val madePictures = listOf("m1" to "a busy farmyard", "m2" to "a park with a duck pond").map { (id, theme) ->
+        PhotoQuizPhoto(
+            "made_$id",
+            listOf(
+                PhotoQuizQuestion(2, "What animal was next to the tractor?", "a chicken", listOf("a cat", "a sheep")),
+                PhotoQuizQuestion(1, "Was there a cow?", "yes", listOf("no")),
+                PhotoQuizQuestion(2, "How many chickens were there?", "two", listOf("one", "three")),
+            ),
+            picture = "/api/wonder/photo-quiz/pictures/$id",
+            theme = theme,
+        )
+    }
+
     /** The photo quiz on [startPhoto] (or picking one). The clock is held first, so the photo's time to look doesn't run out while the screen sets up. */
-    private fun photoQuiz(first: PhotoQuizQuestion, startPhoto: Photo? = null, hasTreats: Boolean = false, seed: Int = 1) {
+    private fun photoQuiz(
+        first: PhotoQuizQuestion,
+        startPhoto: Photo? = null,
+        hasTreats: Boolean = false,
+        seed: Int = 1,
+        child: Child = summer.copy(games = summer.games.copy(photoQuiz = summer.games.photoQuiz.copy(make = false))),
+        made: List<PhotoQuizPhoto> = emptyList(),
+    ) {
         val app = app(withPhotos = true)
         compose.mainClock.autoAdvance = false
-        compose.setContent { WonderBoxTheme { PhotoQuizScreen(app, summer, hasTreats, {}, {}, {}, startQuizzes = photoQuizPhotos(first), startPhoto = startPhoto, random = Random(seed)) } }
+        compose.setContent { WonderBoxTheme { PhotoQuizScreen(app, child, hasTreats, {}, {}, {}, startQuizzes = photoQuizPhotos(first) + made, startPhoto = startPhoto, random = Random(seed)) } }
         settle()
+    }
+
+    @Test fun photoQuizPickWithMade() {
+        photoQuiz(roofQuestion, child = summer, made = madePictures)
+        shoot("photoquiz-pick-make")
+    }
+
+    @Test fun photoQuizMadeOnly() {
+        val madeOnly = summer.copy(games = summer.games.copy(photoQuiz = summer.games.photoQuiz.copy(photos = false)))
+        photoQuiz(roofQuestion, child = madeOnly)
+        shoot("photoquiz-pick-make-only")
+    }
+
+    @Test fun photoQuizMaking() {
+        photoQuiz(roofQuestion, child = summer, made = madePictures)
+        press(listOf(Key.DirectionCenter))
+        compose.mainClock.advanceTimeBy(1_000)
+        shoot("photoquiz-making")
+    }
+
+    @Test fun photoQuizLookMade() {
+        photoQuiz(PhotoQuizQuestion(2, "What animal was next to the tractor?", "a chicken", listOf("a cat", "a sheep")), madePictures[0].asPhoto(), child = summer, made = madePictures)
+        shoot("photoquiz-look-made")
+    }
+
+    @Test fun photoQuizAskMade() {
+        photoQuiz(roofQuestion, madePictures[0].asPhoto(), child = summer, made = madePictures)
+        compose.mainClock.advanceTimeBy(9_500)
+        shoot("photoquiz-question-made")
     }
 
     @Test fun photoQuizPick() {

@@ -7,6 +7,7 @@ import com.njdyson.wonderbox.games.FlagSetup
 import com.njdyson.wonderbox.games.MathsSetup
 import com.njdyson.wonderbox.games.MemorySetup
 import com.njdyson.wonderbox.games.MysterySetup
+import com.njdyson.wonderbox.games.PhotoQuizMade
 import com.njdyson.wonderbox.games.PhotoQuizPhoto
 import com.njdyson.wonderbox.games.PhotoQuizPhotos
 import com.njdyson.wonderbox.games.PhotoQuizSetup
@@ -334,9 +335,13 @@ class Server(private val baseUrl: String, private val deviceKey: String) {
     fun drawStory(id: String): List<SavedStory> =
         json.decodeFromString(SavedStories.serializer(), request(baseUrl, "/api/wonder/stories/draw", buildJsonObject { put("id", id) }, deviceKey, readTimeout = 150_000)).stories
 
-    /** The photos [childId] can be quizzed on, with their questions. */
-    fun photoQuiz(childId: String): List<PhotoQuizPhoto> =
-        json.decodeFromString(PhotoQuizPhotos.serializer(), request(baseUrl, "/api/wonder/photo-quiz?child=${URLEncoder.encode(childId, "UTF-8")}", deviceKey = deviceKey)).photos
+    /** The photos [childId] can be quizzed on, with their questions, and the pictures made for them. */
+    fun photoQuiz(childId: String): PhotoQuizPhotos =
+        json.decodeFromString(PhotoQuizPhotos.serializer(), request(baseUrl, "/api/wonder/photo-quiz?child=${URLEncoder.encode(childId, "UTF-8")}", deviceKey = deviceKey))
+
+    /** A new picture Gemini made up for [childId], with its questions (usually ready; up to a minute or so if not). */
+    fun makePhotoQuiz(childId: String): PhotoQuizPhoto =
+        json.decodeFromString(PhotoQuizMade.serializer(), request(baseUrl, "/api/wonder/photo-quiz/make", buildJsonObject { put("child", childId) }, deviceKey, readTimeout = 150_000)).picture
 
     fun forget() {
         request(baseUrl, "/api/wonder/devices/forget", JsonObject(emptyMap()), deviceKey)

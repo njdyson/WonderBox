@@ -740,11 +740,11 @@ try:
     # The photo quiz: off until the parent turns it on (it sends the photos to Gemini). Gemini
     # writes nine questions per photo; tests/fake_gemini.py stands in for it when GEMINI_URL
     # points at it, otherwise there's no key and it's 503.
-    assert g["photoQuiz"] == {"on": False, "age": 5, "look": 10, "questions": 4, "pick": "child"}, g["photoQuiz"]
+    assert g["photoQuiz"] == {"on": False, "age": 5, "look": 10, "questions": 4, "pick": "child", "photos": True, "make": True}, g["photoQuiz"]
     assert call("GET", "/api/wonder/photo-quiz/list", token=token)["photos"] == []
     lib = call("POST", "/api/wonder/children/games", {"id": sam, "photoQuiz": {"on": True, "age": 8, "look": 12, "questions": 9, "pick": "surprise"}}, token)
     g = next(c for c in lib["children"] if c["id"] == sam)["games"]
-    assert g["photoQuiz"] == {"on": True, "age": 8, "look": 10, "questions": 6, "pick": "surprise"}, g["photoQuiz"]
+    assert g["photoQuiz"] == {"on": True, "age": 8, "look": 10, "questions": 6, "pick": "surprise", "photos": True, "make": True}, g["photoQuiz"]
     assert g["story"]["age"] == 6, "other games' settings are kept"
     assert "photoquiz" not in g["treatGames"], "the photo quiz doesn't win treats until the parent says"
     call("GET", "/api/wonder/photo-quiz?child=nope", device_key=key, expect=404)
@@ -754,6 +754,7 @@ try:
         listed = call("GET", "/api/wonder/photo-quiz/list", token=token)
         assert [(p["photo"], p["state"]) for p in listed["photos"]] == [(second, "")] and not listed["writing"], listed
         call("POST", "/api/wonder/photo-quiz/redo", {"photo": second}, token, expect=503)
+        call("POST", "/api/wonder/photo-quiz/make", {"child": sam}, device_key=key, expect=503)
     else:
         # Nothing written yet, so the TV's first ask writes one there and then.
         quiz = call("GET", f"/api/wonder/photo-quiz?child={sam}", device_key=key)["photos"]
@@ -772,6 +773,26 @@ try:
         call("POST", "/api/wonder/photo-quiz/off", {"photo": second, "off": False}, token)
         listed = call("POST", "/api/wonder/photo-quiz/redo", {"photo": second}, token)["photos"]
         assert listed[0]["state"] == "done" and len(listed[0]["questions"]) == 9, listed
+        # Made-up pictures: Gemini draws one (fake_gemini.py sends a PNG), then writes questions about it.
+        assert call("GET", f"/api/wonder/photo-quiz?child={sam}", device_key=key)["made"] == []
+        made = call("POST", "/api/wonder/photo-quiz/make", {"child": sam}, device_key=key)["picture"]
+        assert made["photo"].startswith("made_") and len(made["questions"]) == 9 and made["theme"], made
+        assert fetch(made["picture"], device_key=key)[:4] == b"\x89PNG"
+        fetch(made["picture"], expect=401)
+        assert [m["photo"] for m in call("GET", f"/api/wonder/photo-quiz?child={sam}", device_key=key)["made"]] == [made["photo"]]
+        again = call("POST", "/api/wonder/photo-quiz/make", {"child": sam}, device_key=key)["picture"]
+        assert again["photo"] != made["photo"], "each one is new"
+        pictures = call("GET", "/api/wonder/photo-quiz/pictures", token=token)["pictures"]
+        assert [(p["photo"], p["child"]) for p in pictures] == [(again["photo"], sam), (made["photo"], sam)], pictures
+        call("GET", "/api/wonder/photo-quiz/pictures", device_key=key, expect=401)
+        pictures = call("POST", "/api/wonder/photo-quiz/pictures/remove", {"id": made["photo"][5:]}, token)["pictures"]
+        assert [p["photo"] for p in pictures] == [again["photo"]], pictures
+        # Made-up pictures only: no family photos asked about (nor sent to Gemini).
+        call("POST", "/api/wonder/children/games", {"id": sam, "photoQuiz": {**g["photoQuiz"], "photos": False}}, token)
+        assert call("GET", f"/api/wonder/photo-quiz?child={sam}", device_key=key)["photos"] == []
+        call("POST", "/api/wonder/children/games", {"id": sam, "photoQuiz": {**g["photoQuiz"], "make": False}}, token)
+        call("POST", "/api/wonder/photo-quiz/make", {"child": sam}, device_key=key, expect=400)
+        assert call("GET", f"/api/wonder/photo-quiz?child={sam}", device_key=key)["made"] == []
     call("POST", "/api/wonder/photo-quiz/redo", {"photo": "nope"}, token, expect=404)
     call("POST", "/api/wonder/photo-quiz/off", {"photo": second, "off": True}, device_key=key, expect=401)
     # Turned off, the TV gets nothing to play.

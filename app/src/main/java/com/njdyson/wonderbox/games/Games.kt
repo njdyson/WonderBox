@@ -160,7 +160,7 @@ fun QuizQuestion.toQuestion(random: Random = Random): Question {
 
 /**
  * The games on [child]'s screen, in order: maths, spelling, the clock, flags, the mystery quiz, hangman, the word game, a jigsaw (when
- * there are [photos] and the child has jigsaws on), memory pairs, the photo quiz (with [photos], when
+ * there are [photos] and the child has jigsaws on), memory pairs, the photo quiz (with [photos] or made-up pictures, when
  * the server can write its questions), then the parent's quizzes. The story maker isn't here: it's in
  * the home page's Stories section (ui/StoriesScreen.kt).
  */
@@ -196,7 +196,8 @@ fun Library.gamesFor(child: Child, photos: Boolean = false): List<GameEntry> = b
     }
     val memory = child.games.memory
     if (memory.on) add(GameEntry(MEMORY, "Pairs", "🃏", "${memory.pairs.coerceIn(MemorySetup.PAIRS.first(), MemorySetup.PAIRS.last())} pairs to find"))
-    if (photos && photoQuiz && child.games.photoQuiz.on) add(GameEntry(PHOTO_QUIZ, "Photo quiz", "🔍", "Look, then remember"))
+    val photoQuizSetup = child.games.photoQuiz
+    if (photoQuiz && photoQuizSetup.on && ((photos && photoQuizSetup.photos) || photoQuizSetup.make)) add(GameEntry(PHOTO_QUIZ, "Photo quiz", "🔍", "Look, then remember"))
     quizzes.filter { child.id in it.children && it.questions.any { q -> q.answers.size >= 2 } }.forEach { quiz ->
         val count = quiz.questions.size
         add(GameEntry("quiz/${quiz.id}", quiz.title.ifBlank { "Quiz" }, quiz.icon.ifBlank { "❓" }, "$count question${if (count == 1) "" else "s"}", quiz = quiz))

@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Google Gemini, for anything on the server that writes, draws or reads aloud (the story maker
-// in story_lib.js, menu pictures, the photo quiz's questions, the storyteller voice in
+// in story_lib.js, menu pictures, the photo quiz's questions and made-up pictures, the storyteller voice in
 // speech_lib.js), loaded with require(). One key for everything: GEMINI_API_KEY in
 // <data>/wonderbox.env (deploy/install.sh). GEMINI_MODEL, GEMINI_IMAGE_MODEL and
 // GEMINI_TTS_MODEL change the default models, GEMINI_VOICE the storyteller's voice;
