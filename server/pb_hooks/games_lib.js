@@ -30,7 +30,8 @@ const STORY_DEFAULT = { on: true, age: 5, turns: 5, silly: "silly", choose: true
 // sends the family's photos to Gemini.
 const PHOTO_QUIZ_LOOK = [5, 10, 15, 20, 30]
 const PHOTO_QUIZ_QUESTIONS = [3, 4, 5, 6]
-const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" }
+// [photos]: quiz on the child's family photos; [make]: Gemini makes up pictures to quiz on too.
+const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child", photos: true, make: true }
 // The mystery quiz (app/.../games/Games.kt mysteryRound): rounds mixing questions from these
 // games, each at the child's own level for it. On by default, with all four.
 const MYSTERY_GAMES = ["maths", "spelling", "clock", "flags"]
@@ -96,7 +97,7 @@ function storySetup(value) {
   }
 }
 
-/** A child's photo quiz: {on, age, look, questions, pick}. */
+/** A child's photo quiz: {on, age, look, questions, pick, photos, make}. */
 function photoQuizSetup(value) {
   const v = value && typeof value === "object" ? value : {}
   return {
@@ -105,6 +106,8 @@ function photoQuizSetup(value) {
     look: nearest(v.look, PHOTO_QUIZ_LOOK, PHOTO_QUIZ_DEFAULT.look),
     questions: nearest(v.questions, PHOTO_QUIZ_QUESTIONS, PHOTO_QUIZ_DEFAULT.questions),
     pick: v.pick === "surprise" ? "surprise" : "child",
+    photos: v.photos === undefined ? PHOTO_QUIZ_DEFAULT.photos : !!v.photos,
+    make: v.make === undefined ? PHOTO_QUIZ_DEFAULT.make : !!v.make,
   }
 }
 

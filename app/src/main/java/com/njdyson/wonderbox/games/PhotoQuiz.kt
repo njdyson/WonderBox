@@ -1,5 +1,6 @@
 package com.njdyson.wonderbox.games
 
+import com.njdyson.wonderbox.data.Photo
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
@@ -10,7 +11,8 @@ const val PHOTO_QUIZ = "photoquiz"
  * A child's photo quiz, set in the phone app: how old they are (which of each photo's
  * questions they get), how many seconds they look at the photo, how many questions follow,
  * and who picks the photo: "child" or "surprise" (the TV does). Off until the parent turns it
- * on, since the server sends the photos to Gemini to write the questions.
+ * on, since the server sends the photos to Gemini to write the questions. [photos]: quiz on the
+ * family's photos; [make]: a "Make a new picture" card, where Gemini draws a scene to quiz on.
  */
 @Serializable
 data class PhotoQuizSetup(
@@ -19,6 +21,8 @@ data class PhotoQuizSetup(
     val look: Int = 10,
     val questions: Int = 4,
     val pick: String = "child",
+    val photos: Boolean = true,
+    val make: Boolean = true,
 ) {
     val surprise get() = pick == "surprise"
 }
@@ -32,12 +36,29 @@ data class PhotoQuizQuestion(
     val wrong: List<String> = emptyList(),
 )
 
-/** A photo that can be quizzed on (its id in the photos list) and its questions. */
+/**
+ * A photo that can be quizzed on (its id in the photos list) and its questions. A picture Gemini
+ * made up has its own [picture] address instead (and an id starting "made_").
+ */
 @Serializable
-data class PhotoQuizPhoto(val photo: String, val questions: List<PhotoQuizQuestion> = emptyList())
+data class PhotoQuizPhoto(
+    val photo: String,
+    val questions: List<PhotoQuizQuestion> = emptyList(),
+    val picture: String = "",
+    val theme: String = "",
+) {
+    val isMade get() = picture.isNotBlank()
+
+    /** A made-up picture as a [Photo], so it shows and plays like one. */
+    fun asPhoto() = Photo(id = photo, image = picture, thumb = picture)
+}
+
+/** The child's photos, and the pictures Gemini made them that they've played ([made], newest first). */
+@Serializable
+data class PhotoQuizPhotos(val photos: List<PhotoQuizPhoto> = emptyList(), val made: List<PhotoQuizPhoto> = emptyList())
 
 @Serializable
-data class PhotoQuizPhotos(val photos: List<PhotoQuizPhoto> = emptyList())
+data class PhotoQuizMade(val picture: PhotoQuizPhoto)
 
 object PhotoQuiz {
     /** The questions for a child of [age]: 1 (3 and 4), 2 (5 and 6) or 3 (7 and up), as the server sorts them. */

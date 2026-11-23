@@ -80,14 +80,20 @@ class PhotoQuizTest {
     }
 
     @Test
-    fun showsOnlyWithPhotosAndAServerThatCanWriteQuestions() {
+    fun showsWithPhotosOrMadeUpPicturesAndAServerThatCanWriteQuestions() {
         val library = json.decodeFromString(
             Library.serializer(),
-            """{"photoQuiz": true, "children": [{"id": "c1", "name": "Sam", "games": {"photoQuiz": {"on": true}}}]}""",
+            """{"photoQuiz": true, "children": [{"id": "c1", "name": "Sam", "games": {"photoQuiz": {"on": true, "make": false}}}]}""",
         )
         val sam = library.children[0]
         assertTrue(library.gamesFor(sam, photos = true).any { it.key == PHOTO_QUIZ })
         assertFalse(library.gamesFor(sam, photos = false).any { it.key == PHOTO_QUIZ })
+        // With made-up pictures on (the default), it's there even with no photos.
+        val making = sam.copy(games = sam.games.copy(photoQuiz = sam.games.photoQuiz.copy(make = true)))
+        assertTrue(library.gamesFor(making, photos = false).any { it.key == PHOTO_QUIZ })
+        // Photos left out and nothing made up: nothing to play.
+        val neither = sam.copy(games = sam.games.copy(photoQuiz = sam.games.photoQuiz.copy(photos = false)))
+        assertFalse(library.gamesFor(neither, photos = true).any { it.key == PHOTO_QUIZ })
         assertFalse(library.copy(photoQuiz = false).gamesFor(sam, photos = true).any { it.key == PHOTO_QUIZ })
         assertFalse(library.gamesFor(sam, photos = true).first { it.key == PHOTO_QUIZ }.isQuiz)
     }

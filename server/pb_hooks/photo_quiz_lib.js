@@ -34,6 +34,16 @@ function levelFor(age) {
   return age <= 4 ? 1 : age <= 6 ? 2 : 3
 }
 
+/** Whether a child's [setup] quizzes on their family photos (sent to Gemini). */
+function photosOn(setup) {
+  return !!(setup && setup.on && setup.photos !== false)
+}
+
+/** Whether a child's [setup] has Gemini make up pictures to quiz on. */
+function makeOn(setup) {
+  return !!(setup && setup.on && setup.make !== false)
+}
+
 /** A still photo that can be quizzed on: ready (not a home video still uploading) and with a picture. */
 function quizzable(photo) {
   return !photo.getString("status") && !!photo.getString("image")
@@ -42,7 +52,7 @@ function quizzable(photo) {
 /** The user's photos for children who have the photo quiz on, as records. */
 function photosToQuiz(userId) {
   const lib = require(`${__hooks}/wonderbox_lib.js`)
-  const on = lib.childRecords(userId).filter((c) => lib.games(c).photoQuiz.on).map((c) => c.id)
+  const on = lib.childRecords(userId).filter((c) => photosOn(lib.games(c).photoQuiz)).map((c) => c.id)
   if (!on.length) return []
   const records = $app.findRecordsByFilter("photos", "user = {:u} && status = ''", "-created", 5000, 0, { u: userId })
   const list = []
@@ -125,6 +135,11 @@ const SYSTEM = [
 
 const ASK = "Write three questions at each level (1, 2 and 3) about this photo: nine in all."
 
+// The same rules for a picture Gemini drew itself (makePicture).
+const PICTURE_SYSTEM = SYSTEM.replace(/a family photo/g, "a picture").replace(/photo/g, "picture")
+  .replace("Call people only by what can be seen", "Call characters only by what can be seen (\"the bear\", \"the girl in the green coat\")")
+const PICTURE_ASK = ASK.replace("photo", "picture")
+
 const SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -178,6 +193,17 @@ function parse(answer) {
 }
 
 /**
+ * Gemini's questions about [image] ({type, bytes}): a family photo, or a [picture] it drew. Null
+ * when it couldn't answer, [] when there was nothing to ask.
+ */
+function questionsAbout(image, picture) {
+  const gemini = require(`${__hooks}/gemini_lib.js`)
+  const answer = gemini.writeJson(picture ? PICTURE_SYSTEM : SYSTEM, picture ? PICTURE_ASK : ASK, SCHEMA,
+    { images: [image], temperature: 0.6, maxTokens: 4096, timeout: 45 })
+  return answer ? parse(answer) : null
+}
+
+/**
  * Has Gemini look at [record]'s photo and write its questions, then saves it as "done", "none"
  * (nothing to ask) or "failed". Counts towards the family's day.
  */
@@ -195,8 +221,7 @@ function write(record) {
   let questions = null
   try {
     const image = photoBytes(photo)
-    const answer = image ? gemini.writeJson(SYSTEM, ASK, SCHEMA, { images: [image], temperature: 0.6, maxTokens: 4096, timeout: 45 }) : null
-    if (answer) questions = parse(answer)
+    if (image) questions = questionsAbout(image, false)
   } catch (err) {
     console.log(`photo quiz ${photo.id}: ${err}`)
   }
@@ -214,7 +239,7 @@ function writePending(limit) {
   const children = $app.findRecordsByFilter("children", "", "", 5000, 0)
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   for (let i = 0; i < children.length; i++) {
-    if (lib.games(children[i]).photoQuiz.on) users.add(children[i].getString("user"))
+    if (photosOn(lib.games(children[i]).photoQuiz)) users.add(children[i].getString("user"))
   }
   let done = 0
   for (const userId of users) {
@@ -258,7 +283,7 @@ function forChild(userId, child) {
   const gemini = require(`${__hooks}/gemini_lib.js`)
   const lib = require(`${__hooks}/wonderbox_lib.js`)
   if (!available()) throw new ApiError(503, "The photo quiz needs a Gemini key on the server.")
-  if (!lib.games(child).photoQuiz.on) return []
+  if (!photosOn(lib.games(child).photoQuiz)) return []
   const records = ensure(userId)
   const mine = photosToQuiz(userId).filter((p) => p.getStringSlice("children").includes(child.id))
   const ready = () => mine.map((p) => records[p.id]).filter((r) => r && !r.getBool("off") && r.getString("state") === "done")
@@ -301,4 +326,239 @@ function setOff(userId, photoId, off) {
   return listFor(userId)
 }
 
-module.exports = { available, levelFor, parse, write, writePending, forChild, listFor, redo, setOff, ensure, PER_DAY }
+
+// --- Made-up pictures ---------------------------------------------------------------------
+//
+// The "make a picture" card: Gemini draws a picture-book scene (a farmyard, a beach, a toy
+// shop), then looks at what it drew and writes questions about it with the same rules as a
+// photo, so the questions always match the picture rather than what was asked for. One is
+// kept ready for each child who has it on (the cron job), so the TV shows it straight away;
+// pictures they've played stay in their row to play again, the newest few.
+
+// Pictures made per family per day (two Gemini calls each: drawing and questions).
+const PICTURES_PER_DAY = 20
+// Played pictures kept per child; older ones are removed.
+const KEEP_PLAYED = 12
+// A picture left "drawing" this long was cut off (the server restarted); it's tried again.
+const STUCK_MS = 10 * 60 * 1000
+
+// Places for a picture. Plain and cheerful, and each full of things to spot and count.
+const THEMES = [
+  "a busy farmyard", "a sunny beach", "a park with a duck pond", "a cosy kitchen at breakfast time",
+  "a toy shop", "a birthday party in a garden", "a snowy village", "a jungle with friendly animals",
+  "under the sea, with fish and a little submarine", "a space station with friendly aliens",
+  "a castle with a friendly dragon", "a busy train station", "a bakery full of cakes",
+  "a picnic in the woods", "a zoo", "a campsite by a lake", "a valley of friendly dinosaurs",
+  "a pet shop", "a market with fruit and vegetable stalls", "a playground", "a vegetable garden",
+  "a fire station with a big red fire engine", "a library with comfy cushions", "a fairground with rides",
+  "a harbour with boats", "a treehouse in a big tree", "a pirate ship with friendly pirates",
+  "an art class with paints", "a rainy street with umbrellas", "an autumn forest with falling leaves",
+]
+
+// A few things to put in, picked at random, so two pictures of the same place still differ.
+const EXTRAS = [
+  "a red balloon", "a yellow umbrella", "a striped cat", "a spotty dog", "a blue bicycle", "a kite",
+  "a rainbow", "an orange ball", "some ducks", "a green frog", "a teddy bear", "a purple hat",
+  "a pink cake", "some butterflies", "a snail", "a tractor", "a robot", "a wheelbarrow of apples",
+  "an owl", "a hot air balloon", "a rabbit", "some flowers in pots", "a little bridge", "a bucket and spade",
+  "a sandcastle", "a squirrel", "a scarecrow", "an ice cream van", "a lamp post", "a picnic basket",
+]
+
+function pickSome(list, count) {
+  const copy = list.slice()
+  const out = []
+  while (copy.length && out.length < count) out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0])
+  return out
+}
+
+/** The prompt for a picture of [theme], with [extras] in it, busier for an older child. */
+function picturePrompt(theme, extras, age) {
+  const busy = age <= 4
+    ? "Keep it simple: a few big, clear things, two or three characters, bold main colours, and small groups of 1 to 3 things to count."
+    : age <= 6
+      ? "Put in a good number of things to spot: three or four characters each doing something different, things in clear colours, and small groups of 2 to 5 things to count."
+      : "Make it detailed: four or five characters each doing something different, smaller things to notice in the background and on the left and right, and groups of up to 8 things to count."
+  return [
+    `Draw one bright, cheerful children's picture-book illustration of ${theme}, in landscape (4:3).`,
+    "The illustration must fill the whole picture edge to edge: no borders, frames, margins or black bars.",
+    "It's for a memory game: a child looks at it for a few seconds, then answers questions about what they saw. So everything must be clear and easy to tell apart.",
+    busy,
+    "The characters are friendly cartoon animals and children, in clothes of clear, different colours.",
+    `Somewhere in the picture: ${extras.join(", ")}.`,
+    "Style: soft rounded shapes, bold clear colours, daylight, gentle and happy, for 3 to 8 year olds.",
+    "No words, letters, numbers or signs. No brands or famous characters. Nothing scary, sad, dangerous or rude.",
+  ].join("\n")
+}
+
+/** The picture of [record] as {type, bytes}, or null. */
+function pictureBytes(record) {
+  const name = record.getString("image")
+  if (!name) return null
+  const fsys = $app.newFilesystem()
+  try {
+    const reader = fsys.getReader(record.baseFilesPath() + "/" + name)
+    try {
+      return { type: /\.png$/i.test(name) ? "image/png" : /\.webp$/i.test(name) ? "image/webp" : "image/jpeg", bytes: toBytes(reader) }
+    } finally {
+      reader.close()
+    }
+  } finally {
+    fsys.close()
+  }
+}
+
+/**
+ * Has Gemini draw [record]'s picture for a child of [age], then write its questions. Saves it
+ * as "done", or "failed" (nothing drawn, or too little to ask about).
+ */
+function makePicture(record, age) {
+  const gemini = require(`${__hooks}/gemini_lib.js`)
+  const theme = pickSome(THEMES, 1)[0]
+  record.set("theme", theme)
+  record.set("state", "drawing")
+  $app.save(record)
+  let questions = null
+  try {
+    const image = gemini.drawImage(picturePrompt(theme, pickSome(EXTRAS, 3), age), "4:3")
+    if (image) {
+      const ext = image.type.includes("jpeg") ? "jpg" : image.type.includes("webp") ? "webp" : "png"
+      record.set("image", $filesystem.fileFromBytes(image.bytes, `picture.${ext}`))
+      $app.save(record)
+      questions = questionsAbout(image, true)
+    }
+  } catch (err) {
+    console.log(`photo quiz picture ${record.id}: ${err}`)
+  }
+  const ok = !!questions && questions.length >= 3
+  record.set("questions", ok ? questions : [])
+  record.set("state", ok ? "done" : "failed")
+  $app.save(record)
+  return record
+}
+
+/** A new, empty picture record for [child]. */
+function newPicture(child) {
+  const record = new Record($app.findCollectionByNameOrId("quiz_pictures"))
+  record.set("user", child.getString("user"))
+  record.set("child", child.id)
+  record.set("questions", [])
+  record.set("state", "")
+  record.set("played", false)
+  $app.save(record)
+  return record
+}
+
+/** [child]'s pictures that aren't played yet: ready, being drawn or waiting, oldest first. */
+function unplayed(child) {
+  return $app.findRecordsByFilter("quiz_pictures", "child = {:c} && played = false && state != 'failed'", "created", 50, 0, { c: child.id })
+}
+
+function stuck(record) {
+  return record.getString("state") === "drawing" &&
+    Date.now() - new Date(record.getString("updated").replace(" ", "T")).getTime() > STUCK_MS
+}
+
+/** A picture as the TV and phone app see it: {photo, picture, questions}. */
+function pictureEntry(record) {
+  const quiz = require(`${__hooks}/quizzes_lib.js`)
+  return {
+    photo: `made_${record.id}`,
+    picture: `/api/wonder/photo-quiz/pictures/${record.id}?v=${encodeURIComponent(record.getString("image"))}`,
+    theme: record.getString("theme"),
+    questions: quiz.jsonField(record, "questions") || [],
+  }
+}
+
+/** The pictures [child] has played, newest first, to play again. */
+function madeFor(child) {
+  return $app.findRecordsByFilter("quiz_pictures", "child = {:c} && played = true && state = 'done'", "-created", KEEP_PLAYED, 0, { c: child.id })
+    .map(pictureEntry)
+}
+
+/**
+ * A new picture for [child], now: the one kept ready if there is one, otherwise drawn while the
+ * TV waits (it says it's painting; about half a minute). Marked played, so the next is made
+ * ready behind it. Throws when Gemini couldn't make one.
+ */
+function makeFor(userId, child) {
+  const gemini = require(`${__hooks}/gemini_lib.js`)
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  if (!available()) throw new ApiError(503, "The photo quiz needs a Gemini key on the server.")
+  const setup = lib.games(child).photoQuiz
+  if (!makeOn(setup)) throw new BadRequestError("Making pictures is off for this child.")
+  const list = unplayed(child)
+  let record = list.find((r) => r.getString("state") === "done")
+  if (!record) {
+    // The cron job may be drawing one right now: wait for it rather than paying for two.
+    const drawing = list.find((r) => r.getString("state") === "drawing" && !stuck(r))
+    if (drawing) {
+      for (let waited = 0; waited < 100; waited++) {
+        sleep(1000)
+        record = $app.findRecordById("quiz_pictures", drawing.id)
+        if (record.getString("state") !== "drawing") break
+      }
+      if (record.getString("state") !== "done") record = null
+    }
+  }
+  if (!record) {
+    gemini.allow(userId, "quizpicture", PICTURES_PER_DAY)
+    record = makePicture(list.find((r) => r.getString("state") === "") || newPicture(child), setup.age)
+    if (record.getString("state") !== "done") throw new ApiError(502, "Couldn't make a picture just now.")
+  }
+  record.set("played", true)
+  $app.save(record)
+  return pictureEntry(record)
+}
+
+/**
+ * Keeps one picture ready for each child who has made-up pictures on, drawing up to [limit]
+ * (the cron job), and tidies away old played and failed ones.
+ */
+function stockPictures(limit) {
+  if (!available()) return
+  const gemini = require(`${__hooks}/gemini_lib.js`)
+  const lib = require(`${__hooks}/wonderbox_lib.js`)
+  const children = $app.findRecordsByFilter("children", "", "", 5000, 0)
+  let done = 0
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i]
+    const setup = lib.games(child).photoQuiz
+    if (!makeOn(setup)) continue
+    tidy(child)
+    if (done >= limit) continue
+    const list = unplayed(child)
+    if (list.some((r) => r.getString("state") === "done" || (r.getString("state") === "drawing" && !stuck(r)))) continue
+    try {
+      gemini.allow(child.getString("user"), "quizpicture", PICTURES_PER_DAY)
+    } catch (_) {
+      continue // tomorrow
+    }
+    makePicture(list[0] || newPicture(child), setup.age)
+    done++
+  }
+}
+
+/** Removes [child]'s played pictures past the newest few, and failed ones over a day old. */
+function tidy(child) {
+  const old = $app.findRecordsByFilter("quiz_pictures", "child = {:c} && played = true", "-created", 100, KEEP_PLAYED, { c: child.id })
+  const failed = $app.findRecordsByFilter("quiz_pictures", "child = {:c} && state = 'failed' && updated < {:t}", "", 100, 0,
+    { c: child.id, t: new Date(Date.now() - 24 * 3600 * 1000).toISOString().replace("T", " ") })
+  for (const r of [...old, ...failed]) {
+    try {
+      $app.delete(r)
+    } catch (err) {
+      console.log(`photo quiz: couldn't tidy ${r.id}: ${err}`)
+    }
+  }
+}
+
+/** Every child's played pictures for the phone app: [{id, child, picture, theme, questions, created}], newest first. */
+function picturesFor(userId) {
+  return $app.findRecordsByFilter("quiz_pictures", "user = {:u} && played = true && state = 'done'", "-created", 500, 0, { u: userId })
+    .map((r) => Object.assign(pictureEntry(r), { id: r.id, child: r.getString("child"), created: r.getString("created") }))
+}
+
+module.exports = {
+  available, levelFor, parse, write, writePending, forChild, listFor, redo, setOff, ensure, PER_DAY,
+  photosOn, makeOn, picturePrompt, makeFor, madeFor, stockPictures, picturesFor, PICTURES_PER_DAY,
+}

@@ -5,7 +5,8 @@
     GEMINI_API_KEY=test GEMINI_URL=http://127.0.0.1:9099 ./pocketbase serve ...
 
 It answers every request with the same nine photo quiz questions (plus a few the server must
-drop), after checking that a photo came with it as base64 JPEG or PNG. Text-to-speech requests
+drop), after checking that a photo came with it as base64 JPEG or PNG. A request to draw the
+photo quiz's made-up picture (a memory game picture) gets a small PNG. Text-to-speech requests
 (the Interactions API) in the voice Riko (looked up in the fake voice library) get a short beep as
 bare PCM, like the older TTS models send. Anything
 else, such as the story maker, gets a 400, so those checks see Gemini as failing.
@@ -16,7 +17,21 @@ import time
 import base64
 import json
 import sys
+import struct
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+def png(width=4, height=3):
+    """A small plain PNG, standing in for a drawn picture."""
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    rows = b"".join(b"\x00" + b"\x40\xa0\xff" * width for _ in range(height))
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) \
+        + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+
+
+PICTURE = png()
 
 QUESTIONS = [
     {"level": 1, "text": "What colour was the dress?", "right": "Red", "wrong": ["blue", "green"]},
@@ -42,6 +57,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.endswith("/interactions"):
             return self.speak(body)
         parts = (body.get("contents") or [{}])[0].get("parts") or []
+        if (body.get("generationConfig") or {}).get("responseModalities") == ["IMAGE"]:
+            return self.draw(body, parts)
         images = [p["inlineData"] for p in parts if "inlineData" in p]
         ok = bool(images) and self.headers.get("x-goog-api-key") and body.get("safetySettings")
         if ok:
@@ -54,6 +71,20 @@ class Handler(BaseHTTPRequestHandler):
             return
         answer = {"usable": True, "questions": QUESTIONS}
         reply = {"candidates": [{"content": {"parts": [{"text": json.dumps(answer)}]}}]}
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(reply).encode())
+
+    def draw(self, body, parts):
+        prompt = " ".join(p.get("text", "") for p in parts)
+        if "memory game" not in prompt or not body.get("safetySettings") or not self.headers.get("x-goog-api-key"):
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b'{"error": "not a photo quiz picture"}')
+            return
+        image = {"inlineData": {"mimeType": "image/png", "data": base64.b64encode(PICTURE).decode()}}
+        reply = {"candidates": [{"content": {"parts": [image]}}]}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()

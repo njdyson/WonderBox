@@ -63,7 +63,8 @@ const MEMORY_DEFAULT = { on: true, pairs: 4, pictures: "clipart" };
 const STORY_DEFAULT = { on: true, age: 5, turns: 5, silly: "silly", choose: true };
 const STORY_SILLY = [["nice", "Nice"], ["silly", "A bit silly"], ["very", "Very silly"]];
 // The photo quiz (pb_hooks/photo_quiz_lib.js): off until the parent turns it on, since it sends photos to Gemini.
-const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child" };
+// [photos]: quiz on the child's photos; [make]: Gemini makes up pictures to quiz on too.
+const PHOTO_QUIZ_DEFAULT = { on: false, age: 5, look: 10, questions: 4, pick: "child", photos: true, make: true };
 // The mystery quiz mixes these games' questions (pb_hooks/games_lib.js mysterySetup).
 const MYSTERY_GAMES = [["maths", "🔢 Maths"], ["spelling", "🔤 Spelling"], ["clock", "🕒 Clock"], ["flags", "🏳️ Flags"]];
 const MYSTERY_DEFAULT = { on: true, games: ["maths", "spelling", "clock", "flags"] };
@@ -458,24 +459,36 @@ function renderGames(c) {
   const photoQuizPart = el("div", { className: "game" },
     head(toggle(photoQuiz.on, (on) => savePhotoQuiz({ on }), "Show the photo quiz on the TV")));
   if (!photoQuiz.on) {
-    photoQuizPart.append(el("div", { className: "muted", textContent: `${c.name} looks at one of their photos for a few seconds, then it's hidden and the TV asks questions about it, like "What colour was the girl's dress?". Google Gemini looks at each of ${c.name}'s photos to write the questions, so nothing is sent until you turn this on.` }));
+    photoQuizPart.append(el("div", { className: "muted", textContent: `${c.name} looks at one of their photos, or a picture Gemini makes up, for a few seconds, then it's hidden and the TV asks questions about it, like "What colour was the girl's dress?". Google Gemini looks at each of ${c.name}'s photos to write the questions, so nothing is sent until you turn this on.` }));
   } else {
+    const kinds = [photoQuiz.photos && "photos", photoQuiz.make && "make"].filter(Boolean);
     photoQuizPart.append(
+      el("div", { className: "sub-h", textContent: "Pictures to play with" }),
+      chips([["photos", `📷 ${c.name}'s photos`], ["make", "✨ Made-up pictures"]], kinds, (list) => {
+        if (list.length) savePhotoQuiz({ photos: list.includes("photos"), make: list.includes("make") });
+      }),
+      el("div", { className: "muted", textContent: photoQuiz.make
+        ? `The TV has a "Make a new picture" card: Gemini draws a picture-book scene (a farmyard, a beach, a toy shop…), then writes questions about what it drew.`
+        : "Turn on made-up pictures for a \"Make a new picture\" card, where Gemini draws a scene to be quizzed on. No family photos are sent for those." }),
       el("div", { className: "sub-h", textContent: `${c.name}'s age (sets how hard the questions are)` }),
       seg([3, 4, 5, 6, 7, 8, 9].map((n) => [n, String(n)]), photoQuiz.age, (age) => savePhotoQuiz({ age })),
-      el("div", { className: "sub-h", textContent: "Seconds to look at the photo" }),
+      el("div", { className: "sub-h", textContent: "Seconds to look at the picture" }),
       seg([5, 10, 15, 20, 30].map((n) => [n, String(n)]), photoQuiz.look, (look) => savePhotoQuiz({ look })),
-      el("div", { className: "sub-h", textContent: "Questions about each photo" }),
+      el("div", { className: "sub-h", textContent: "Questions about each picture" }),
       seg([3, 4, 5, 6].map((n) => [n, String(n)]), photoQuiz.questions, (questions) => savePhotoQuiz({ questions })),
-      el("div", { className: "sub-h", textContent: "Who picks the photo" }),
+      el("div", { className: "sub-h", textContent: "Who picks the picture" }),
       seg([["child", `${c.name} picks`], ["surprise", "A surprise"]], photoQuiz.pick, (pick) => savePhotoQuiz({ pick })),
       el("div", { className: "muted", textContent: !library.photoQuiz
         ? "The server has no Gemini key yet, so the photo quiz can't write questions and isn't on the TV. Add GEMINI_API_KEY in the install task (server README)."
+        : !photoQuiz.photos ? `${c.name}'s photos are left out, so none are sent to Gemini.`
         : photoQuizList === null ? "Checking the questions…"
         : !quizPhotos.length ? `${c.name} has no photos yet. Add some in the Photos tab and questions are written for them within a few minutes.`
         : `Questions ready for ${quizReady} of ${c.name}'s ${quizPhotos.length} photo${quizPhotos.length === 1 ? "" : "s"}. New photos get theirs within a few minutes. Their photos are sent to Google Gemini to write them.` }));
-    if (quizPhotos.length) {
+    if (quizPhotos.length && photoQuiz.photos) {
       photoQuizPart.append(el("button", { type: "button", className: "more", textContent: "Check the questions ▸", onclick: () => photoQuizSheet(c) }));
+    }
+    if (photoQuiz.make && library.photoQuiz) {
+      photoQuizPart.append(el("button", { type: "button", className: "more", textContent: "See the made-up pictures ▸", onclick: () => madePicturesSheet(c) }));
     }
   }
 
@@ -553,7 +566,7 @@ function renderGames(c) {
     jigsaw: { on: jigsaw > 0, part: jigsawPart, summary: jigsaw > 0 ? `${jigsaw} × ${jigsaw} pieces` : "Off" },
     memory: { on: memory.on, part: memoryPart, summary: memory.on ? `${memory.pairs} pairs of ${{ clipart: "animals", photos: "photos", both: "animals and photos" }[memory.pictures]}` : "Off" },
     story: { on: story.on, part: storyPart, summary: story.on ? `Age ${story.age}, ${story.turns} pictures, ${story.choose ? "they choose how silly" : (STORY_SILLY.find(([k]) => k === story.silly) || STORY_SILLY[1])[1].toLowerCase()}${kept.length ? `, ${kept.length} kept` : ""}` : "Off" },
-    photoquiz: { on: photoQuiz.on, part: photoQuizPart, summary: photoQuiz.on ? `${photoQuiz.questions} questions, ${photoQuiz.look}s to look` : "Off" },
+    photoquiz: { on: photoQuiz.on, part: photoQuizPart, summary: photoQuiz.on ? `${photoQuiz.photos && photoQuiz.make ? "Photos and made-up pictures" : photoQuiz.make ? "Made-up pictures" : "Photos"}, ${photoQuiz.questions} questions` : "Off" },
     treats: { part: treatRulesPart, summary: treatGames.length ? `${roundSize} right answers win a treat` : "Nothing wins a treat" },
     sounds: { part: soundsPart, summary: { off: "Off", calm: "Calm", silly: "Silly" }[sounds] },
     music: { part: musicPart, summary: `${music ? "Music on" : "No music"}, ${{ auto: "decorations by the date", off: "no decorations" }[season] || "decorations always on"}` },
@@ -693,6 +706,55 @@ function photoQuizSheet(c) {
         el("span", { className: "chev", textContent: "›" }));
     }),
     el("button", { type: "button", className: "ghost", textContent: "Close", onclick: closeSheet }));
+}
+
+/** The pictures Gemini made up that [c] has played: tap one to see its questions or remove it. */
+async function madePicturesSheet(c) {
+  let pictures;
+  try {
+    pictures = ((await api("/api/wonder/photo-quiz/pictures")).pictures || []).filter((p) => p.child === c.id);
+  } catch (e) { showError(e); return; }
+  openSheet(
+    el("h2", { textContent: `${c.name}'s made-up pictures` }),
+    el("div", { className: "muted", textContent: pictures.length
+      ? "The pictures Gemini drew that they've played, newest first. They can play these again from the TV. Tap one to see its questions or remove it."
+      : `None yet. When ${c.name} picks "Make a new picture" on the TV, the pictures they play show here.` }),
+    ...pictures.map((p) => {
+      const img = el("img", { className: "thumb", alt: "" });
+      photoUrl(p.picture).then((url) => { img.src = url; }).catch(() => {});
+      return el("div", { className: "quiz-row", onclick: () => madePictureSheet(c, p) },
+        img,
+        el("div", { className: "grow" }, el("div", { className: "t", textContent: p.theme ? p.theme[0].toUpperCase() + p.theme.slice(1) : "A picture" }),
+          el("div", { className: "muted", textContent: `${p.questions.length} questions` })),
+        el("span", { className: "chev", textContent: "›" }));
+    }),
+    el("button", { type: "button", className: "ghost", textContent: "Close", onclick: closeSheet }));
+}
+
+/** One made-up picture and its questions, the child's own level first. */
+function madePictureSheet(c, p) {
+  const mine = pqLevelFor(({ ...PHOTO_QUIZ_DEFAULT, ...((c.games || {}).photoQuiz || {}) }).age);
+  const img = el("img", { className: "story-picture", alt: "" });
+  photoUrl(p.picture).then((url) => { img.src = url; }).catch(() => {});
+  const levels = [mine, ...[1, 2, 3].filter((l) => l !== mine)];
+  openSheet(
+    img,
+    ...levels.flatMap((level) => {
+      const qs = p.questions.filter((q) => q.level === level);
+      if (!qs.length) return [];
+      return [el("div", { className: "pq-level", textContent: PQ_LEVELS[level] + (level === mine ? ` · ${c.name} gets these` : "") }),
+        ...qs.map((q) => el("div", { className: "pq-q" },
+          el("div", { className: "t", textContent: q.text }),
+          el("div", {}, el("span", { className: "right", textContent: `✓ ${q.right}` }), ` · ${q.wrong.join(" · ")}`)))];
+    }),
+    el("button", { type: "button", className: "ghost", textContent: "Remove this picture", onclick: async () => {
+      try {
+        await api("/api/wonder/photo-quiz/pictures/remove", { id: p.id });
+        toast("Removed");
+        madePicturesSheet(c);
+      } catch (e) { showError(e); }
+    } }),
+    el("button", { type: "button", className: "ghost", textContent: "Back", onclick: () => madePicturesSheet(c) }));
 }
 
 /** One photo's questions, the child's own level first. */
