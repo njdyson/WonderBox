@@ -2,7 +2,8 @@
 // when online (so updates show straight away; iPhones otherwise keep using an old script
 // next to a new page) and fall back to the cached copy offline. API calls and the
 // PocketBase dashboard are never cached.
-const CACHE = "wonderbox-v2";
+// A new name clears out every old copy (wonderbox-v2 could hold a weeks-old page).
+const CACHE = "wonderbox-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
@@ -23,8 +24,11 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_/")) return;
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
+      // Checked with the server every time, never the browser's own cache, so the page always
+      // matches its scripts (an iPhone could otherwise keep a stale page for days).
+      fetch(url.href, { cache: "no-cache", credentials: "same-origin" })
         .then((res) => {
+          if (!res.ok) return res;
           const copy = res.clone();
           caches.open(CACHE).then((cache) => cache.put("/", copy));
           return res;
