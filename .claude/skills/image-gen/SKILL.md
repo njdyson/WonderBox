@@ -24,6 +24,14 @@ that any lettering is spelled correctly, and that period details are right.
   add it, never ask for the key in chat.
 - **Elsewhere:** the script reads `OPENAI_API_KEY`, or `GEMINI_API_KEY` / `GOOGLE_API_KEY`.
 
+## Content filters
+
+Both providers filter content, and the script says when one has blocked a request. OpenAI rejects the
+request and the script prints its error (a moderation or safety block). Google often sends back no
+image, and the script exits with its reason: `SAFETY`, `IMAGE_SAFETY` or `PROHIBITED_CONTENT` mean a
+filter, others (such as `RECITATION`) mean something else. Tell the user which filter tripped and
+offer a reworded prompt; don't try to slip past a filter.
+
 Every call costs money on the user's API account. Generate one image at a time unless asked for
 variations, and use `--quality low` for drafts.
 

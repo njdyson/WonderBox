@@ -103,10 +103,11 @@ def gen_google(args):
     if args.aspect:
         payload["generationConfig"]["imageConfig"] = {"aspectRatio": args.aspect}
     headers = {"x-goog-api-key": google_key(), "Content-Type": "application/json"}
-    images = []
+    images, blocks = [], []
     for _ in range(args.n):
         data = request(f"{GOOGLE_BASE}/models/{args.model}:generateContent",
                        headers, json.dumps(payload).encode())
+        blocks += google_block_reasons(data)
         for cand in data.get("candidates", []):
             for part in cand.get("content", {}).get("parts", []):
                 inline = part.get("inlineData") or part.get("inline_data")
@@ -114,7 +115,29 @@ def gen_google(args):
                     images.append(base64.b64decode(inline["data"]))
                 elif part.get("text"):
                     print(f"[model text] {part['text']}", file=sys.stderr)
+    if not images and blocks:
+        text = "; ".join(dict.fromkeys(blocks)).rstrip(".")
+        filtered = any(code in text for code in ("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST"))
+        sys.exit(f"Google returned no image: {text}." +
+                 (" A content filter blocked it." if filtered else ""))
     return images, None
+
+
+def google_block_reasons(data):
+    """Why Google sent no image: a blocked prompt, or a candidate that stopped early."""
+    reasons = []
+    feedback = data.get("promptFeedback") or {}
+    if feedback.get("blockReason"):
+        msg = feedback.get("blockReasonMessage")
+        reasons.append(f"prompt blocked ({feedback['blockReason']})" + (f": {msg}" if msg else ""))
+    if not data.get("candidates") and not reasons:
+        reasons.append("no candidates in the response")
+    for cand in data.get("candidates", []):
+        finish = cand.get("finishReason")
+        if finish and finish != "STOP":
+            msg = cand.get("finishMessage")
+            reasons.append(f"stopped with {finish}" + (f": {msg}" if msg else ""))
+    return reasons
 
 
 def list_models(provider):
@@ -190,7 +213,7 @@ def main():
 
     images, usage = (gen_openai if args.provider == "openai" else gen_google)(args)
     if not images:
-        sys.exit("No image came back. Try rewording the prompt.")
+        sys.exit("No image came back, and the provider gave no reason. Try rewording the prompt.")
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     for path, img in zip(out_paths(args.out, len(images)), images):
         path = fix_ext(path, img)
